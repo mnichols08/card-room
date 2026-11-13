@@ -1,5 +1,5 @@
 import { brokennilsTable, builtInPresets, type RulePreset } from "@spades/rules";
-import { familyPalace, type PalaceRules } from "@cardroom/palace";
+import { familyPalace, normalizePalaceRules, type PalaceRules } from "@cardroom/palace";
 
 const NAME_KEY = "spades:name";
 const PRESETS_KEY = "spades:presets";
@@ -62,11 +62,11 @@ export const saveGame = (game: GameId) => write(GAME_KEY, game);
 const PALACE_LAST_KEY = "cardroom:palace:last";
 const PALACE_SAVED_KEY = "cardroom:palace:presets";
 const PALACE_SEATS_KEY = "cardroom:palace:seats";
-export const loadPalaceRules = () => read<PalaceRules>(PALACE_LAST_KEY, familyPalace);
+export const loadPalaceRules = () => normalizePalaceRules(read<PalaceRules>(PALACE_LAST_KEY, familyPalace));
 export const savePalaceRules = (rules: PalaceRules) => write(PALACE_LAST_KEY, rules);
 export const loadPalaceSeats = () => read<number>(PALACE_SEATS_KEY, 4);
 export const savePalaceSeats = (n: number) => write(PALACE_SEATS_KEY, n);
-export const loadSavedPalace = () => read<PalaceRules[]>(PALACE_SAVED_KEY, []);
+export const loadSavedPalace = () => read<PalaceRules[]>(PALACE_SAVED_KEY, []).map(normalizePalaceRules);
 export function savePalacePreset(rules: PalaceRules) {
   write(PALACE_SAVED_KEY, [...loadSavedPalace().filter((p) => p.id !== rules.id), rules]);
 }

@@ -46,11 +46,14 @@ export function PalaceTable({ view, seat: me, names, act, onLeave, banner, chat 
   const [error, setError] = useState<string | null>(null);
   const [choosing, setChoosing] = useState<{ rank: number; ids: string[] } | null>(null);
   const [swapFrom, setSwapFrom] = useState<string | null>(null);
+  const [faceUp, setFaceUp] = useState<string[]>([]);
   const [soundOn, setSoundOn] = useState(() => loadFeedbackSettings().sound);
   const bubbles = useBubbles(chat?.messages ?? []);
   const mine = view.players[me]!;
   const can = view.can;
   const myTurn = view.phase === "playing" && view.turn === me;
+  /** How many cards to pick for face-up, in the family deal; 0 once they're down. */
+  const toChoose = can?.choose ?? 0;
   const others = Array.from({ length: view.seats - 1 }, (_, i) => (me + 1 + i) % view.seats);
   const top = view.pile[view.pile.length - 1] ?? null;
 
@@ -92,6 +95,11 @@ export function PalaceTable({ view, seat: me, names, act, onLeave, banner, chat 
 
   /** Tap a card in hand (or face-up, once the hand is gone): play it, or ask how many when you hold more. */
   function tap(card: PCard, from: "hand" | "up") {
+    if (view.phase === "swapping" && toChoose && from === "hand") {
+      const id = cardId(card);
+      setFaceUp((picked) => (picked.includes(id) ? picked.filter((x) => x !== id) : picked.length < toChoose ? [...picked, id] : picked));
+      return;
+    }
     if (view.phase === "swapping") {
       if (!view.rules.swap || mine.ready) return;
       if (from === "hand") setSwapFrom(cardId(card) === swapFrom ? null : cardId(card));
@@ -122,7 +130,7 @@ export function PalaceTable({ view, seat: me, names, act, onLeave, banner, chat 
   const status = error ? (
     <span className="error">{error}</span>
   ) : view.phase === "swapping" ? (
-    mine.ready ? "Waiting for everyone to finish swapping…" : view.rules.swap ? (swapFrom ? "Now tap a face-up card to swap it in" : "Swap any hand card with a face-up card, then tap Ready") : null
+    mine.ready ? "Waiting for everyone to lay down their cards…" : toChoose ? `Pick ${toChoose} cards to lay face-up` : view.rules.swap ? (swapFrom ? "Now tap a face-up card to swap it in" : "Swap any hand card with a face-up card, then tap Ready") : null
   ) : view.phase === "finished" ? null : myTurn ? (
     can?.flip ? "Your turn: flip a face-down card" : can?.ranks.length ? "Your turn" : "Nothing plays. Pick up the pile."
   ) : (
@@ -232,9 +240,9 @@ export function PalaceTable({ view, seat: me, names, act, onLeave, banner, chat 
             <PlayingCard
               key={`${cardId(card)}-${i}`}
               card={card}
-              playable={(view.phase === "swapping" && view.rules.swap && !mine.ready) || (myTurn && can?.source === "hand")}
+              playable={(view.phase === "swapping" && (view.rules.swap || toChoose > 0) && !mine.ready) || (myTurn && can?.source === "hand")}
               dim={myTurn && can?.source === "hand" && !can.ranks.includes(card.rank)}
-              selected={swapFrom === cardId(card) || (choosing?.ids.includes(cardId(card)) ?? false)}
+              selected={swapFrom === cardId(card) || faceUp.includes(cardId(card)) || (choosing?.ids.includes(cardId(card)) ?? false)}
               onPick={() => tap(card as PCard, "hand")}
             />
           ))}
@@ -248,7 +256,22 @@ export function PalaceTable({ view, seat: me, names, act, onLeave, banner, chat 
         ))}
       </div>
 
-      {view.phase === "swapping" && !mine.ready && (
+      {view.phase === "swapping" && !mine.ready && toChoose > 0 && (
+        <div className="sheet compact">
+          <button
+            type="button"
+            className="primary"
+            disabled={faceUp.length !== toChoose}
+            onClick={() => {
+              void send({ type: "choose", cards: faceUp });
+              setFaceUp([]);
+            }}
+          >
+            {faceUp.length === toChoose ? "Lay these face-up" : `Pick ${toChoose - faceUp.length} more`}
+          </button>
+        </div>
+      )}
+      {view.phase === "swapping" && !mine.ready && !toChoose && (
         <div className="sheet compact">
           <button type="button" className="primary" onClick={() => void send({ type: "ready" })}>
             Ready to play
@@ -259,7 +282,7 @@ export function PalaceTable({ view, seat: me, names, act, onLeave, banner, chat 
       {myTurn && can?.pickUp && !choosing && (
         <div className="sheet compact">
           <button type="button" className={can.ranks.length ? "secondary" : "primary"} onClick={() => void send({ type: "pickup" })}>
-            Pick up the pile ({view.pileCount})
+            {can.ranks.length ? `Pick up the pile instead (${view.pileCount})` : `Pick up the pile (${view.pileCount})`}
           </button>
         </div>
       )}

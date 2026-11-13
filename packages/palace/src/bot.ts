@@ -13,10 +13,18 @@ export function keepValue(rank: number, s: PalaceState): number {
 
 const rand = (s: PalaceState, seat: number) => mulberry32((s.seed ^ (s.moves * 7919) ^ (seat << 12)) >>> 0);
 
-/** Before play: one swap at a time toward strong cards face-up, then ready. */
+/** Before play: pick the face-up cards (strong ones, for the endgame), or swap toward them, then ready. */
 function swapStep(s: PalaceState, seat: number, style: PlayStyle): PalaceAction {
   const p = s.players[seat]!;
   const r = rand(s, seat);
+  if (s.rules.choose && p.up.length === 0) {
+    const careless = r() < (style.sloppy ?? 0) * 2 + (1 - (style.skill ?? 1)) * 0.5;
+    const order = careless
+      ? [...p.hand].sort(() => r() - 0.5)
+      : [...p.hand].sort((a, b) => keepValue(b.rank, s) - keepValue(a.rank, s));
+    return { type: "choose", seat, cards: order.slice(0, s.rules.tableCards).map(cardId) };
+  }
+  if (!s.rules.swap) return { type: "ready", seat };
   if (r() < (style.sloppy ?? 0) * 2) return { type: "ready", seat };
   const bestHand = [...p.hand].sort((a, b) => keepValue(b.rank, s) - keepValue(a.rank, s))[0];
   const worstUp = [...p.up].sort((a, b) => keepValue(a.rank, s) - keepValue(b.rank, s))[0];
@@ -53,6 +61,7 @@ export function palaceBot(s: PalaceState, seat: number, style: PlayStyle = {}): 
     if (four) return play(four.rank);
   }
   const plainOpts = opts.filter((o) => keepValue(o.rank, s) === o.rank);
+  if (wantsThePile(s, seat, opts, style)) return { type: "pickup", seat };
   // A big pile is worth burning, if we can.
   const ten = opts.find((o) => s.rules.tenBurns && o.rank === 10);
   const bold = style.bold ?? 0;
@@ -61,8 +70,24 @@ export function palaceBot(s: PalaceState, seat: number, style: PlayStyle = {}): 
   if (plainOpts.length) return play(plainOpts[0]!.rank);
   const special = [...opts].sort((a, b) => keepValue(a.rank, s) - keepValue(b.rank, s))[0]!;
   // With pickUpAnytime, a patient player takes a tiny pile rather than spend a 10.
-  if (s.rules.pickUpAnytime && s.pile.length <= 2 && bold < 0.5 && canPickUp(s, seat)) return { type: "pickup", seat };
+  if (s.rules.pickUpAnytime && s.pile.length <= 2 && s.deck.length > 0 && bold < 0.5 && skill >= 0.6 && canPickUp(s, seat)) return { type: "pickup", seat };
   return play(special.rank);
+}
+
+/**
+ * Picking up on purpose (when the house allows it), as a good player does: a short pile holding a 2,
+ * a 10 or an ace is worth taking when the only way to beat it would cost a card that strong anyway,
+ * and while the deck still has cards to draw. Never from the face-up cards: that only delays going out.
+ */
+export function wantsThePile(s: PalaceState, seat: number, opts: { rank: number; count: number }[], style: PlayStyle = {}): boolean {
+  if (!s.rules.pickUpAnytime || !s.pile.length || s.pile.length > 4 || !s.deck.length) return false;
+  if (sourceOf(s.players[seat]!) !== "hand") return false;
+  if ((style.skill ?? 1) < 0.6 || (style.bold ?? 0) > 0.5) return false;
+  const prize = s.pile.filter((c) => keepValue(c.rank, s) >= 14).length;
+  if (!prize) return false;
+  // What playing would cost: the cheapest card that goes on the pile.
+  const cheapest = Math.min(...opts.map((o) => keepValue(o.rank, s)));
+  return cheapest >= 12;
 }
 
 /** How long a bot takes, like a person: a forced move is quick, a choice takes a beat. */

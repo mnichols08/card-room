@@ -10,7 +10,7 @@ import { newPlayerId, playerCookie, playerOf, type RoomDoc } from "@spades/rooms
 import { leaderboard, palaceLeaderboard, type FinishedGame, type FinishedPalace } from "./leaderboard.js";
 import type { Push } from "./push.js";
 import { gameName, type GameId, type TableOptions } from "./games.js";
-import { palaceOptions, type PalaceSummary } from "./palace.js";
+import { palaceOptions, palaceRulesFrom, type PalaceSummary } from "./palace.js";
 
 export type Role = "owner" | "admin" | "member";
 
@@ -81,7 +81,7 @@ const gameOf = (value: unknown): GameId => (value === "palace" ? "palace" : "spa
 /** Palace house rules from a page: checked, and given an id of their own if they're new. */
 function cleanPalace(value: unknown): PalaceRules | string {
   if (!value || typeof value !== "object") return "Those rules are missing.";
-  const rules = { ...familyPalace, ...(value as PalaceRules) };
+  const rules = palaceRulesFrom(value);
   rules.name = cleanName(rules.name, "House rules");
   // The id is the page's, or a new one: never the defaults' (that would replace them).
   const given = (value as { id?: unknown }).id;
@@ -108,7 +108,7 @@ export function createHouses(rooms: Rooms, { mount = "/houses", push }: { mount?
     if (!doc) return undefined;
     // Keep only the house's own fields (the view may carry sync bookkeeping such as $clocks).
     const { slug: s, name, code, members, presets, defaultPreset, palacePresets, palaceDefault, tables } = doc as unknown as HouseDoc;
-    return structuredClone({ slug: s, name, code, members, presets, defaultPreset, palacePresets: palacePresets ?? [familyPalace], palaceDefault: palaceDefault ?? palacePresets?.[0]?.id ?? familyPalace.id, tables }) as HouseDoc;
+    return structuredClone({ slug: s, name, code, members, presets, defaultPreset, palacePresets: (palacePresets ?? [familyPalace]).map(palaceRulesFrom), palaceDefault: palaceDefault ?? palacePresets?.[0]?.id ?? familyPalace.id, tables }) as HouseDoc;
   };
   const save = (house: HouseDoc) => rooms.sync.write("houses", house.slug, { ...house });
 
