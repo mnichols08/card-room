@@ -222,6 +222,33 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     return id;
   }
 
+  /**
+   * Seat a player (by their player id) or a bot, from server code, before the game starts. An app
+   * that sets up a table itself (a challenge, say) uses these instead of the HTTP endpoints.
+   */
+  async function seatPlayer(id: string, seat: number, player: string, name: string): Promise<void> {
+    const g = await game(id);
+    const r = await room(id);
+    if (!g || !r || r.started) throw new Error("That table isn't open.");
+    const holders = g.holders.map((h) => (h === player ? null : h));
+    holders[seat] = player;
+    const seats = r.seats.map((s, i) => (holders[i] === null && !s.bot ? { name: null, bot: false } : s));
+    seats[seat] = { name: name.trim().slice(0, 20) || "Player", bot: false };
+    await sync.write("games", id, { holders });
+    await sync.write("rooms", id, { seats });
+  }
+  async function seatBot(id: string, seat: number, name: string): Promise<void> {
+    const r = await room(id);
+    if (!r || r.started) throw new Error("That table isn't open.");
+    const seats = [...r.seats];
+    seats[seat] = { name, bot: true };
+    await sync.write("rooms", id, { seats });
+  }
+  /** Who holds each seat (player ids), for server code. Never send these to a page. */
+  async function holders(id: string): Promise<(string | null)[]> {
+    return (await game(id))?.holders ?? [];
+  }
+
   /** A finished game no longer needs its state in memory: a later request replays it from the log. */
   function forgetIfFinished(id: string, entry: Live<State>): boolean {
     if (entry.state === null || !def.finished?.(entry.state)) return false;
@@ -410,6 +437,9 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     sync,
     create,
     say,
+    seatPlayer,
+    seatBot,
+    holders,
     /** The public room doc, or undefined. */
     room,
     /** How many rooms have their state in memory (finished ones are dropped). */

@@ -359,3 +359,8 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { .bubble { animation: none; } }
 .seat-row strong { display: flex; flex-direction: column; }
 .seat-row .blurb { font-weight: 400; font-size: 0.78rem; color: #cfe2d6; }
+
+/* Challenge links and notifications */
+.challenge-url { margin: 0; padding: 10px 12px; border-radius: 10px; background: rgba(0, 0, 0, 0.25); font-family: ui-monospace, monospace; font-size: 0.9rem; word-break: break-all; user-select: all; }
+.notify { display: flex; flex-direction: column; gap: 6px; }
+.notify .secondary { align-self: flex-start; }

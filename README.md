@@ -59,6 +59,31 @@ railway config apply
 Then, in the dashboard, generate a domain for the service under **Networking**. Generated
 domains aren't part of the file. Every merge to `main` deploys.
 
+### Notifications
+
+The app installs to a phone's Home Screen and can buzz it when someone challenges you or opens
+a table in your house. The server needs a VAPID key pair for that; without one, notifications
+stay off and the buttons for them don't show.
+
+```sh
+npx web-push generate-vapid-keys
+```
+
+Put the two keys in the service's variables (on Railway: the service → **Variables**):
+
+| Variable | |
+| --- | --- |
+| `SPADES_VAPID_PUBLIC_KEY` | the public key |
+| `SPADES_VAPID_PRIVATE_KEY` | the private key; keep it secret |
+| `SPADES_VAPID_SUBJECT` | optional: a `mailto:` or `https:` address push services can reach you at |
+
+Keep the same keys for good: new keys quietly cut off every phone that already said yes.
+
+On an iPhone, notifications only work from the Home Screen app (iOS 16.4 or later): open the
+site in Safari, tap Share, **Add to Home Screen**, open Spades from there and turn them on. The
+app explains this when it's opened in Safari. Android phones can turn them on straight from
+the browser.
+
 #### Setting it up in the dashboard instead
 
 1. **New project → Deploy from GitHub repo → `mnichols08/spades`.** Railway sees the npm

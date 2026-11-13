@@ -7,6 +7,7 @@
 import { brokennilsTable, validatePreset, type RulePreset } from "@spades/rules";
 import { newPlayerId, playerCookie, playerOf, type RoomDoc } from "@spades/rooms/server";
 import { leaderboard, type FinishedGame } from "./leaderboard.js";
+import type { Push } from "./push.js";
 import type { Summary } from "./spades.js";
 
 export type Role = "owner" | "admin" | "member";
@@ -77,7 +78,7 @@ function cleanPreset(value: unknown): RulePreset | string {
   return errors.length ? errors.join(" ") : preset;
 }
 
-export function createHouses(rooms: Rooms, { mount = "/houses" } = {}) {
+export function createHouses(rooms: Rooms, { mount = "/houses", push }: { mount?: string; push?: Push } = {}) {
   const docs = rooms.sync.documents();
   const get = async (slug: string) => {
     const doc = (await docs).get("houses", slug);
@@ -201,6 +202,11 @@ export function createHouses(rooms: Rooms, { mount = "/houses" } = {}) {
       const id = await rooms.create(preset);
       house.tables.push({ id, rules: preset.name, created: Date.now() });
       await save(house);
+      // Let the rest of the house know there's a seat waiting.
+      for (const m of house.members) {
+        if (m.player === me.player) continue;
+        void push?.notify(m.player, { title: `${me.name} opened a table at ${house.name} ♠️`, body: `${preset.name}. Tap to pull up a chair.`, url: `/?table=${id}&house=${house.slug}`, tag: `table-${id}` });
+      }
       return json({ id }, 201);
     }
 

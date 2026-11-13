@@ -15,7 +15,17 @@ const log = process.env.SPADES_DB
   ? await (await import("@zubra/sync/sqlite")).sqliteLog(process.env.SPADES_DB, { keep: "latest" })
   : undefined;
 // Bots take humanlike time unless SPADES_BOT_DELAY fixes it (handy for testing).
-const cardRoom = createCardRoom({ log, botDelay: process.env.SPADES_BOT_DELAY ? Number(process.env.SPADES_BOT_DELAY) : undefined });
+const cardRoom = createCardRoom({
+  log,
+  botDelay: process.env.SPADES_BOT_DELAY ? Number(process.env.SPADES_BOT_DELAY) : undefined,
+  // Push notifications are on when the server has VAPID keys (`npx web-push generate-vapid-keys`).
+  push: {
+    publicKey: process.env.SPADES_VAPID_PUBLIC_KEY,
+    privateKey: process.env.SPADES_VAPID_PRIVATE_KEY,
+    subject: process.env.SPADES_VAPID_SUBJECT,
+  },
+});
+if (!cardRoom.push.enabled) console.log("push notifications are off: set SPADES_VAPID_PUBLIC_KEY and SPADES_VAPID_PRIVATE_KEY to turn them on");
 
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -24,6 +34,7 @@ const TYPES: Record<string, string> = {
   ".svg": "image/svg+xml",
   ".png": "image/png",
   ".json": "application/json",
+  ".webmanifest": "application/manifest+json",
   ".woff2": "font/woff2",
 };
 
@@ -37,7 +48,12 @@ createServer(async (req, res) => {
     if (!file.startsWith(web)) return void res.writeHead(403).end();
     if (!existsSync(file) || statSync(file).isDirectory()) file = join(web, "index.html"); // the app routes itself
     if (!existsSync(file)) return void res.writeHead(404).end("Build the web app first: npm run build -w @spades/web");
-    res.writeHead(200, { "content-type": TYPES[extname(file)] ?? "application/octet-stream" });
+    // The page and the service worker must never be stale; the hashed assets can be cached for good.
+    const fresh = file.endsWith("index.html") || file.endsWith("sw.js") || file.endsWith(".webmanifest");
+    res.writeHead(200, {
+      "content-type": TYPES[extname(file)] ?? "application/octet-stream",
+      "cache-control": fresh ? "no-cache" : path.startsWith("/assets/") ? "public, max-age=31536000, immutable" : "public, max-age=3600",
+    });
     createReadStream(file).pipe(res);
   } catch (e) {
     console.error(e);

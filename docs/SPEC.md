@@ -104,9 +104,10 @@ packages/
 4. **Rooms kit + family tables** — `packages/rooms` over `@zubra/sync`: seats, server-checked moves, per-seat views, bots and a move log; invite links and a lobby in the app; one container to host it. ✅
 5. **Houses** — a family's house with one invite link that keeps working, members and roles (owner, admin, member), house rules with a default, and its tables. ✅
 6. **Leaderboard** — per house, from finished games: wins and win rate per member, best partners, nils, and the biggest comeback. ✅
-7. **Tournaments** — a bracket of partner teams with one locked set of house rules, feeding the leaderboard.
-8. **open.blog embed** for Grammi's House.
-9. *(Later)* Public lobby.
+7. **Challenges + notifications** — an installable app; a challenge link anyone can use to challenge a player (it sets up a table and buzzes their phone); a buzz for the house when someone opens a table. ✅
+8. **Tournaments** — a bracket of partner teams with one locked set of house rules, feeding the leaderboard.
+9. **open.blog embed** for Grammi's House (the challenge link is the first piece).
+10. *(Later)* Public lobby.
 
 ## Open questions
 
