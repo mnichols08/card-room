@@ -8,7 +8,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "start": "node dist/index.js",
-    "dev": "tsc -p tsconfig.json && SPADES_BOT_DELAY=500 node dist/index.js",
+    "dev": "tsc -p tsconfig.json && CARDROOM_BOT_DELAY=500 node dist/index.js",
     "test": "vitest run"
   },
   "dependencies": {
