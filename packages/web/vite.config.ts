@@ -15,6 +15,8 @@ export default defineConfig({
   resolve: {
     alias: {
       "@spades/rules": local("../rules/src/index.ts"),
+      // From source, like the rules: the Pages build doesn't build the other packages first.
+      "@cardroom/palace": local("../palace/src/index.ts"),
       "@spades/ui": local("../ui/src"),
       "@spades/rooms/client": local("../rooms/src/client.ts"),
       "@spades/rooms/server": local("../rooms/src/server.ts"),
