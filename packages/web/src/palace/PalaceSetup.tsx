@@ -4,19 +4,20 @@ import SelectField from "@spades/ui/zubra-ui/select-field.zb";
 import TextField from "@spades/ui/zubra-ui/text-field.zb";
 import { useMemo, useState } from "react";
 import { ChallengeLink } from "../ChallengeLink";
-import { GamePicker } from "../GamePicker";
+import { AllGames } from "../GamePicker";
 import { Choice } from "../RulesEditor";
 import { deletePalacePreset, loadMyHouses, loadName, loadPalaceRules, loadPalaceSeats, loadSavedPalace, savePalacePreset, savePalaceRules, savePalaceSeats, saveName, type GameId } from "../storage";
 import { PalaceRulesFields, PalaceRulesSheet } from "./PalaceRules";
 
 interface Props {
-  onPickGame: (game: GameId) => void;
+  /** Back to the Card Room's front page, with every game. */
+  onHome: () => void;
   onPractice: (name: string, rules: PalaceRules, seats: number) => void;
   onFamilyTable: (rules: PalaceRules, seats: number) => Promise<void>;
   onOpenHouse: (slug: string) => void;
 }
 
-export function PalaceSetup({ onPickGame, onPractice, onFamilyTable, onOpenHouse }: Props) {
+export function PalaceSetup({ onHome, onPractice, onFamilyTable, onOpenHouse }: Props) {
   const [name, setName] = useState(loadName);
   const [rules, setRules] = useState<PalaceRules>(loadPalaceRules);
   const [seats, setSeats] = useState(loadPalaceSeats);
@@ -30,13 +31,13 @@ export function PalaceSetup({ onPickGame, onPractice, onFamilyTable, onOpenHouse
   const errors = validatePalaceRules(rules);
   const isSaved = saved.some((p) => p.id === rules.id);
   const remember = () => {
-    saveName(name.trim() || "You");
+    saveName(name);
     savePalaceRules(rules);
     savePalaceSeats(seats);
   };
 
   function saveAs() {
-    const label = window.prompt("Name these rules", PALACE_PRESETS.some((p) => p.id === rules.id) ? `${name}'s Palace` : rules.name);
+    const label = window.prompt("Name these rules", PALACE_PRESETS.some((p) => p.id === rules.id) ? `${name.trim() || "My"}'s Palace` : rules.name);
     if (!label?.trim()) return;
     const id = isSaved && label.trim() === rules.name ? rules.id : `palace-${Date.now()}`;
     const next = { ...rules, id, name: label.trim().slice(0, 30) };
@@ -54,7 +55,7 @@ export function PalaceSetup({ onPickGame, onPractice, onFamilyTable, onOpenHouse
         <h1>Palace</h1>
         <p>Get rid of every card. Don't be the last one holding them.</p>
       </header>
-      <GamePicker game="palace" onPick={onPickGame} />
+      <AllGames onClick={onHome} />
 
       {myHouses.length > 0 && (
         <section className="house-block" aria-label="Your houses">

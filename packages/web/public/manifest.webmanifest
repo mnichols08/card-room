@@ -1,7 +1,7 @@
 {
-  "name": "Spades",
-  "short_name": "Spades",
-  "description": "Spades with the family, your house rules, and partners who actually talk back.",
+  "name": "Card Room",
+  "short_name": "Card Room",
+  "description": "Spades, Palace, Hearts, Euchre and more with the family: your house rules, and computer players who talk back.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

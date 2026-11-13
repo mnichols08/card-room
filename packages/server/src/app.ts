@@ -68,7 +68,7 @@ export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: b
       return json({ ok: true });
     }
     if (pathname === "/push/test" && request.method === "POST") {
-      const n = await push.notify(player, { title: "Spades ♠️", body: "Notifications are on. You'll hear about challenges and new tables.", url: "/", tag: "test" });
+      const n = await push.notify(player, { title: "Card Room 🃏", body: "Notifications are on. You'll hear about challenges and new tables.", url: "/", tag: "test" });
       return json({ delivered: n });
     }
     return json({ error: "Not found" }, 404);

@@ -14,9 +14,11 @@
     "@cardroom/palace": "*",
     "@spades/rooms": "*",
     "@spades/rules": "*",
+    "@vitejs/plugin-vue": "^6.0.11",
     "@zubra/runtime": "^5.9.2",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "vue": "^3.5.45"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",

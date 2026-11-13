@@ -4,7 +4,7 @@ self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
 
 self.addEventListener("push", (event) => {
-  let notice = { title: "Spades ♠️", body: "", url: "./" };
+  let notice = { title: "Card Room 🃏", body: "", url: "./" };
   try {
     notice = { ...notice, ...event.data.json() };
   } catch {}

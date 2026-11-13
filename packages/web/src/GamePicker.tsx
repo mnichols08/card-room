@@ -20,3 +20,12 @@ export function GamePicker({ game, onPick }: { game: GameId; onPick: (game: Game
     </nav>
   );
 }
+
+/** On a game's setup screen: back to the front page with every game. */
+export function AllGames({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" className="link all-games" onClick={onClick}>
+      ← All games
+    </button>
+  );
+}

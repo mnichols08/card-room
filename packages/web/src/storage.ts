@@ -24,10 +24,14 @@ function write(key: string, value: unknown) {
   }
 }
 
-export const loadName = () => read(NAME_KEY, "brokennil");
+/** The name this player has used before; empty for someone new (tables call them "You"). */
+export const loadName = () => read(NAME_KEY, "");
 /** The name this browser has used before, or "" for someone arriving by an invite link. */
 export const loadSavedName = () => read(NAME_KEY, "");
-export const saveName = (name: string) => write(NAME_KEY, name);
+/** Remember a name the player typed; a blank one isn't saved (so "You" never becomes their name). */
+export const saveName = (name: string) => {
+  if (name.trim()) write(NAME_KEY, name.trim());
+};
 
 export const loadSavedPresets = () => read<RulePreset[]>(PRESETS_KEY, []);
 export function savePreset(preset: RulePreset) {
@@ -62,6 +66,11 @@ export const loadGame = (): GameId => {
   return g === "palace" || isKitGame(g) ? g : "spades";
 };
 export const saveGame = (game: GameId) => write(GAME_KEY, game);
+/** The game played last on this device, or null for someone new. */
+export const loadLastGame = (): GameId | null => {
+  const g = read<string | null>(GAME_KEY, null);
+  return g === "spades" || g === "palace" || isKitGame(g) ? (g as GameId) : null;
+};
 
 const PALACE_LAST_KEY = "cardroom:palace:last";
 const PALACE_SAVED_KEY = "cardroom:palace:presets";

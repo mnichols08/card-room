@@ -30,7 +30,7 @@ export function EmbedHome({ game, onPractice }: { game: GameId; onPractice: (nam
         className="primary deal"
         onClick={() => {
           const you = name.trim() || "You";
-          saveName(you);
+          saveName(name);
           if (kit && isKitGame(game)) {
             saveKitSeats(game, seats);
             return onPractice(you, kit.presets.find((p: { id: string }) => p.id === ruleId) ?? kit.presets[0], kit.teams ? 4 : seats);
