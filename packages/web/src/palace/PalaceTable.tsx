@@ -70,16 +70,19 @@ function Opponent(props: { seat: number; area: Area; name: string; up: Card[]; d
         <div className="opp-cards" role="group" aria-label={`${props.name}'s table: ${up.length} face up, ${down} face down`}>
           {Array.from({ length: slots }, (_, i) => (
             <div key={i} className="mini-slot">
-              {i < down && (
-                <div className="mini-down">
-                  <PlayingCard back size="mini" />
-                </div>
-              )}
-              {up[i] && (
-                <div className="mini-up">
-                  <PlayingCard card={up[i]} size="mini" data-flip={cardId(up[i]!)} />
-                </div>
-              )}
+              {/* One face-down card with its face-up card on top, turned to face whoever sits there. */}
+              <div className="mini-stack">
+                {i < down && (
+                  <div className="mini-down">
+                    <PlayingCard back size="mini" />
+                  </div>
+                )}
+                {up[i] && (
+                  <div className="mini-up">
+                    <PlayingCard card={up[i]} size="mini" data-flip={cardId(up[i]!)} />
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>

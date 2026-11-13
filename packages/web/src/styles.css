@@ -467,15 +467,21 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; }
 .opp palace-seat .seat { min-width: 0; }
 /* Their cards: a row for the players across, a column for the ones at your sides. */
 .opp-cards { display: flex; gap: calc(var(--mini-w) * 0.15); }
-.mini-slot { position: relative; width: var(--mini-w); height: calc(var(--mini-h) * 1.22); }
-.mini-slot .mini-down { position: absolute; top: 0; left: 0; }
-.mini-slot .mini-up { position: absolute; top: calc(var(--mini-h) * 0.22); left: 0; }
-/* Narrower screens: the side players' cards run down their edge of the table. */
-@media (max-width: 1023px) {
-  .opp.left .opp-cards, .opp.right .opp-cards { flex-direction: column; }
-  .opp.left .mini-slot, .opp.right .mini-slot { width: calc(var(--mini-w) * 1.22); height: var(--mini-h); }
-  .opp.left .mini-slot .mini-up, .opp.right .mini-slot .mini-up { top: 0; left: calc(var(--mini-w) * 0.22); }
-  .opp.left .opp-cards > * + *, .opp.right .opp-cards > * + * { margin-top: calc(var(--mini-h) * -0.3); }
+/* Each opponent's cards: a face-down card with the face-up one on top, nearer to them. The players
+   across sit as you do; the ones at your sides have theirs turned to face them, along their edge. */
+.mini-stack { position: relative; width: var(--mini-w); height: calc(var(--mini-h) * 1.22); }
+.mini-stack .mini-down { position: absolute; top: 0; left: 0; }
+.mini-stack .mini-up { position: absolute; top: calc(var(--mini-h) * 0.22); left: 0; }
+.opp.left .opp-cards, .opp.right .opp-cards { flex-direction: column; gap: calc(var(--mini-w) * 0.12); }
+.opp.left .mini-slot, .opp.right .mini-slot { position: relative; width: calc(var(--mini-h) * 1.22); height: var(--mini-w); }
+.opp.left .mini-stack, .opp.right .mini-stack { position: absolute; left: 50%; top: 50%; translate: -50% -50%; }
+/* Turned a quarter: the left player's face-up cards end up on the left, nearer them; the right's on the right. */
+.opp.left .mini-stack { rotate: 90deg; }
+.opp.right .mini-stack { rotate: -90deg; }
+/* Laptops: the side players' names sit beside their cards, on the outside, so the table stays short. */
+@media (min-width: 1024px) {
+  .opp.left { flex-direction: row; }
+  .opp.right { flex-direction: row-reverse; }
 }
 /* Phones: a smaller pile so both side players fit beside it. */
 @media (max-width: 599px) {
