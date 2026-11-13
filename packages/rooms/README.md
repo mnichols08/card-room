@@ -38,6 +38,8 @@ room.onRoom((doc) => render(doc.seats));          // who's sitting where, starte
 const { seat } = await room.sit(0, "brokennil");
 room.onView(seat, ({ view }) => render(view));    // this seat's view only
 await room.act({ type: "bid", bid: { kind: "nil" } });
+room.onChat((messages) => render(messages));   // the table's chat, oldest first
+await room.say("good luck ♠️");                 // seated players; rooms.say(id, seat, text) on the server, for bots
 ```
 
 ## How it keeps a hand private
@@ -48,6 +50,7 @@ await room.act({ type: "bid", bid: { kind: "nil" } });
 | `views/<id>/<seat>` | one seat's view | that seat's holder |
 | `games/<id>` | options, seed, seat holders | the server |
 | `moves/<id>` | every move, one field each | the server |
+| `chat/<id>` | the table's chat, one field per message | everyone at the table |
 
 - **Pages never write.** `authorize` refuses every page push. Moves go to `POST /rooms/<id>/act`, and the server writes the result.
 - **A seat is a cookie.** Sitting down sets an HttpOnly `rooms_player` cookie, and `authorize` lets a request read a seat's view only when its cookie holds that seat. `newPlayerId()`, `playerCookie()` and `playerOf()` let the app use the same identity (spades uses it for house membership).

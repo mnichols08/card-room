@@ -15,7 +15,8 @@ export type SoundName =
   | "handDone"
   | "won"
   | "lost"
-  | "nope";
+  | "nope"
+  | "message";
 
 type Ctx = BaseAudioContext;
 type Play = (ctx: Ctx, out: AudioNode, t: number) => void;
@@ -146,6 +147,8 @@ export const SOUNDS: Record<SoundName, Play> = {
   lost: (ctx, out, t) => {
     [N.G4, N.E4, N.C4].forEach((f, i) => bell(ctx, out, t + i * 0.18, f, { peak: 0.1, decay: 0.7 }));
   },
+  /** Someone said something at the table: a soft, round pop. */
+  message: (ctx, out, t) => glide(ctx, out, t, 520, 780, { peak: 0.16, decay: 0.09, type: "sine" }),
   /** That move isn't allowed: a short low buzz. */
   nope: (ctx, out, t) => {
     glide(ctx, out, t, 180, 140, { peak: 0.1, decay: 0.12, type: "square" });
@@ -167,7 +170,7 @@ export const BUZZES: Partial<Record<SoundName, number | number[]>> = {
 /** How long each sound runs, for rendering them offline. */
 export const LENGTHS: Record<SoundName, number> = {
   deal: 0.8, card: 0.2, bid: 0.15, yourTurn: 0.7, trickUs: 0.85, trickThem: 0.65, spadesBroken: 0.4,
-  nilMade: 0.9, set: 1.0, handDone: 1.3, won: 2.0, lost: 1.3, nope: 0.35,
+  nilMade: 0.9, set: 1.0, handDone: 1.3, won: 2.0, lost: 1.3, nope: 0.35, message: 0.15,
 };
 
 /** Overall level, into a limiter. Phone speakers are small: the loudest sound peaks near -3 dB. */

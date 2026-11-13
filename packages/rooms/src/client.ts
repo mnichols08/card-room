@@ -3,7 +3,9 @@
 // or plain script can all subscribe.
 import { configure, indexedDBStore, memoryStore, type Store } from "@zubra/sync";
 import { connect } from "@zubra/sync/connect";
-import type { RoomDoc, ViewDoc } from "./server.js";
+import type { ChatMessage, RoomDoc, ViewDoc } from "./server.js";
+
+export type { ChatMessage };
 
 type Listener = (doc: Record<string, unknown>) => void;
 
@@ -75,7 +77,7 @@ export async function createRoom(options: unknown, { base = "/rooms" }: OpenRoom
 export function openRoom<View = unknown, Move = unknown, Summary = unknown>(id: string, { base = "/rooms", sync = "/_zb/sync" }: OpenRoomOptions = {}) {
   const url = `${base}/${encodeURIComponent(id)}`;
   watchStore();
-  const scope = { rooms: id, views: `${id}/` };
+  const scope = { rooms: id, views: `${id}/`, chat: id };
   let connection = connect({ url: sync, scope });
   const post = <T>(path: string, body: unknown = {}) => call<T>(`${url}/${path}`, { method: "POST", body: JSON.stringify(body) });
 
@@ -100,6 +102,18 @@ export function openRoom<View = unknown, Move = unknown, Summary = unknown>(id: 
     onView(seat: number, fn: (view: ViewDoc<View>) => void) {
       return follow("views", `${id}/${seat}`, (doc) => doc.view !== undefined && fn(doc as unknown as ViewDoc<View>));
     },
+    /** Follow the table's chat: every message so far, oldest first, each time one arrives. */
+    onChat(fn: (messages: ChatMessage[]) => void) {
+      return follow("chat", id, (doc) =>
+        fn(
+          Object.keys(doc)
+            .filter((k) => /^m\d+$/.test(k))
+            .sort()
+            .map((k) => doc[k] as ChatMessage),
+        ),
+      );
+    },
+    say: (text: string) => post<ChatMessage>("say", { text }),
     sit,
     addBot: (seat: number, name?: string) => post("bot", { seat, name }),
     removeBot: (seat: number) => post("bot", { seat, add: false }),
