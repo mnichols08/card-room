@@ -829,3 +829,10 @@ button.grid-cell { padding: 0; border: 0; background: none; cursor: pointer; bor
 @media (max-width: 599px) { .opp.left .card-grid, .opp.right .card-grid { grid-template-columns: repeat(2, auto); grid-template-rows: repeat(3, auto); grid-auto-flow: column; } }
 /* Laptops: your own grid a little smaller, so both rows sit on the felt. */
 @media (min-width: 1024px) { .mine-on-table .card-grid.table { --trick-w: calc(var(--card-w) * 0.62); --trick-h: calc(var(--trick-w) * var(--card-ratio)); } }
+/* The discard pile spread out (Rummy 500): every card shows a strip; tap one to take it and all above. */
+.pile-spread-area { display: flex; flex-direction: column; align-items: center; gap: 6px; max-width: min(100%, 560px); }
+.pile-spread { display: flex; flex-wrap: wrap; justify-content: center; row-gap: 6px; padding-left: calc(var(--trick-w) * 0.62); }
+.spread-card { display: block; line-height: 0; margin-left: calc(var(--trick-w) * -0.62); padding: 0; border: 0; background: none; }
+button.spread-card { cursor: pointer; animation: none; }
+@media (hover: hover) { button.spread-card:hover { translate: 0 -8px; z-index: 2; } }
+@media (max-width: 599px) { .pile-spread { padding-left: calc(var(--trick-w) * 0.74); } .spread-card { margin-left: calc(var(--trick-w) * -0.74); } }

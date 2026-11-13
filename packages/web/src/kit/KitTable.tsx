@@ -637,7 +637,44 @@ function CenterArea({
             </small>
           </div>
         )}
-        {!center.noDiscard && (
+        {center.spread && (
+          <div className="pile pile-spread-area">
+            {center.discard.length ? (
+              <div
+                className="pile-spread"
+                style={{ "--n": center.discard.length } as React.CSSProperties}
+              >
+                {center.discard.map((c) =>
+                  center.spread!.cards.includes(c.id) ? (
+                    <button
+                      key={c.id}
+                      type="button"
+                      className="spread-card pile-button"
+                      aria-label={`Take the pile from here`}
+                      onClick={() =>
+                        send({ type: center.spread!.type, card: c.id })
+                      }
+                    >
+                      <PlayingCard card={c} size="table" data-flip={c.id} />
+                    </button>
+                  ) : (
+                    <span key={c.id} className="spread-card">
+                      <PlayingCard card={c} size="table" data-flip={c.id} />
+                    </span>
+                  ),
+                )}
+              </div>
+            ) : (
+              <div className="empty-slot">Discards</div>
+            )}
+            <small>
+              {center.discardLabel
+                ? named(center.discardLabel, names)
+                : `${center.discardCount} in the pile`}
+            </small>
+          </div>
+        )}
+        {!center.noDiscard && !center.spread && (
           <div className="pile">
             {top.length ? (
               <div className="pile-stack">
