@@ -24,6 +24,8 @@ export interface RoomDefinition<State, Move, View, Options, Summary = unknown> {
   summary?(state: State): Summary;
   /** A bot's move for a seat, or null when it isn't that seat's move. */
   bot?(state: State, seat: number): Move | null;
+  /** Whether the game is over. Finished rooms are dropped from memory (the log keeps them). */
+  finished?(state: State): boolean;
 }
 
 export class RefusedMove extends Error {
@@ -78,6 +80,12 @@ export interface RoomsOptions {
 const COOKIE = "rooms_player";
 const ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
 const randomId = (n: number) => Array.from(crypto.getRandomValues(new Uint8Array(n)), (b) => ALPHABET[b % ALPHABET.length]).join("");
+
+/** A new player id: the secret a browser's cookie holds. */
+export const newPlayerId = () => randomId(24);
+
+/** The Set-Cookie value that makes a browser this player, for a year. */
+export const playerCookie = (player: string) => `${COOKIE}=${player}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000`;
 
 export function playerOf(request: Request): string | null {
   const cookie = request.headers.get("cookie") ?? "";
@@ -142,6 +150,22 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     return entry;
   }
 
+  /** Open a new room with these options. Resolves to its id. */
+  async function create(roomOptions: Options): Promise<string> {
+    const id = newId();
+    await sync.write("games", id, { options: roomOptions, seed: null, holders: Array(def.seats).fill(null) });
+    await sync.write("rooms", id, { seats: Array.from({ length: def.seats }, () => ({ name: null, bot: false })), started: false, summary: null, version: 0 });
+    return id;
+  }
+
+  /** A finished game no longer needs its state in memory: a later request replays it from the log. */
+  function forgetIfFinished(id: string, entry: Live<State>): boolean {
+    if (entry.state === null || !def.finished?.(entry.state)) return false;
+    if (entry.timer) clearTimeout(entry.timer);
+    live.delete(id);
+    return true;
+  }
+
   /** Write every seat's view and the public room doc. */
   async function publish(id: string, entry: Live<State>) {
     entry.version += 1;
@@ -187,7 +211,7 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
           return;
         }
         await publish(id, entry);
-        void driveBots(id);
+        if (!forgetIfFinished(id, entry)) void driveBots(id);
       }, botDelay);
       return;
     }
@@ -209,10 +233,7 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     // POST /rooms { options } → { id }
     if (parts.length === 0 && method === "POST") {
       const { options: given } = await body(request);
-      const id = newId();
-      await sync.write("games", id, { options: given ?? {}, seed: null, holders: Array(def.seats).fill(null) });
-      await sync.write("rooms", id, { seats: Array.from({ length: def.seats }, () => ({ name: null, bot: false })), started: false, summary: null, version: 0 });
-      return json({ id }, 201);
+      return json({ id: await create((given ?? {}) as Options) }, 201);
     }
 
     const id = parts[0]!;
@@ -236,15 +257,14 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
       if (r.started && mySeat !== seat) return json({ error: "This game has started." }, 409);
       const holder = g.holders[seat];
       if ((holder && holder !== player) || r.seats[seat]?.bot) return json({ error: "Someone's already sitting there." }, 409);
-      const me = player ?? randomId(24);
+      const me = player ?? newPlayerId();
       const holders = g.holders.map((h) => (h === me ? null : h));
       holders[seat] = me;
       const seats = r.seats.map((s, i) => (holders[i] === null && !s.bot ? { name: null, bot: false } : s));
       seats[seat] = { name, bot: false };
       await sync.write("games", id, { holders });
       await sync.write("rooms", id, { seats });
-      const cookie = `${COOKIE}=${me}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000`;
-      return json({ seat }, 200, player ? {} : { "set-cookie": cookie });
+      return json({ seat }, 200, player ? {} : { "set-cookie": playerCookie(me) });
     }
 
     if (mySeat < 0) return json({ error: "Take a seat first." }, 403);
@@ -282,7 +302,7 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
         return json({ error: e instanceof Error ? e.message : "That move isn't allowed." }, 400);
       }
       await publish(id, entry);
-      void driveBots(id);
+      if (!forgetIfFinished(id, entry)) void driveBots(id);
       return json({ ok: true });
     }
 
@@ -291,6 +311,13 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
 
   return {
     sync,
+    create,
+    /** The public room doc, or undefined. */
+    room,
+    /** How many rooms have their state in memory (finished ones are dropped). */
+    get inMemory() {
+      return live.size;
+    },
     /** Answers rooms and sync requests; null for anything else. */
     async fetch(request: Request): Promise<Response | null> {
       const { pathname } = new URL(request.url);

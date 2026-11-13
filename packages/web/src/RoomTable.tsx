@@ -128,7 +128,7 @@ function Lobby(props: {
       </header>
 
       {mySeat === null && !doc.started && (
-        <TextField label="Your spades name" value={name} maxlength={20} autocomplete="nickname" onValueChange={(e: CustomEvent<string>) => setName(e.detail)} />
+        <TextField label="Your spades name" required value={name} maxlength={20} autocomplete="nickname" onValueChange={(e: CustomEvent<string>) => setName(e.detail)} />
       )}
 
       <ol className="seats" aria-label="Seats">

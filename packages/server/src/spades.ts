@@ -49,6 +49,7 @@ export const spadesRoom: RoomDefinition<GameState, Move, SeatView, RulePreset, S
     scores: state.scores,
     winner: state.winner,
   }),
+  finished: (state) => state.phase === "finished",
   bot(state, seat) {
     const action = botAction(state, seat as Seat);
     if (!action) return null;

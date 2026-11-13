@@ -8,7 +8,8 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "start": "node dist/index.js",
-    "dev": "tsc -p tsconfig.json && SPADES_BOT_DELAY=500 node dist/index.js"
+    "dev": "tsc -p tsconfig.json && SPADES_BOT_DELAY=500 node dist/index.js",
+    "test": "vitest run"
   },
   "dependencies": {
     "@spades/rooms": "*",
@@ -17,6 +18,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "typescript": "^5.6.0"
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
   }
 }

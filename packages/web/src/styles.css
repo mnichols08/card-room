@@ -230,3 +230,29 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; }
 }
 .feedback { display: flex; flex-direction: column; gap: 8px; }
 .feedback .link { align-self: flex-start; }
+
+/* ---------- Houses ---------- */
+.house-block { display: flex; flex-direction: column; gap: 10px; }
+.house-block h2 { margin: 8px 0 0; font-size: 1.3rem; color: var(--gold); }
+.house-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.house-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: rgba(0, 0, 0, 0.22);
+}
+.house-list li > div { display: flex; flex-direction: column; min-width: 0; }
+.house-list small { color: #cfe2d6; font-size: 0.8rem; }
+.house-list em { font-style: normal; font-size: 0.75rem; color: var(--gold); margin-left: 6px; }
+.row-actions { display: flex; gap: 12px; flex: none; }
+.primary.small { padding: 8px 16px; font-size: 0.95rem; }
+.field-inline { display: flex; align-items: center; gap: 10px; }
+.field-inline select { flex: 1; font: inherit; padding: 10px; border-radius: 10px; border: 0; background: var(--cream); color: var(--ink); }
+.house .setup-head p { margin: 0; }
+.rules-sheet { position: fixed; inset: 0; z-index: 20; background: rgba(0, 0, 0, 0.55); overflow-y: auto; }
+.rules-sheet-body { min-height: auto; margin: 24px auto; border-radius: 16px; }
+.check { display: flex; align-items: center; gap: 10px; }
+.check input { width: 22px; height: 22px; accent-color: var(--gold); }

@@ -40,3 +40,13 @@ export const loadLastPreset = () => read<RulePreset>(LAST_PRESET_KEY, brokennils
 export const saveLastPreset = (preset: RulePreset) => write(LAST_PRESET_KEY, preset);
 
 export const starterPresets: RulePreset[] = [brokennilsTable, ...builtInPresets];
+
+const HOUSES_KEY = "spades:houses";
+/** The houses this browser belongs to, for the setup screen. The server is the source of truth. */
+export const loadMyHouses = () => read<{ slug: string; name: string }[]>(HOUSES_KEY, []);
+export function rememberHouse(house: { slug: string; name: string }) {
+  write(HOUSES_KEY, [house, ...loadMyHouses().filter((h) => h.slug !== house.slug)].slice(0, 10));
+}
+export function forgetHouse(slug: string) {
+  write(HOUSES_KEY, loadMyHouses().filter((h) => h.slug !== slug));
+}

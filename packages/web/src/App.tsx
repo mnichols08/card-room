@@ -1,53 +1,74 @@
 import { createRoom } from "@spades/rooms/client";
 import type { RulePreset } from "@spades/rules";
 import { useEffect, useState } from "react";
+import { HousePage } from "./HousePage";
+import { houses } from "./housesApi";
 import { LocalTable } from "./LocalTable";
 import { RoomTable } from "./RoomTable";
 import { Setup } from "./Setup";
+import { rememberHouse } from "./storage";
 
 type Screen =
   | { kind: "setup" }
   | { kind: "local"; name: string; preset: RulePreset; seed: number }
-  | { kind: "room"; id: string };
+  | { kind: "room"; id: string; house: string | null }
+  | { kind: "house"; slug: string; code: string | null };
 
-const tableInUrl = () => new URLSearchParams(location.search).get("table");
+/** The screen is in the URL, so links work and the back button does what people expect. */
+function fromUrl(): Screen {
+  const q = new URLSearchParams(location.search);
+  const table = q.get("table");
+  const house = q.get("house");
+  if (table) return { kind: "room", id: table, house };
+  if (house) return { kind: "house", slug: house, code: q.get("code") };
+  return { kind: "setup" };
+}
 
-function go(id: string | null) {
+function go(params: Record<string, string | null>) {
   const url = new URL(location.href);
-  if (id) url.searchParams.set("table", id);
-  else url.searchParams.delete("table");
+  url.search = "";
+  for (const [k, v] of Object.entries(params)) if (v) url.searchParams.set(k, v);
   history.pushState(null, "", url);
 }
 
 export function App() {
-  const [screen, setScreen] = useState<Screen>(() => {
-    const id = tableInUrl();
-    return id ? { kind: "room", id } : { kind: "setup" };
-  });
+  const [screen, setScreen] = useState<Screen>(fromUrl);
 
   useEffect(() => {
-    const onPop = () => {
-      const id = tableInUrl();
-      setScreen(id ? { kind: "room", id } : { kind: "setup" });
-    };
+    const onPop = () => setScreen(fromUrl());
     addEventListener("popstate", onPop);
     return () => removeEventListener("popstate", onPop);
   }, []);
 
   const home = () => {
-    go(null);
+    go({});
     setScreen({ kind: "setup" });
+  };
+  const openHouse = (slug: string) => {
+    go({ house: slug });
+    setScreen({ kind: "house", slug, code: null });
+  };
+  const openTable = (id: string, house: string | null) => {
+    go({ table: id, house });
+    setScreen({ kind: "room", id, house });
   };
 
   if (screen.kind === "local") return <LocalTable key={screen.seed} {...screen} onLeave={home} />;
-  if (screen.kind === "room") return <RoomTable key={screen.id} id={screen.id} onLeave={home} />;
+  if (screen.kind === "room") {
+    return <RoomTable key={screen.id} id={screen.id} onLeave={screen.house ? () => openHouse(screen.house!) : home} />;
+  }
+  if (screen.kind === "house") {
+    return <HousePage key={screen.slug} slug={screen.slug} code={screen.code} onOpenTable={(id) => openTable(id, screen.slug)} onLeave={home} />;
+  }
   return (
     <Setup
       onStart={(name, preset) => setScreen({ kind: "local", name, preset, seed: Math.floor(Math.random() * 2 ** 31) })}
-      onFamilyTable={async (preset) => {
-        const id = await createRoom(preset);
-        go(id);
-        setScreen({ kind: "room", id });
+      onFamilyTable={async (preset) => openTable(await createRoom(preset), null)}
+      onOpenHouse={openHouse}
+      onMakeHouse={async (houseName, you, preset) => {
+        const house = await houses.create(houseName, you, preset);
+        rememberHouse(house);
+        openHouse(house.slug);
       }}
     />
   );

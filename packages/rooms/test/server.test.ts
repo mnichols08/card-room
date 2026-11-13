@@ -175,3 +175,26 @@ async function cookieOf(browser: { send: (path: string, init?: RequestInit) => P
   }
   return seen;
 }
+
+describe("finished rooms", () => {
+  it("are dropped from memory, and a request replays them from the log", async () => {
+    const short: RoomDefinition<State, Move, any, { start: number }, { total: number }> = { ...counting, finished: (s) => s.total >= 3 };
+    const rooms = createRooms(short, { botDelay: 5, seed: () => 1, id: () => "done01" });
+    open.push(rooms as any);
+    const send = (path: string, body?: unknown, cookie = "") =>
+      rooms.fetch(new Request(BASE + path, { method: body ? "POST" : "GET", headers: { "content-type": "application/json", cookie }, body: body ? JSON.stringify(body) : undefined }));
+    expect(await rooms.create({ start: 0 })).toBe("done01");
+    const sat = await send("/rooms/done01/sit", { seat: 0, name: "A" });
+    const cookie = sat!.headers.get("set-cookie")!.split(";")[0]!;
+    await send("/rooms/done01/bot", { seat: 1 }, cookie);
+    await send("/rooms/done01/bot", { seat: 2 }, cookie);
+    await send("/rooms/done01/start", {}, cookie);
+    expect(rooms.inMemory).toBe(1);
+    await send("/rooms/done01/act", { move: { add: 1 } }, cookie);
+    await wait(60); // bots add 1 each: total 3, finished
+    expect((await (await send("/rooms/done01"))!.json()).summary).toEqual({ total: 3 });
+    expect(rooms.inMemory).toBe(0);
+    // The next request rebuilds the state from the move log: the room still works.
+    expect((await send("/rooms/done01/act", { move: { add: 1 } }, cookie))!.status).toBe(200);
+  });
+});
