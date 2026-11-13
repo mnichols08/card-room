@@ -50,3 +50,19 @@ How it measures up, against the quick bots (`npx tsx scripts/match.ts <games> <d
 | 60 | 48 (80%) | ~12 ms |
 | 60, bid reading on | 54 (90%) | ~12 ms |
 | 60, bid reading off | 51 (85%) | ~12 ms |
+
+## Table talk
+
+`talk.ts` gives bots a personality: who they are, what they say, and how long they think. It's
+pure, so the server and the practice table share it.
+
+- **Personas**: Dot (warm), Hank (dry), Lou (a joker), Bea (competitive). Any other bot name gets
+  a friendly default. Each has its own lines for every event and its own tempo.
+- **`reactToMove(before, after, cast)`**: bids of nil and blind nil, an ace trumped, spades broken, a
+  flashy trick, nils made and set, a team set, and the end of the game. At most two bots speak
+  about one move, staggered; at the end of the game everyone speaks, graciously.
+- **`replyTo(text, fromSeat, cast)`**: laughter, luck, thanks, hearts and oops each get an answer
+  from one bot: the one named, or the speaker's partner first.
+- **`greet(cast)`**: a hello or two when the game starts.
+- **`thinkingTime(state, seat, name)`**: quick for a forced card, a few seconds for a bid, and
+  longer when the best two options scored close together, at the persona's tempo.
