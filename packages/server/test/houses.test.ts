@@ -119,3 +119,58 @@ describe("houses", () => {
     expect(b.slug).toMatch(/^grammis-house-[a-z0-9]{3}$/);
   });
 });
+
+describe("the house leaderboard", () => {
+  it("counts a real finished house game for the members who played it", async () => {
+    const { phone } = setup();
+    const grammi = phone();
+    const rick = phone();
+    const made = (await grammi.send("/houses", { name: "Grammi's House", you: "brokennil", rules: { name: "Short", playTo: 60, loseAt: -60 } })).body;
+    await rick.send("/houses/grammis-house/join", { code: made.code, name: "Rick" });
+    expect((await rick.send("/houses/grammis-house/leaderboard")).body.games).toBe(0);
+
+    const { id } = (await grammi.send("/houses/grammis-house/tables", {})).body;
+    await grammi.send(`/rooms/${id}/sit`, { seat: 0, name: "brokennil" });
+    await rick.send(`/rooms/${id}/sit`, { seat: 2, name: "Rick" });
+    await grammi.send(`/rooms/${id}/bot`, { seat: 1 });
+    await grammi.send(`/rooms/${id}/bot`, { seat: 3 });
+    await grammi.send(`/rooms/${id}/start`, {});
+
+    // Both humans play the first legal move whenever it's their turn, until the game ends.
+    const players = [
+      { phone: grammi, seat: 0 },
+      { phone: rick, seat: 2 },
+    ];
+    for (let step = 0; step < 3000; step++) {
+      if ((await grammi.send(`/rooms/${id}`)).body.summary?.phase === "finished") break;
+      let moved = false;
+      for (const p of players) {
+        const changes = (await p.phone.send(`/_zb/sync/pull?since=0&scope=${encodeURIComponent(JSON.stringify({ views: `${id}/${p.seat}` }))}`)).body.changes;
+        const view = changes.filter((c: { field: string }) => c.field === "view").at(-1)?.value;
+        if (!view || view.turn !== p.seat) continue;
+        const move =
+          view.phase === "bidding" ? { type: "bid", bid: { kind: "tricks", count: 3 } } : view.phase === "playing" && view.legal.length ? { type: "play", card: view.legal[0] } : null;
+        if (move) {
+          await p.phone.send(`/rooms/${id}/act`, { move });
+          moved = true;
+        }
+      }
+      if (!moved) await new Promise((r) => setTimeout(r, 10)); // a bot's turn
+    }
+
+    const room = (await grammi.send(`/rooms/${id}`)).body;
+    expect(room.summary.phase).toBe("finished");
+    const board = (await rick.send("/houses/grammis-house/leaderboard")).body;
+    const ourTeamWon = room.summary.winner === 0;
+    expect(board.games).toBe(1);
+    expect(board.players.map((p: { name: string; played: number; won: number }) => [p.name, p.played, p.won]).sort()).toEqual(
+      [
+        ["Rick", 1, ourTeamWon ? 1 : 0],
+        ["brokennil", 1, ourTeamWon ? 1 : 0],
+      ].sort(),
+    );
+    expect(board.partners).toHaveLength(1);
+    // Strangers don't see it.
+    expect((await phone().send("/houses/grammis-house/leaderboard")).status).toBe(403);
+  }, 60_000);
+});

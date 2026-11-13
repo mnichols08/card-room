@@ -6,6 +6,7 @@
 // player cookie that holds a seat at a table.
 import { brokennilsTable, validatePreset, type RulePreset } from "@spades/rules";
 import { newPlayerId, playerCookie, playerOf, type RoomDoc } from "@spades/rooms/server";
+import { leaderboard, type FinishedGame } from "./leaderboard.js";
 import type { Summary } from "./spades.js";
 
 export type Role = "owner" | "admin" | "member";
@@ -118,6 +119,27 @@ export function createHouses(rooms: Rooms, { mount = "/houses" } = {}) {
     };
   }
 
+  /** The house's finished games, with each seat as a member, a guest or a bot. */
+  async function finishedGames(house: HouseDoc): Promise<FinishedGame[]> {
+    const view = await docs;
+    const games: FinishedGame[] = [];
+    for (const table of house.tables) {
+      const room = await rooms.room(table.id);
+      if (room?.summary?.phase !== "finished") continue;
+      const game = view.get("games", table.id) as { holders?: (string | null)[] } | undefined;
+      // Any seat's view has the whole history and the winner; seat 0's is always written.
+      const seen = view.get("views", `${table.id}/0`)?.view as { history?: FinishedGame["history"]; winner?: 0 | 1 | null } | undefined;
+      if (!seen?.history || seen.winner == null) continue;
+      const seats = room.seats.map((seat, i): FinishedGame["seats"][number] => {
+        if (seat.bot) return { kind: "bot", name: seat.name ?? "Bot" };
+        const member = house.members.find((m) => m.player === game?.holders?.[i]);
+        return member ? { kind: "member", id: member.id, name: member.name } : { kind: "guest", name: seat.name ?? "Guest" };
+      });
+      games.push({ id: table.id, seats, winner: seen.winner, history: seen.history });
+    }
+    return games;
+  }
+
   async function handle(request: Request, path: string): Promise<Response> {
     const parts = path.split("/").filter(Boolean);
     const method = request.method;
@@ -151,6 +173,12 @@ export function createHouses(rooms: Rooms, { mount = "/houses" } = {}) {
       if (code && code === house.code) return json({ slug: house.slug, name: house.name, member: false }, 200);
       return json({ error: "Ask someone in the house for the invite link." }, 403);
     }
+    // GET /houses/:slug/leaderboard → standings from the house's finished games (members only)
+    if (action === "leaderboard" && method === "GET") {
+      if (!me) return json({ error: "Join the house first." }, 403);
+      return json(leaderboard(await finishedGames(house), house.members.map((m) => ({ id: m.id, name: m.name }))));
+    }
+
     if (method !== "POST") return json({ error: "Not found" }, 404);
 
     // POST /houses/:slug/join { code, name }
