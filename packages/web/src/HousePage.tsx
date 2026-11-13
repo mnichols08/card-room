@@ -1,10 +1,14 @@
 import { validatePreset, type RulePreset } from "@spades/rules";
 import TextField from "@spades/ui/zubra-ui/text-field.zb";
 import { useCallback, useEffect, useState } from "react";
-import { HouseError, houses, inviteLink, type House, type HouseTable, type Standings } from "./housesApi";
+import { validatePalaceRules, type PalaceRules } from "@cardroom/palace";
+import { GamePicker } from "./GamePicker";
+import { HouseError, houses, inviteLink, type House, type HouseTable, type PalaceStandings, type Standings } from "./housesApi";
+import { PalaceRulesFields, palaceSummary } from "./palace/PalaceRules";
 import { NotifyButton } from "./NotifyButton";
 import { describe, RulesFields } from "./RulesEditor";
-import { forgetHouse, loadSavedName, rememberHouse, saveName } from "./storage";
+import { Choice } from "./RulesEditor";
+import { forgetHouse, loadGame, loadPalaceSeats, loadSavedName, rememberHouse, saveGame, saveName, savePalaceSeats, type GameId } from "./storage";
 
 interface Props {
   slug: string;
@@ -126,6 +130,12 @@ function MemberView(props: {
     if (!house.presets.some((p) => p.id === presetId)) setPresetId(house.defaultPreset);
   }, [house.presets, presetId, house.defaultPreset]);
   const [editing, setEditing] = useState<RulePreset | null>(null);
+  const [editingPalace, setEditingPalace] = useState<PalaceRules | null>(null);
+  const [game, setGame] = useState<GameId>(loadGame);
+  const [palaceId, setPalaceId] = useState(house.palaceDefault);
+  const [seats, setSeats] = useState(loadPalaceSeats);
+  useEffect(() => setPalaceId(house.palaceDefault), [house.palaceDefault]);
+  const palaceRules = house.palacePresets.find((p) => p.id === palaceId) ?? house.palacePresets[0]!;
   const [copied, setCopied] = useState(false);
   const defaultRules = house.presets.find((p) => p.id === house.defaultPreset);
 
@@ -152,7 +162,45 @@ function MemberView(props: {
         <h1>{house.name}</h1>
         <p>Welcome back, {house.me.name}.</p>
       </header>
+      <GamePicker
+        game={game}
+        onPick={(g) => {
+          saveGame(g);
+          setGame(g);
+        }}
+      />
 
+      {game === "palace" ? (
+        <section className="house-block" aria-label="Start a table">
+          {house.palacePresets.length > 1 && (
+            <label className="field-inline">
+              <span>Rules</span>
+              <select value={palaceId} onChange={(e) => setPalaceId(e.target.value)}>
+                {house.palacePresets.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                    {p.id === house.palaceDefault ? " (house default)" : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <Choice label="Players" value={seats} options={[2, 3, 4, 5, 6].map((n) => [String(n), `${n} players`])} onChange={(v) => setSeats(Number(v))} />
+          <button
+            type="button"
+            className="primary deal"
+            onClick={() =>
+              attempt(async () => {
+                savePalaceSeats(seats);
+                props.onOpenTable((await houses.openTable(house.slug, palaceRules.id, "palace", seats)).id);
+              })
+            }
+          >
+            Start a Palace table
+          </button>
+          <p className="rules-summary">{palaceSummary(palaceRules)}</p>
+        </section>
+      ) : (
       <section className="house-block" aria-label="Start a table">
         {house.presets.length > 1 && (
           <label className="field-inline">
@@ -172,6 +220,7 @@ function MemberView(props: {
         </button>
         <p className="rules-summary">{describe(house.presets.find((p) => p.id === presetId) ?? defaultRules ?? house.presets[0]!)}</p>
       </section>
+      )}
 
       <section className="house-block" aria-label="Tables">
         <h2>Tables</h2>
@@ -194,7 +243,7 @@ function MemberView(props: {
         <NotifyButton what="someone opens a table here" />
       </section>
 
-      <LeaderboardBlock house={house} />
+      {game === "palace" ? <PalaceLeaderboardBlock house={house} /> : <LeaderboardBlock house={house} />}
 
       <section className="house-block" aria-label="Family">
         <h2>Family</h2>
@@ -228,6 +277,36 @@ function MemberView(props: {
         )}
       </section>
 
+      {game === "palace" && (
+        <section className="house-block" aria-label="Palace house rules">
+          <h2>Palace house rules</h2>
+          <ul className="house-list">
+            {house.palacePresets.map((p) => (
+              <li key={p.id}>
+                <div>
+                  <strong>
+                    {p.name}
+                    {p.id === house.palaceDefault && <em> house default</em>}
+                  </strong>
+                  <small>{palaceSummary(p)}</small>
+                </div>
+                {canManage && (
+                  <button type="button" className="link" onClick={() => setEditingPalace(structuredClone(p))}>
+                    Edit
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+          {canManage && (
+            <button type="button" className="link" onClick={() => setEditingPalace({ ...structuredClone(palaceRules), id: "", name: "New rules" })}>
+              Add another set of rules
+            </button>
+          )}
+        </section>
+      )}
+
+      {game === "spades" && (
       <section className="house-block" aria-label="House rules">
         <h2>House rules</h2>
         <ul className="house-list">
@@ -255,12 +334,36 @@ function MemberView(props: {
         )}
         {!canManage && <p className="fine">Ask {house.members.find((m) => m.role === "owner")?.name ?? "the owner"} to change the house rules.</p>}
       </section>
+      )}
 
       {props.problem && <p className="error">{props.problem}</p>}
       <button type="button" className="link" onClick={props.onLeave}>
         Back to the start
       </button>
 
+      {editingPalace && (
+        <PalaceRulesEditor
+          rules={editingPalace}
+          isDefault={editingPalace.id === house.palaceDefault}
+          canDelete={!!editingPalace.id && house.palacePresets.length > 1}
+          onClose={() => setEditingPalace(null)}
+          onSave={(rules, makeDefault) =>
+            attempt(async () => {
+              const { id, ...rest } = rules;
+              const saved = await houses.savePalace(house.slug, (id ? rules : rest) as PalaceRules, makeDefault);
+              setEditingPalace(null);
+              return saved;
+            })
+          }
+          onDelete={() =>
+            attempt(async () => {
+              const saved = await houses.deletePalace(house.slug, editingPalace.id);
+              setEditingPalace(null);
+              return saved;
+            })
+          }
+        />
+      )}
       {editing && (
         <RulesSheet
           rules={editing}
@@ -329,12 +432,61 @@ function RulesSheet(props: {
   );
 }
 
+function PalaceRulesEditor(props: {
+  rules: PalaceRules;
+  isDefault: boolean;
+  canDelete: boolean;
+  onClose: () => void;
+  onSave: (rules: PalaceRules, makeDefault: boolean) => void;
+  onDelete: () => void;
+}) {
+  const [rules, setRules] = useState(props.rules);
+  const [makeDefault, setMakeDefault] = useState(props.isDefault);
+  const errors = validatePalaceRules(rules);
+  return (
+    <div className="rules-sheet" role="dialog" aria-label="Edit Palace house rules">
+      <div className="rules-sheet-body setup">
+        <TextField label="Name of these rules" value={rules.name} maxlength={30} onValueChange={(e: CustomEvent<string>) => setRules((r) => ({ ...r, name: e.detail }))} />
+        <section className="rules">
+          <PalaceRulesFields rules={rules} onChange={(patch) => setRules((r) => ({ ...r, ...patch }))} />
+        </section>
+        {!props.isDefault && (
+          <label className="check">
+            <input type="checkbox" checked={makeDefault} onChange={(e) => setMakeDefault(e.target.checked)} /> Make these the house default
+          </label>
+        )}
+        {errors.length > 0 && <p className="error">{errors.join(" ")}</p>}
+        <button type="button" className="primary" disabled={errors.length > 0} onClick={() => props.onSave(rules, makeDefault)}>
+          Save
+        </button>
+        <div className="rule-actions">
+          <button type="button" className="link" onClick={props.onClose}>
+            Cancel
+          </button>
+          {props.canDelete && (
+            <button type="button" className="link danger" onClick={() => confirm(`Delete "${rules.name}"?`) && props.onDelete()}>
+              Delete these rules
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function tableTitle(t: HouseTable): string {
-  if (t.summary?.phase === "finished") {
+  if (t.game === "palace") {
+    const s = t.summary;
+    if (s?.phase === "finished") return `🏰 Finished · ${t.seats[s.finished?.[0] ?? 0]?.name ?? "Someone"} went out first`;
+    if (t.started) return `🏰 Playing · ${s?.finished?.length ?? 0} out so far`;
+    const seated = t.seats.filter((x) => x.name).length;
+    return seated === 0 ? "🏰 Waiting for players" : `🏰 ${seated} of ${t.seats.length} seated`;
+  }
+  if (t.summary?.phase === "finished" && t.summary.scores) {
     const [a, b] = t.summary.scores;
     return `Finished · ${a?.points} to ${b?.points}`;
   }
-  if (t.started && t.summary) {
+  if (t.started && t.summary?.scores) {
     const [a, b] = t.summary.scores;
     return `Hand ${t.summary.hand} · ${a?.points} to ${b?.points}`;
   }
@@ -342,10 +494,59 @@ function tableTitle(t: HouseTable): string {
   return seated === 0 ? "Waiting for players" : `${seated} of 4 seated`;
 }
 
+/** Palace standings: first out counts as a win, and being left holding the cards is remembered too. */
+function PalaceLeaderboardBlock({ house }: { house: House }) {
+  const [board, setBoard] = useState<PalaceStandings | null>(null);
+  const finished = house.tables.filter((t) => t.game === "palace" && t.summary?.phase === "finished").length;
+  useEffect(() => {
+    houses.palaceLeaderboard(house.slug).then(setBoard, () => setBoard(null));
+  }, [house.slug, finished]);
+  if (!board) return null;
+  const ranked = board.players.filter((p) => p.played > 0);
+  return (
+    <section className="house-block" aria-label="Palace leaderboard">
+      <h2>Palace leaderboard</h2>
+      {board.games === 0 ? (
+        <p className="fine">Standings start after the first finished Palace game.</p>
+      ) : (
+        <>
+          <table className="standings">
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Player</th>
+                <th scope="col">Won</th>
+                <th scope="col">Last</th>
+                <th scope="col">Played</th>
+                <th scope="col">Avg place</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ranked.map((p, i) => (
+                <tr key={p.id} className={p.id === house.me.id ? "me" : ""}>
+                  <td>{i === 0 && p.won > 0 ? "👑" : i + 1}</td>
+                  <th scope="row">{p.name}</th>
+                  <td>{p.won}</td>
+                  <td>{p.last}</td>
+                  <td>{p.played}</td>
+                  <td>{p.avgPlace}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="fine">
+            {board.games} finished game{board.games === 1 ? "" : "s"}. Won is first out; Last is left holding the cards.
+          </p>
+        </>
+      )}
+    </section>
+  );
+}
+
 /** Standings from the house's finished games. Refreshes when a game finishes. */
 function LeaderboardBlock({ house }: { house: House }) {
   const [board, setBoard] = useState<Standings | null>(null);
-  const finished = house.tables.filter((t) => t.summary?.phase === "finished").length;
+  const finished = house.tables.filter((t) => t.game !== "palace" && t.summary?.phase === "finished").length;
   useEffect(() => {
     houses.leaderboard(house.slug).then(setBoard, () => setBoard(null));
   }, [house.slug, finished]);

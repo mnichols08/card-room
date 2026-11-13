@@ -1,0 +1,56 @@
+<!--
+  A player at a Palace table: their name, how many cards they hold, their face-up cards and how many
+  face-down cards are under them. `active` highlights whose turn it is; `place` (1, 2, …) shows once
+  they're out, and `last` marks the one left holding cards.
+  `up` is a list of `{ suit, rank }` cards (rank 2–14).
+-->
+<script>
+  const SYMBOLS = { spades: "♠", hearts: "♥", diamonds: "♦", clubs: "♣" }
+  const RANKS = { 11: "J", 12: "Q", 13: "K", 14: "A" }
+  const label = (c) => `${RANKS[c.rank] ?? c.rank}${SYMBOLS[c.suit]}`
+  const red = (c) => c.suit === "hearts" || c.suit === "diamonds"
+  const medal = (n) => (n === 1 ? "🥇 Out first" : n === 2 ? "🥈 Out" : n === 3 ? "🥉 Out" : `Out ${n}th`)
+  const cards = (n) => `${n} card${n === 1 ? "" : "s"}`
+  const chips = up.map((c, i) => ({ id: `${label(c)}-${i}`, text: label(c), red: red(c) }))
+</script>
+<style>
+  :host { display: block; }
+  .seat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 6px 8px;
+    min-width: 76px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.28);
+    color: var(--table-ink, #fbf6ec);
+    font-size: 0.75rem;
+    line-height: 1.25;
+    border: 2px solid transparent;
+    transition: border-color var(--duration-normal, 200ms);
+  }
+  strong { font-size: 0.9rem; max-width: 9em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .active { border-color: var(--primary, #e8c46a); box-shadow: 0 0 12px color-mix(in oklab, var(--primary, #e8c46a) 50%, transparent); }
+  .out { opacity: 0.75; }
+  .table-cards { display: flex; gap: 2px; align-items: center; min-height: 22px; }
+  .chip { padding: 1px 4px; border-radius: 4px; background: #fffdf8; color: #1d1a16; font-weight: 700; font-size: 0.75rem; }
+  .chip.red { color: #b3261e; }
+  .down { padding: 1px 5px; border-radius: 4px; background: repeating-linear-gradient(45deg, #7a1f2b 0 4px, #8e2a36 4px 8px); color: #fff; font-weight: 700; }
+  .place { color: var(--primary, #e8c46a); font-weight: 700; }
+  .last { color: #ffb4a8; font-weight: 700; }
+</style>
+<palace-seat name up={[]} down={0} held={0} active={false} place={0} last={false}>
+  <div class="seat" class:active={active} class:out={place > 0} aria-current={active ? "true" : null}>
+    <strong>{name}</strong>
+    <span zb-if={last} class="last">Left holding the cards</span>
+    <span zb-else-if={place > 0} class="place">{medal(place)}</span>
+    <span zb-else>{cards(held)} in hand</span>
+    <div zb-if={place === 0 && !last} class="table-cards" aria-label={`${up.length} face up, ${down} face down`}>
+      <zb-each items={chips} as="chip" key={chip.id}>
+        <span class="chip" class:red={chip.red}>{chip.text}</span>
+      </zb-each>
+      <span zb-if={down > 0} class="down" title="Face down">{down}</span>
+    </div>
+  </div>
+</palace-seat>

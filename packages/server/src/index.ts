@@ -46,13 +46,18 @@ createServer(async (req, res) => {
     const path = decodeURIComponent(new URL(req.url ?? "/", "http://x").pathname);
     let file = normalize(join(web, path));
     if (!file.startsWith(web)) return void res.writeHead(403).end();
+    // The embed's files are fetched by other sites' pages: a missing one is a 404, never the app.
+    const embed = path.startsWith("/embed/");
+    if (embed && (!existsSync(file) || statSync(file).isDirectory())) return void res.writeHead(404).end();
     if (!existsSync(file) || statSync(file).isDirectory()) file = join(web, "index.html"); // the app routes itself
     if (!existsSync(file)) return void res.writeHead(404).end("Build the web app first: npm run build -w @spades/web");
     // The page and the service worker must never be stale; the hashed assets can be cached for good.
     const fresh = file.endsWith("index.html") || file.endsWith("sw.js") || file.endsWith(".webmanifest");
     res.writeHead(200, {
       "content-type": TYPES[extname(file)] ?? "application/octet-stream",
-      "cache-control": fresh ? "no-cache" : path.startsWith("/assets/") ? "public, max-age=31536000, immutable" : "public, max-age=3600",
+      "cache-control": fresh ? "no-cache" : path.startsWith("/assets/") ? "public, max-age=31536000, immutable" : embed ? "public, max-age=300" : "public, max-age=3600",
+      // A <script type="module"> on another site fetches with CORS.
+      ...(embed ? { "access-control-allow-origin": "*", "cross-origin-resource-policy": "cross-origin" } : {}),
     });
     createReadStream(file).pipe(res);
   } catch (e) {

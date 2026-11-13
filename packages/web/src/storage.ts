@@ -1,4 +1,5 @@
 import { brokennilsTable, builtInPresets, type RulePreset } from "@spades/rules";
+import { familyPalace, type PalaceRules } from "@cardroom/palace";
 
 const NAME_KEY = "spades:name";
 const PRESETS_KEY = "spades:presets";
@@ -49,4 +50,26 @@ export function rememberHouse(house: { slug: string; name: string }) {
 }
 export function forgetHouse(slug: string) {
   write(HOUSES_KEY, loadMyHouses().filter((h) => h.slug !== slug));
+}
+
+// ---- More than one game ----------------------------------------------------------------------
+
+export type GameId = "spades" | "palace";
+const GAME_KEY = "cardroom:game";
+export const loadGame = () => read<GameId>(GAME_KEY, "spades");
+export const saveGame = (game: GameId) => write(GAME_KEY, game);
+
+const PALACE_LAST_KEY = "cardroom:palace:last";
+const PALACE_SAVED_KEY = "cardroom:palace:presets";
+const PALACE_SEATS_KEY = "cardroom:palace:seats";
+export const loadPalaceRules = () => read<PalaceRules>(PALACE_LAST_KEY, familyPalace);
+export const savePalaceRules = (rules: PalaceRules) => write(PALACE_LAST_KEY, rules);
+export const loadPalaceSeats = () => read<number>(PALACE_SEATS_KEY, 4);
+export const savePalaceSeats = (n: number) => write(PALACE_SEATS_KEY, n);
+export const loadSavedPalace = () => read<PalaceRules[]>(PALACE_SAVED_KEY, []);
+export function savePalacePreset(rules: PalaceRules) {
+  write(PALACE_SAVED_KEY, [...loadSavedPalace().filter((p) => p.id !== rules.id), rules]);
+}
+export function deletePalacePreset(id: string) {
+  write(PALACE_SAVED_KEY, loadSavedPalace().filter((p) => p.id !== id));
 }
