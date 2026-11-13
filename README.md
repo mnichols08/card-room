@@ -62,6 +62,22 @@ else's site keep you signed in, and the card room is where your houses and table
 The build also writes a WordPress plugin and a Shopify app block to `packages/web/dist/embed`
 (see its README).
 
+### On an open.blog site
+
+open.blog sites place web components their theme offers from **Admin → Landing page → Add a
+section**, with a form and no code ([ADR 0408](https://github.com/journey-to-code-org/open.blog/blob/main/docs/adr/0408-a-theme-offers-components-an-owner-places-with-a-form-and-a-section-holds-only-a-name-and-checked-values.md)).
+The web build writes `<card-room>` in that shape to `packages/web/dist/embed/openblog/` (also served at
+`/embed/openblog/`):
+
+1. Copy `card-room.js`, `card-room.zb` and `card-room.css` into the theme's `components/` folder.
+2. Add the `components` entry from `theme-components.json` to the theme's `theme.json`, and list
+   `components/card-room.css` under its `stylesheets`. With seasons, put it on the theme they extend.
+3. In Admin: **Landing page → Add a section → Card room**, then the card room's address and, for a
+   Challenge button, your challenge link code.
+
+With the `zubra` command installed where the site builds, open.blog renders the widget ahead, so
+readers without JavaScript still see it and its link to the card room.
+
 ## Hosting the card room
 
 One container runs everything; mount a volume so tables survive restarts:

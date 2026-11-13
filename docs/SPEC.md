@@ -105,9 +105,10 @@ packages/
 5. **Houses** — a family's house with one invite link that keeps working, members and roles (owner, admin, member), house rules with a default, and its tables. ✅
 6. **Leaderboard** — per house, from finished games: wins and win rate per member, best partners, nils, and the biggest comeback. ✅
 7. **Challenges + notifications** — an installable app; a challenge link anyone can use to challenge a player (it sets up a table and buzzes their phone); a buzz for the house when someone opens a table. ✅
-8. **Tournaments** — a bracket of partner teams with one locked set of house rules, feeding the leaderboard.
-9. **open.blog embed** for Grammi's House (the challenge link is the first piece).
-10. *(Later)* Public lobby.
+8. **More games: Palace** — a second game on the same rooms, houses, challenges, bots and chat: Palace (Castle) with house-rule presets, a Palace table, Palace house rules and a Palace leaderboard. ✅
+9. **Embed** — a `<card-room>` widget for any site (practice in the page, challenges and family tables in the card room), and the same widget as an open.blog theme component an owner places from Admin. ✅
+10. **Tournaments** — a bracket with one locked set of house rules, feeding the leaderboard.
+11. *(Later)* Public lobby.
 
 ## Open questions
 
