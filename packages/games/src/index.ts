@@ -7,5 +7,6 @@ export * from "./crazy8.js";
 export * from "./gin.js";
 export * from "./pinochle.js";
 export * from "./canasta.js";
+export * from "./gofish.js";
 export * from "./registry.js";
 export * from "./talk.js";

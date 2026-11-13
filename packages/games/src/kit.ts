@@ -5,7 +5,7 @@
 // scores. One table screen draws every game from that, and one room runs them all on the server.
 import { mulberry32, type Card, type PlayStyle, type Suit } from "@spades/rules";
 
-export type KitGameId = "hearts" | "ohhell" | "euchre" | "crazy8" | "gin" | "pinochle" | "canasta";
+export type KitGameId = "hearts" | "ohhell" | "euchre" | "crazy8" | "gin" | "pinochle" | "canasta" | "gofish";
 
 /** A move that isn't allowed. The message is shown to the player as is. */
 export class GameError extends Error {}
@@ -123,6 +123,8 @@ export type Center =
       /** What to call the piles, when it isn't "N to draw" and "N in the pile" (Euchre's kitty). */
       stockLabel?: string;
       discardLabel?: string;
+      /** Only a stock, no discard pile beside it (Go Fish's pond). */
+      noDiscard?: boolean;
     }
   | { kind: "none" };
 

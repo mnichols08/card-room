@@ -183,7 +183,7 @@ export function KitTable({ view, names, act, onLeave, banner, chat, settings }: 
               <div className="felt-actions">
                 {view.pick.actions.map((a) => (
                   <button
-                    key={a.label}
+                    key={`${a.label}-${JSON.stringify(a.extra ?? {})}`}
                     type="button"
                     className={a.primary ? "primary" : "secondary"}
                     disabled={!pickReady}
@@ -192,7 +192,7 @@ export function KitTable({ view, names, act, onLeave, banner, chat, settings }: 
                       setPicked([]);
                     }}
                   >
-                    {a.label}
+                    {named(a.label, names)}
                     {view.pick!.max > 1 ? ` (${picked.length})` : ""}
                   </button>
                 ))}
@@ -329,7 +329,7 @@ function CenterArea({ center, view, names, send }: { center: Center; view: KitVi
           )}
           {center.stock !== null && <small>{center.stockLabel ?? `${center.stock} to draw`}</small>}
         </div>
-        <div className="pile">
+        {!center.noDiscard && <div className="pile">
           {top.length ? (
             <div className="pile-stack">
               {top.map((c, i) => {
@@ -355,7 +355,7 @@ function CenterArea({ center, view, names, send }: { center: Center; view: KitVi
             {center.discardLabel ? named(center.discardLabel, names) : `${center.discardCount} in the pile`}
             {center.note ? ` · ${named(center.note, names)}` : ""}
           </small>
-        </div>
+        </div>}
       </div>
     );
   }
