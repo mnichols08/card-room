@@ -14,5 +14,8 @@
   },
   "devDependencies": {
     "railway": "^3.17.0"
+  },
+  "engines": {
+    "node": ">=22.12"
   }
 }
