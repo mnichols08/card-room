@@ -321,7 +321,7 @@ function CenterArea({ center, view, names, send }: { center: Center; view: KitVi
           ) : (
             <div className="empty-slot">Empty</div>
           )}
-          {center.stock !== null && <small>{center.stock} to draw</small>}
+          {center.stock !== null && <small>{center.stockLabel ?? `${center.stock} to draw`}</small>}
         </div>
         <div className="pile">
           {top.length ? (
@@ -343,10 +343,11 @@ function CenterArea({ center, view, names, send }: { center: Center; view: KitVi
               })}
             </div>
           ) : (
-            <div className="empty-slot">Discards</div>
+            <div className="empty-slot">{center.discardLabel ? "" : "Discards"}</div>
           )}
           <small>
-            {center.discardCount} in the pile{center.note ? ` · ${named(center.note, names)}` : ""}
+            {center.discardLabel ? named(center.discardLabel, names) : `${center.discardCount} in the pile`}
+            {center.note ? ` · ${named(center.note, names)}` : ""}
           </small>
         </div>
       </div>

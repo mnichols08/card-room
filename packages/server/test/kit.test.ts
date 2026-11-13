@@ -84,6 +84,29 @@ describe("kit games in a house", () => {
     expect(board.players[0]).toMatchObject({ name: "brokennil", played: 1 });
   }, 60_000);
 
+  it("Euchre: a partnership table in a house; partners share the win on the leaderboard", async () => {
+    const { phone } = setup();
+    const grammi = phone();
+    const made = (await grammi("/houses", { name: "Grammi's House", you: "brokennil" })).body;
+    const rick = phone();
+    await rick("/houses/grammis-house/join", { code: made.code, name: "Rick" });
+    // To 3, so the test is short.
+    await grammi("/houses/grammis-house/presets", { game: "euchre", preset: { ...made.kitRules.euchre.presets[0], id: "", name: "Short", playTo: 3 }, makeDefault: true });
+    const { id } = (await grammi("/houses/grammis-house/tables", { game: "euchre", seats: 2 })).body;
+    const room = (await grammi(`/rooms/${id}`)).body;
+    expect(room.seats).toHaveLength(4);
+    await grammi(`/rooms/${id}/sit`, { seat: 0, name: "brokennil" });
+    await rick(`/rooms/${id}/sit`, { seat: 2, name: "Rick" });
+    for (const [seat, name] of [[1, "Hank"], [3, "Dot"]] as const) await grammi(`/rooms/${id}/bot`, { seat, name });
+    await grammi(`/rooms/${id}/start`, {});
+    const [end] = await Promise.all([playKit(grammi, id, 0), playKit(rick, id, 2)]);
+    const board = (await grammi("/houses/grammis-house/leaderboard?game=euchre")).body;
+    expect(board).toMatchObject({ game: "euchre", games: 1, teams: true });
+    const lines = Object.fromEntries(board.players.map((p: { name: string; won: number; played: number }) => [p.name, [p.played, p.won]]));
+    const weWon = end.over.winners.includes(0) ? 1 : 0;
+    expect(lines).toMatchObject({ brokennil: [1, weWon], Rick: [1, weWon] });
+  }, 60_000);
+
   it("a challenge link takes Hearts challenges: both people seated, computers in the rest", async () => {
     const { phone } = setup();
     const grammi = phone();

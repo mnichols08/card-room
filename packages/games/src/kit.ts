@@ -120,6 +120,9 @@ export type Center =
       takeMove: Record<string, unknown> | null;
       /** A note on the pile: "Frozen", "Suit: ♥". */
       note?: string | null;
+      /** What to call the piles, when it isn't "N to draw" and "N in the pile" (Euchre's kitty). */
+      stockLabel?: string;
+      discardLabel?: string;
     }
   | { kind: "none" };
 
