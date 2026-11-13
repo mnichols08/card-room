@@ -552,7 +552,9 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; }
 
 /* Laptops: an oval felt with a wood rail, the hand tucked over its edge. */
 @media (min-width: 1024px) {
-  body { background: radial-gradient(ellipse at 50% 30%, #1a3f30, #0d2219 70%); }
+  /* The room behind the table: painted on a layer pinned to the screen, so it never shifts or
+     seams when a page scrolls (iPhone and iPad Safari ignore background-attachment: fixed). */
+  body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: radial-gradient(ellipse at 50% 30%, #1a3f30, #0d2219 70%); }
   .table { background: none; }
   .felt {
     margin: 12px 24px 0;
@@ -763,8 +765,7 @@ html[data-motion="off"] .kit-seat.active strong::before, html[data-motion="calm"
 
 /* Laptops: how it's played on the left, who's playing (and the buttons) on the right. */
 @media (min-width: 960px) {
-  .setup.wide { max-width: 1120px; padding: 40px 48px 64px; gap: 20px; background: none; }
-  body:has(.setup.wide) { background: radial-gradient(ellipse at 50% 20%, var(--felt-light), var(--felt) 45%, var(--felt-dark)) fixed; }
+  .setup.wide { max-width: 1120px; padding: 40px 48px 64px; gap: 20px; }
   .setup.wide .setup-head h1 { font-size: 3.6rem; }
   .setup.wide .setup-head p { font-size: 1.1rem; }
   .setup.wide .all-games { align-self: flex-start; }
@@ -791,3 +792,12 @@ html[data-motion="off"] .kit-seat.active strong::before, html[data-motion="calm"
   .s-about .rules > .rule-actions, .s-about .rules > .error, .s-about .rules > :is(h2, h3, p) { grid-column: 1 / -1; }
   .s-actions .deal { font-size: 1.15rem; padding-block: 16px; }
 }
+
+/* Setup screens at every size: the felt is pinned to the screen and the page scrolls over it. */
+.setup.wide { background: none; }
+body:has(.setup.wide)::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(ellipse at 50% 15%, var(--felt-light), var(--felt) 50%, var(--felt-dark));
+}
+/* Behind everything, in case a page pulls past its edge: the dark of the felt, never white. */
+html:has(.setup.wide), html:has(.table), html:has(.setup.house) { background-color: #0d2219; }
