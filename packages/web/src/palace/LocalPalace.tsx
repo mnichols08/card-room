@@ -15,7 +15,8 @@ import {
   type PalaceState,
 } from "@cardroom/palace";
 import type { ChatMessage } from "@spades/rooms/client";
-import { personaFor, pickPersonas } from "@spades/rules";
+import { paceDelay, personaFor, pickPersonas, styleFor } from "@spades/rules";
+import { loadTableSettings, saveTableSettings } from "../storage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PalaceTable } from "./PalaceTable";
 
@@ -25,6 +26,7 @@ export function LocalPalace({ name, rules, seats, seed, onLeave }: { name: strin
   const names = useMemo(() => [name, ...bots], [name, bots]);
   const cast = useMemo(() => ({ bots: bots.map((n, i) => ({ seat: i + 1, name: n })) }), [bots]);
   const [game, setGame] = useState<PalaceState>(() => newPalace(rules, seats, seed, seed % seats));
+  const [settings, setSettings] = useState(loadTableSettings);
   const latest = useRef(game);
   latest.current = game;
 
@@ -47,12 +49,12 @@ export function LocalPalace({ name, rules, seats, seed, onLeave }: { name: strin
     if (seat === undefined) return;
     const t = setTimeout(() => {
       setGame((prev) => {
-        const action = palaceBot(prev, seat, personaFor(bots[seat - 1]!).style);
+        const action = palaceBot(prev, seat, styleFor(personaFor(bots[seat - 1]!).style, settings.skill));
         return action ? applyPalace(prev, action) : prev;
       });
-    }, palaceThinkingTime(game, seat, bots[seat - 1]!));
+    }, paceDelay(settings.pace, () => palaceThinkingTime(game, seat, bots[seat - 1]!)));
     return () => clearTimeout(t);
-  }, [game, bots]);
+  }, [game, bots, settings]);
 
   // Table talk.
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -89,5 +91,21 @@ export function LocalPalace({ name, rules, seats, seed, onLeave }: { name: strin
   };
 
   const view = useMemo(() => viewPalace(game, 0), [game]);
-  return <PalaceTable view={view} seat={0} names={names} act={act} onLeave={onLeave} chat={{ messages, mySeat: 0, send }} />;
+  return (
+    <PalaceTable
+      view={view}
+      seat={0}
+      names={names}
+      act={act}
+      onLeave={onLeave}
+      chat={{ messages, mySeat: 0, send }}
+      settings={{
+        value: settings,
+        change: (next) => {
+          saveTableSettings(next);
+          setSettings(next);
+        },
+      }}
+    />
+  );
 }

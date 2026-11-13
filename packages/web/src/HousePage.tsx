@@ -8,7 +8,7 @@ import { PalaceRulesFields, palaceSummary } from "./palace/PalaceRules";
 import { NotifyButton } from "./NotifyButton";
 import { describe, RulesFields } from "./RulesEditor";
 import { Choice } from "./RulesEditor";
-import { forgetHouse, loadGame, loadPalaceSeats, loadSavedName, rememberHouse, saveGame, saveName, savePalaceSeats, type GameId } from "./storage";
+import { forgetHouse, loadGame, loadTableSettings, loadPalaceSeats, loadSavedName, rememberHouse, saveGame, saveName, savePalaceSeats, type GameId } from "./storage";
 
 interface Props {
   slug: string;
@@ -192,7 +192,7 @@ function MemberView(props: {
             onClick={() =>
               attempt(async () => {
                 savePalaceSeats(seats);
-                props.onOpenTable((await houses.openTable(house.slug, palaceRules.id, "palace", seats)).id);
+                props.onOpenTable((await houses.openTable(house.slug, palaceRules.id, "palace", seats, loadTableSettings())).id);
               })
             }
           >
@@ -215,7 +215,7 @@ function MemberView(props: {
             </select>
           </label>
         )}
-        <button type="button" className="primary deal" onClick={() => attempt(async () => props.onOpenTable((await houses.openTable(house.slug, presetId)).id))}>
+        <button type="button" className="primary deal" onClick={() => attempt(async () => props.onOpenTable((await houses.openTable(house.slug, presetId, "spades", undefined, loadTableSettings())).id))}>
           Start a table
         </button>
         <p className="rules-summary">{describe(house.presets.find((p) => p.id === presetId) ?? defaultRules ?? house.presets[0]!)}</p>

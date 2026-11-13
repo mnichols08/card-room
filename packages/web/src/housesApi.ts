@@ -1,5 +1,5 @@
 import type { PalaceRules } from "@cardroom/palace";
-import type { RulePreset } from "@spades/rules";
+import type { RulePreset, TableSettings } from "@spades/rules";
 import type { GameId } from "./storage";
 
 export interface HouseTable {
@@ -71,7 +71,7 @@ export const houses = {
   join: (slug: string, code: string, name: string) => call<House>(at(slug, "join"), { code, name }),
   leaderboard: (slug: string) => call<Standings>(at(slug, "leaderboard")),
   palaceLeaderboard: (slug: string) => call<PalaceStandings>(`${at(slug, "leaderboard")}?game=palace`),
-  openTable: (slug: string, presetId?: string, game: GameId = "spades", seats?: number) => call<{ id: string }>(at(slug, "tables"), { presetId, game, seats }),
+  openTable: (slug: string, presetId?: string, game: GameId = "spades", seats?: number, settings?: TableSettings) => call<{ id: string }>(at(slug, "tables"), { presetId, game, seats, settings }),
   rename: (slug: string, name: string) => call<House>(at(slug, "me"), { name }),
   savePreset: (slug: string, preset: RulePreset, makeDefault = false) => call<House>(at(slug, "presets"), { preset, makeDefault }),
   deletePreset: (slug: string, id: string) => call<House>(at(slug, "presets/delete"), { id }),

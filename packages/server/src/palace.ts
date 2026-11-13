@@ -15,7 +15,7 @@ import {
   type PalaceState,
   type PalaceView,
 } from "@cardroom/palace";
-import { personaFor } from "@spades/rules";
+import { paceDelay, personaFor, styleFor, type TableSettings } from "@spades/rules";
 import type { RoomDefinition } from "@spades/rooms/server";
 
 /** A Palace room's options: which game, the house rules, and how many seats. */
@@ -75,9 +75,9 @@ export const palaceRoom: RoomDefinition<PalaceState, PalaceMove, PalaceView, Pal
     left: state.players.map((p) => p.hand.length + p.up.length + p.down.length),
   }),
   finished: (state) => state.phase === "finished",
-  botDelay: (state, seat, name) => palaceThinkingTime(state, seat, name),
-  bot(state, seat, name) {
-    const action = palaceBot(state, seat, personaFor(name).style);
+  botDelay: (state, seat, name, settings?: TableSettings) => paceDelay(settings?.pace ?? "natural", () => palaceThinkingTime(state, seat, name)),
+  bot(state, seat, name, settings?: TableSettings) {
+    const action = palaceBot(state, seat, styleFor(personaFor(name).style, settings?.skill));
     if (!action) return null;
     const { seat: _seat, ...move } = action;
     return move as PalaceMove;

@@ -1,4 +1,4 @@
-import { brokennilsTable, builtInPresets, type RulePreset } from "@spades/rules";
+import { brokennilsTable, builtInPresets, cleanSettings, DEFAULT_SETTINGS, type RulePreset, type TableSettings } from "@spades/rules";
 import { familyPalace, normalizePalaceRules, type PalaceRules } from "@cardroom/palace";
 
 const NAME_KEY = "spades:name";
@@ -73,3 +73,8 @@ export function savePalacePreset(rules: PalaceRules) {
 export function deletePalacePreset(id: string) {
   write(PALACE_SAVED_KEY, loadSavedPalace().filter((p) => p.id !== id));
 }
+
+// ---- Table settings: how well and how fast the computer players play --------------------------
+const SETTINGS_KEY = "cardroom:tableSettings";
+export const loadTableSettings = () => cleanSettings(read<unknown>(SETTINGS_KEY, DEFAULT_SETTINGS));
+export const saveTableSettings = (settings: TableSettings) => write(SETTINGS_KEY, settings);

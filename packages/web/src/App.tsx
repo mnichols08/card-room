@@ -11,7 +11,7 @@ import { RoomTable } from "./RoomTable";
 import { LocalPalace } from "./palace/LocalPalace";
 import { PalaceSetup } from "./palace/PalaceSetup";
 import { Setup } from "./Setup";
-import { loadGame, rememberHouse, saveGame, type GameId } from "./storage";
+import { loadGame, loadTableSettings, rememberHouse, saveGame, type GameId } from "./storage";
 
 type Screen =
   | { kind: "setup" }
@@ -98,7 +98,7 @@ export function App() {
       <PalaceSetup
         onPickGame={pickGame}
         onPractice={(name, rules, seats) => setScreen({ kind: "local-palace", name, rules, seats, seed: Math.floor(Math.random() * 2 ** 31) })}
-        onFamilyTable={async (rules, seats) => openTable(await createRoom({ game: "palace", rules, seats }), null)}
+        onFamilyTable={async (rules, seats) => openTable(await createRoom({ game: "palace", rules, seats }, { settings: loadTableSettings() }), null)}
         onOpenHouse={openHouse}
       />
     );
@@ -107,7 +107,7 @@ export function App() {
     <Setup
       onPickGame={pickGame}
       onStart={(name, preset) => setScreen({ kind: "local", name, preset, seed: Math.floor(Math.random() * 2 ** 31) })}
-      onFamilyTable={async (preset) => openTable(await createRoom(preset), null)}
+      onFamilyTable={async (preset) => openTable(await createRoom(preset, { settings: loadTableSettings() }), null)}
       onOpenHouse={openHouse}
       onMakeHouse={async (houseName, you, preset) => {
         const house = await houses.create(houseName, you, preset);

@@ -1,3 +1,4 @@
+import { OpponentSettings } from "../TableSettings";
 import { familyPalace, PALACE_PRESETS, validatePalaceRules, type PalaceRules } from "@cardroom/palace";
 import SelectField from "@spades/ui/zubra-ui/select-field.zb";
 import TextField from "@spades/ui/zubra-ui/text-field.zb";
@@ -82,6 +83,7 @@ export function PalaceSetup({ onPickGame, onPractice, onFamilyTable, onOpenHouse
         }}
       />
       <Choice label="Players" value={seats} options={[2, 3, 4, 5, 6].map((n) => [String(n), `${n} players`])} onChange={(v) => setSeats(Number(v))} />
+      <OpponentSettings />
       <PalaceRulesSheet rules={rules} />
 
       <button type="button" className="link" onClick={() => setShowRules((v) => !v)}>

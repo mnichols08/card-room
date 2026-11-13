@@ -32,7 +32,7 @@ interface Rooms {
     write(collection: string, key: string, fields: Record<string, unknown>): Promise<unknown>;
     documents(): Promise<{ get(collection: string, key: string): Record<string, unknown> | undefined }>;
   };
-  create(options: TableOptions): Promise<string>;
+  create(options: TableOptions, settings?: unknown): Promise<string>;
   seatPlayer(id: string, seat: number, player: string, name: string): Promise<void>;
   seatBot(id: string, seat: number, name: string): Promise<void>;
   say(id: string, seat: number, text: string): Promise<unknown>;

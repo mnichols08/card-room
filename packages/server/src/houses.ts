@@ -51,7 +51,7 @@ interface Rooms {
     write(collection: string, key: string, fields: Record<string, unknown>): Promise<unknown>;
     documents(): Promise<{ get(collection: string, key: string): Record<string, unknown> | undefined }>;
   };
-  create(options: TableOptions): Promise<string>;
+  create(options: TableOptions, settings?: unknown): Promise<string>;
   room(id: string): Promise<RoomDoc<unknown> | undefined>;
 }
 
@@ -245,18 +245,18 @@ export function createHouses(rooms: Rooms, { mount = "/houses", push }: { mount?
     if (!me) return json({ error: "Join the house first." }, 403);
     const canManage = me.role === "owner" || me.role === "admin";
 
-    // POST /houses/:slug/tables { game?, presetId?, seats? } → a new table with house rules
+    // POST /houses/:slug/tables { game?, presetId?, seats?, settings? } → a new table with house rules
     if (action === "tables") {
       const game = gameOf(input.game);
       let id: string;
       let rulesName: string;
       if (game === "palace") {
         const rules = house.palacePresets!.find((p) => p.id === (input.presetId ?? house.palaceDefault)) ?? house.palacePresets![0] ?? familyPalace;
-        id = await rooms.create(palaceOptions(rules, input.seats));
+        id = await rooms.create(palaceOptions(rules, input.seats), input.settings);
         rulesName = rules.name;
       } else {
         const preset = house.presets.find((p) => p.id === (input.presetId ?? house.defaultPreset)) ?? house.presets[0] ?? brokennilsTable;
-        id = await rooms.create(preset);
+        id = await rooms.create(preset, input.settings);
         rulesName = preset.name;
       }
       house.tables.push({ id, game, rules: rulesName, created: Date.now() });

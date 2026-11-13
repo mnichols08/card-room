@@ -5,7 +5,7 @@
 // game's options carry `game`.
 import { palaceGreet, palaceReplyTo, reactToPalace, type PalaceState } from "@cardroom/palace";
 import type { RoomDefinition } from "@spades/rooms/server";
-import { greet, reactToMove, replyTo, type GameState, type RulePreset, type Seat } from "@spades/rules";
+import { cleanSettings, greet, reactToMove, replyTo, type GameState, type RulePreset, type Seat } from "@spades/rules";
 import { palaceOptions, palaceRoom, type PalaceOptions } from "./palace.js";
 import { spadesRoom } from "./spades.js";
 
@@ -37,8 +37,10 @@ export const tableRoom: RoomDefinition<AnyState, unknown, unknown, TableOptions,
   // Every summary says its game, so a lobby or a blog embed can tell tables apart.
   summary: (s) => ({ game: gameOfState(s), ...(byState(s).summary?.(s) as object) }),
   finished: (s) => byState(s).finished?.(s) ?? false,
-  botDelay: (s, seat, name) => byState(s).botDelay?.(s, seat, name) ?? 700,
-  bot: (s, seat, name) => byState(s).bot?.(s, seat, name) ?? null,
+  // How well and how fast the computer players play, for every game.
+  settings: cleanSettings,
+  botDelay: (s, seat, name, settings) => byState(s).botDelay?.(s, seat, name, settings) ?? 700,
+  bot: (s, seat, name, settings) => byState(s).bot?.(s, seat, name, settings) ?? null,
 };
 
 export interface Remark {

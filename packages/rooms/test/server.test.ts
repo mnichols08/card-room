@@ -254,3 +254,51 @@ describe("chat", () => {
     ]);
   });
 });
+
+describe("table settings", () => {
+  // The counting game with settings: `step` is how much a bot adds, `wait` how long it takes.
+  const seen: { settings: unknown; delay: number }[] = [];
+  const withSettings: typeof counting = {
+    ...counting,
+    settings: (given) => {
+      const g = (given ?? {}) as { step?: unknown; wait?: unknown };
+      return { step: Number.isInteger(g.step) ? g.step : 1, wait: g.wait === "slow" ? "slow" : "fast" };
+    },
+    bot: (state, seat, _name, settings) => (state.turn === seat ? { add: settings.step } : null),
+    botDelay: (_state, _seat, _name, settings) => {
+      const delay = settings.wait === "slow" ? 400 : 5;
+      seen.push({ settings, delay });
+      return delay;
+    },
+  };
+
+  it("are kept with the room, public, passed to the bots, and changed mid-game by anyone seated", async () => {
+    const rooms = createRooms(withSettings, { log: memoryLog({ keep: "latest" }), seed: () => 1, id: () => "set123" });
+    open.push(rooms);
+    let cookie = "";
+    const post = async (path: string, body: unknown = {}, as = cookie) => {
+      const r = (await rooms.fetch(new Request(BASE + path, { method: "POST", headers: { "content-type": "application/json", cookie: as }, body: JSON.stringify(body) })))!;
+      const set = r.headers.get("set-cookie");
+      if (set) cookie = set.split(";")[0]!;
+      return { status: r.status, body: await r.json() };
+    };
+    const info = async () => (await rooms.fetch(new Request(`${BASE}/rooms/set123`, { headers: { cookie } })))!.json();
+
+    await post("/rooms", { options: { start: 0 }, settings: { step: 5, wait: "slow", nonsense: true } });
+    expect((await info()).settings).toEqual({ step: 5, wait: "slow" });
+    await post("/rooms/set123/sit", { seat: 0, name: "A" });
+    await post("/rooms/set123/bot", { seat: 1 });
+    await post("/rooms/set123/bot", { seat: 2 });
+    await post("/rooms/set123/start");
+    await post("/rooms/set123/act", { move: { add: 1 } });
+    await wait(30);
+    expect((await info()).summary).toEqual({ total: 1 }); // the slow bot is still thinking
+
+    // Speeding up mid-game: the waiting bot starts over at the new pace, and adds the new step.
+    expect((await post("/rooms/set123/settings", { settings: { step: 2, wait: "fast" } }, "rooms_player=stranger")).status).toBe(403);
+    expect((await post("/rooms/set123/settings", { settings: { step: 2, wait: "fast" } })).body).toEqual({ settings: { step: 2, wait: "fast" } });
+    await wait(60);
+    expect((await info()).summary).toEqual({ total: 5 }); // 1, then 2 and 2
+    expect(seen.at(-1)!.settings).toEqual({ step: 2, wait: "fast" });
+  });
+});

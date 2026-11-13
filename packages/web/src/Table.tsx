@@ -1,4 +1,4 @@
-import { cardId, passingSeats, sameCard, teamOf, type Bid, type Card, type GameState, type HandRecord, type Seat, type SeatView, type Team } from "@spades/rules";
+import { type TableSettings, cardId, passingSeats, sameCard, teamOf, type Bid, type Card, type GameState, type HandRecord, type Seat, type SeatView, type Team } from "@spades/rules";
 import BidPad from "@spades/ui/bid-pad.zb";
 import HandSummary from "@spades/ui/hand-summary.zb";
 import PlayingCard from "@spades/ui/playing-card.zb";
@@ -9,6 +9,7 @@ import { loadFeedbackSettings, play, saveFeedbackSettings } from "./feedback/sou
 import { useTableSounds } from "./feedback/useTableSounds";
 import { Bubble, TableChat, useBubbles, type ChatProps } from "./Chat";
 import type { TableState } from "./useTable";
+import { TableSettingsButton } from "./TableSettings";
 
 interface Props {
   table: TableState;
@@ -18,11 +19,13 @@ interface Props {
   banner?: React.ReactNode;
   /** Table talk, at family tables. */
   chat?: ChatProps;
+  /** Opponents and speed, changeable mid-game. */
+  settings?: { value: TableSettings; change: (next: TableSettings) => Promise<void> | void };
 }
 
 const SIDES = ["bottom", "left", "top", "right"] as const;
 
-export function Table({ table: t, names, onLeave, banner, chat }: Props) {
+export function Table({ table: t, names, onLeave, banner, chat, settings }: Props) {
   const view = t.view!;
   const me = t.seat;
   const preset = view.preset;
@@ -93,6 +96,7 @@ export function Table({ table: t, names, onLeave, banner, chat }: Props) {
         <button type="button" className="sound-toggle" onClick={toggleSound} aria-pressed={soundOn} aria-label={soundOn ? "Turn sounds off" : "Turn sounds on"}>
           {soundOn ? "🔊" : "🔇"}
         </button>
+        {settings && <TableSettingsButton settings={settings.value} onChange={settings.change} />}
         {[left, partner, right].map((s) => (
           <div key={s} className={`seat-slot ${side(s)}`}>
             {seat(s)}

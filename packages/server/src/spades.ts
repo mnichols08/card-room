@@ -4,6 +4,9 @@ import {
   thinkingTime,
   personaFor,
   brokennilsTable,
+  paceDelay,
+  styleFor,
+  type TableSettings,
   newGame,
   validatePreset,
   viewFor,
@@ -53,10 +56,11 @@ export const spadesRoom: RoomDefinition<GameState, Move, SeatView, RulePreset, S
   }),
   finished: (state) => state.phase === "finished",
   // Each bot takes its persona's time, longer on close calls: people don't play instantly.
-  botDelay: (state, seat, name) => thinkingTime(state, seat as Seat, name),
-  bot(state, seat, name) {
-    // The thinking bot, playing in its persona's style: sharp, careless, bold or nil-crazy.
-    const action = smartAction(state, seat as Seat, { style: personaFor(name).style });
+  botDelay: (state, seat, name, settings?: TableSettings) => paceDelay(settings?.pace ?? "natural", () => thinkingTime(state, seat as Seat, name)),
+  bot(state, seat, name, settings?: TableSettings) {
+    // The thinking bot, playing in its persona's style (sharp, careless, bold or nil-crazy), or at the
+    // table's chosen level.
+    const action = smartAction(state, seat as Seat, { style: styleFor(personaFor(name).style, settings?.skill) });
     if (!action) return null;
     const { seat: _seat, ...move } = action;
     return move as Move;

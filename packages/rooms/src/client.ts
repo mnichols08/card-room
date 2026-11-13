@@ -68,9 +68,9 @@ async function call<T>(url: string, init?: RequestInit): Promise<T> {
   return body;
 }
 
-/** Create a room on the server. Resolves to its id. */
-export async function createRoom(options: unknown, { base = "/rooms" }: OpenRoomOptions = {}): Promise<string> {
-  const { id } = await call<{ id: string }>(base, { method: "POST", body: JSON.stringify({ options }) });
+/** Create a room on the server, with its settings if the game has any. Resolves to its id. */
+export async function createRoom(options: unknown, { base = "/rooms", settings }: OpenRoomOptions & { settings?: unknown } = {}): Promise<string> {
+  const { id } = await call<{ id: string }>(base, { method: "POST", body: JSON.stringify({ options, settings }) });
   return id;
 }
 
@@ -116,6 +116,8 @@ export function openRoom<View = unknown, Move = unknown, Summary = unknown>(id: 
     say: (text: string) => post<ChatMessage>("say", { text }),
     sit,
     addBot: (seat: number, name?: string) => post("bot", { seat, name }),
+    /** Change the table's settings (anyone seated, mid-game too). */
+    settings: (settings: unknown) => post("settings", { settings }),
     removeBot: (seat: number) => post("bot", { seat, add: false }),
     start: () => post("start"),
     act: (move: Move) => post("act", { move }),

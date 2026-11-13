@@ -160,3 +160,19 @@ describe("Palace games from before the family deal", () => {
     expect(palaceOptions({ id: "family-palace" }, 4).rules).toMatchObject({ choose: true, pickUpAnytime: true });
   });
 });
+
+describe("table settings", () => {
+  it("a house table starts with the settings it was opened with, and anyone seated changes them", async () => {
+    const { phone } = setup();
+    const grammi = phone();
+    await grammi("/houses", { name: "Grammi's House", you: "brokennil" });
+    const { id } = (await grammi("/houses/grammis-house/tables", { game: "palace", seats: 3, settings: { skill: "hard", pace: "fast" } })).body;
+    expect((await grammi(`/rooms/${id}`)).body.settings).toEqual({ skill: "hard", pace: "fast" });
+    await grammi(`/rooms/${id}/sit`, { seat: 0, name: "brokennil" });
+    expect((await grammi(`/rooms/${id}/settings`, { settings: { skill: "easy", pace: "instant" } })).body.settings).toEqual({ skill: "easy", pace: "instant" });
+    expect((await grammi(`/rooms/${id}`)).body.settings).toEqual({ skill: "easy", pace: "instant" });
+    // A spades table from before settings existed plays with the defaults.
+    const old = (await grammi("/rooms", { options: { name: "Old table" } })).body.id;
+    expect((await grammi(`/rooms/${old}`)).body.settings).toEqual({ skill: "mixed", pace: "natural" });
+  });
+});

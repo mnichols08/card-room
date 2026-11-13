@@ -1,5 +1,6 @@
 import type { PalaceMove, PalaceView } from "@cardroom/palace";
-import { cardId, type Card } from "@spades/rules";
+import { cardId, type Card, type TableSettings } from "@spades/rules";
+import { TableSettingsButton } from "../TableSettings";
 import PalaceSeat from "@spades/ui/palace-seat.zb";
 import PlayingCard from "@spades/ui/playing-card.zb";
 import { useEffect, useRef, useState } from "react";
@@ -25,6 +26,8 @@ export interface PalaceTableProps {
   onLeave: () => void;
   banner?: React.ReactNode;
   chat?: ChatProps;
+  /** Opponents and speed, changeable mid-game. */
+  settings?: { value: TableSettings; change: (next: TableSettings) => Promise<void> | void };
 }
 
 /** What just happened, in words: "Hank burned it 🔥", "Dot picked up 9". */
@@ -42,7 +45,7 @@ function narrate(view: PalaceView, names: string[]): string | null {
 }
 
 /** Palace at the table: the pile, everyone's face-up cards, your hand. Works for a practice game or a family table. */
-export function PalaceTable({ view, seat: me, names, act, onLeave, banner, chat }: PalaceTableProps) {
+export function PalaceTable({ view, seat: me, names, act, onLeave, banner, chat, settings }: PalaceTableProps) {
   const [error, setError] = useState<string | null>(null);
   const [choosing, setChoosing] = useState<{ rank: number; ids: string[] } | null>(null);
   const [swapFrom, setSwapFrom] = useState<string | null>(null);
@@ -146,9 +149,12 @@ export function PalaceTable({ view, seat: me, names, act, onLeave, banner, chat 
           ←
         </button>
         <strong>🏰 {view.rules.name}</strong>
+        <span className="bar-buttons">
+        {settings && <TableSettingsButton settings={settings.value} onChange={settings.change} />}
         <button type="button" className="sound-toggle inline" onClick={toggleSound} aria-pressed={soundOn} aria-label={soundOn ? "Turn sounds off" : "Turn sounds on"}>
           {soundOn ? "🔊" : "🔇"}
         </button>
+        </span>
       </header>
       {banner}
 
