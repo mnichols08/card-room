@@ -1,12 +1,15 @@
+import type { PalaceRules } from "@cardroom/palace";
 import type { RulePreset } from "@spades/rules";
+import type { GameId } from "./storage";
 
 export interface HouseTable {
   id: string;
+  game: GameId;
   rules: string;
   created: number;
   seats: { name: string | null; bot: boolean }[];
   started: boolean;
-  summary: { phase: string; hand: number; scores: { points: number }[]; winner: number | null } | null;
+  summary: { phase: string; hand?: number; scores?: { points: number }[]; winner?: number | null; finished?: number[]; loser?: number | null; left?: number[] } | null;
 }
 
 export interface House {
@@ -17,6 +20,8 @@ export interface House {
   members: { id: string; name: string; role: "owner" | "admin" | "member" }[];
   presets: RulePreset[];
   defaultPreset: string;
+  palacePresets: PalaceRules[];
+  palaceDefault: string;
   tables: HouseTable[];
 }
 
@@ -28,6 +33,12 @@ export interface Standings {
     biggestComeback: { names: string[]; behindBy: number; final: [number, number]; game: string } | null;
     mostNils: { name: string; made: number } | null;
   };
+}
+
+export interface PalaceStandings {
+  game: "palace";
+  games: number;
+  players: { id: string; name: string; played: number; won: number; last: number; winPct: number | null; avgPlace: number | null }[];
 }
 
 export class HouseError extends Error {
@@ -59,11 +70,14 @@ export const houses = {
   preview: (slug: string, code: string) => call<{ slug: string; name: string; member: false }>(`${at(slug)}?code=${encodeURIComponent(code)}`),
   join: (slug: string, code: string, name: string) => call<House>(at(slug, "join"), { code, name }),
   leaderboard: (slug: string) => call<Standings>(at(slug, "leaderboard")),
-  openTable: (slug: string, presetId?: string) => call<{ id: string }>(at(slug, "tables"), { presetId }),
+  palaceLeaderboard: (slug: string) => call<PalaceStandings>(`${at(slug, "leaderboard")}?game=palace`),
+  openTable: (slug: string, presetId?: string, game: GameId = "spades", seats?: number) => call<{ id: string }>(at(slug, "tables"), { presetId, game, seats }),
   rename: (slug: string, name: string) => call<House>(at(slug, "me"), { name }),
   savePreset: (slug: string, preset: RulePreset, makeDefault = false) => call<House>(at(slug, "presets"), { preset, makeDefault }),
   deletePreset: (slug: string, id: string) => call<House>(at(slug, "presets/delete"), { id }),
   makeDefault: (slug: string, id: string) => call<House>(at(slug, "default"), { id }),
+  savePalace: (slug: string, preset: PalaceRules, makeDefault = false) => call<House>(at(slug, "presets"), { game: "palace", preset, makeDefault }),
+  deletePalace: (slug: string, id: string) => call<House>(at(slug, "presets/delete"), { game: "palace", id }),
   setRole: (slug: string, member: string, role: "admin" | "member") => call<House>(at(slug, "role"), { member, role }),
   remove: (slug: string, member: string) => call<House>(at(slug, "remove"), { member }),
   newLink: (slug: string) => call<House>(at(slug, "new-link"), {}),

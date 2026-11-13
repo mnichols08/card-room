@@ -1,10 +1,12 @@
+import type { PalaceRules } from "@cardroom/palace";
 import type { RulePreset } from "@spades/rules";
+import { GAME_LIST } from "./GamePicker";
 import { useEffect, useState } from "react";
 import { challenges, challengeUrl, type MyLink } from "./challengesApi";
 import { NotifyButton } from "./NotifyButton";
 
 /** Your challenge link: put it on your blog, send it around; anyone with it can challenge you. */
-export function ChallengeLink({ name, rules }: { name: string; rules: RulePreset }) {
+export function ChallengeLink({ name, rules, palaceRules }: { name: string; rules?: RulePreset; palaceRules?: PalaceRules }) {
   const [link, setLink] = useState<MyLink | null>(null);
   const [noServer, setNoServer] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -27,13 +29,15 @@ export function ChallengeLink({ name, rules }: { name: string; rules: RulePreset
     setBusy(false);
   };
   const who = name.trim() || "you";
+  // The rules on the screen this card sits on: spades rules from the spades screen, Palace from Palace.
+  const these = { ...(rules ? { rules } : {}), ...(palaceRules ? { palaceRules } : {}) };
 
   if (!link.code) {
     return (
       <section className="house-block" aria-label="Challenge link">
         <h2>Take on challengers</h2>
         <p className="fine">Get a link anyone can use to challenge {who} to a game. Put it on a blog or send it around.</p>
-        <button type="button" className="secondary" disabled={busy} onClick={() => change({ name: who, rules })}>
+        <button type="button" className="secondary" disabled={busy} onClick={() => change({ name: who, ...these })}>
           Make my challenge link
         </button>
         {note && <p className="error">{note}</p>}
@@ -44,7 +48,7 @@ export function ChallengeLink({ name, rules }: { name: string; rules: RulePreset
   const url = challengeUrl(link.code);
   const share = async () => {
     try {
-      if (navigator.share) return void (await navigator.share({ title: `Challenge ${link.name} to spades`, url }));
+      if (navigator.share) return void (await navigator.share({ title: `Challenge ${link.name} to a game`, url }));
       await navigator.clipboard.writeText(url);
       setNote("Copied!");
     } catch {
@@ -65,8 +69,8 @@ export function ChallengeLink({ name, rules }: { name: string; rules: RulePreset
         </button>
       </div>
       <p className="fine">
-        {link.enabled ? `On: anyone with it can challenge ${link.name}` : "Paused: nobody can challenge you right now"} · {link.rules}.{" "}
-        <button type="button" className="link" disabled={busy} onClick={() => change({ name: who, rules })}>
+        {link.enabled ? `On: anyone with it can challenge ${link.name}` : "Paused: nobody can challenge you right now"} · {(link.games ?? []).map((g) => `${g.name}: ${g.rules}`).join(" · ")}.{" "}
+        <button type="button" className="link" disabled={busy} onClick={() => change({ name: who, ...these })}>
           Use the name and rules above
         </button>{" "}
         ·{" "}
@@ -79,6 +83,23 @@ export function ChallengeLink({ name, rules }: { name: string; rules: RulePreset
           New link
         </button>
       </p>
+      <fieldset className="game-checks">
+        <legend>Challenge me to</legend>
+        {GAME_LIST.map((g) => {
+          const on = (link.games ?? []).some((x) => x.id === g.id);
+          return (
+            <label key={g.id}>
+              <input
+                type="checkbox"
+                checked={on}
+                disabled={busy || (on && (link.games ?? []).length === 1)}
+                onChange={() => change({ games: on ? (link.games ?? []).filter((x) => x.id !== g.id).map((x) => x.id) : [...(link.games ?? []).map((x) => x.id), g.id] })}
+              />{" "}
+              {g.emoji} {g.name}
+            </label>
+          );
+        })}
+      </fieldset>
       {note && <p className="fine">{note}</p>}
       <NotifyButton what="someone challenges you" />
     </section>

@@ -32,7 +32,7 @@ export interface PalacePlayer {
 }
 
 /** What just happened, for the table to show and the bots to talk about. */
-export interface PalaceMove {
+export interface PalaceLast {
   seat: number;
   kind: "play" | "flip" | "pickup";
   cards: PCard[];
@@ -60,7 +60,7 @@ export interface PalaceState {
   /** Seats in the order they went out. */
   finished: number[];
   loser: number | null;
-  last: PalaceMove | null;
+  last: PalaceLast | null;
   moves: number;
 }
 
@@ -70,6 +70,9 @@ export type PalaceAction =
   | { type: "play"; seat: number; cards: string[] }
   | { type: "flip"; seat: number; index: number }
   | { type: "pickup"; seat: number };
+
+/** A move as a player sends it: an action without the seat (the table knows who's sending). */
+export type PalaceMove = PalaceAction extends infer A ? (A extends { seat: number } ? Omit<A, "seat"> : never) : never;
 
 export const MIN_SEATS = 2;
 export const MAX_SEATS = 6;
@@ -186,7 +189,7 @@ function nextSeat(s: PalaceState, from: number): number {
 }
 
 /** After cards land on the pile: burn, draw, maybe go out, and whose turn it is. */
-function settle(s: PalaceState, seat: number, move: PalaceMove) {
+function settle(s: PalaceState, seat: number, move: PalaceLast) {
   const p = s.players[seat]!;
   if (burns(s.pile, s.rules)) {
     s.burned += s.pile.length;

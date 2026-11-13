@@ -70,7 +70,8 @@ export function palaceThinkingTime(s: PalaceState, seat: number, name: string): 
   const r = rand(s, seat);
   const pace = personaFor(name).pace;
   const jitter = 0.8 + r() * 0.5;
-  if (s.phase === "swapping") return Math.round((900 + r() * 1400) * pace * jitter);
+  // Swapping is a quick shuffle of a few cards, done by everyone at once at a real table.
+  if (s.phase === "swapping") return Math.round((250 + r() * 450) * pace * jitter);
   const p = s.players[seat]!;
   if (sourceOf(p) === "down") return Math.round((1100 + r() * 900) * pace * jitter);
   const n = options(s, seat).length;

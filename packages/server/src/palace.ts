@@ -9,6 +9,7 @@ import {
   validatePalaceRules,
   viewPalace,
   type PalaceAction,
+  type PalaceMove,
   type PalaceRules,
   type PalaceState,
   type PalaceView,
@@ -23,7 +24,6 @@ export interface PalaceOptions {
   seats: number;
 }
 
-export type PalaceMove = PalaceAction extends infer A ? (A extends { seat: number } ? Omit<A, "seat"> : never) : never;
 
 export interface PalaceSummary {
   game: "palace";
