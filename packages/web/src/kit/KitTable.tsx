@@ -155,7 +155,6 @@ export function KitTable({ view, names, act, onLeave, banner, chat, settings }: 
 
         <div className="center">
           <CenterArea center={view.center} view={view} names={names} send={send} />
-          {teamMelds.length > 0 && <TeamMelds melds={teamMelds} view={view} names={names} />}
           <div className="center-info">
             {view.info.length > 0 && (
               <ul className="kit-info">
@@ -202,6 +201,11 @@ export function KitTable({ view, names, act, onLeave, banner, chat, settings }: 
           </div>
         </div>
 
+        {teamMelds.length > 0 && (
+          <div className="mine-on-table team-row">
+            <TeamMelds melds={teamMelds} view={view} names={names} />
+          </div>
+        )}
         {meldsOf(me).length > 0 && (
           <div className="mine-on-table">
             <MeldRow melds={meldsOf(me)} size="table" names={names} />

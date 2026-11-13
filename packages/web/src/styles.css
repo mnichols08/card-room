@@ -726,6 +726,10 @@ html[data-motion="off"] .kit-seat.active strong::before, html[data-motion="calm"
 .kit-team-melds { display: grid; gap: 6px; width: 100%; }
 .kit-team-melds h3 { margin: 0; font-size: var(--ui-s); color: var(--them); text-align: center; }
 .kit-team-melds .us h3 { color: var(--us); }
+/* Wider screens: your side's melds and theirs side by side, along the near edge of the table. */
+@media (min-width: 600px) {
+  .kit-team-melds { grid-template-columns: 1fr 1fr; align-items: start; column-gap: 24px; }
+}
 .summary th.us { color: var(--felt); }
 
 /* ---- The front page (the Vue game chooser lives inside) ---------------------------------------- */
@@ -734,3 +738,12 @@ html[data-motion="off"] .kit-seat.active strong::before, html[data-motion="calm"
   .home { background: radial-gradient(ellipse at 50% 0%, #2b6a50, #1f4d3a 40%, #0d2219 85%); }
 }
 .all-games { align-self: flex-start; margin: -12px 0 -4px; }
+
+/* Kit tables: when the melds outgrow the felt, the table scrolls; the scores stay at the top and
+   your hand at the bottom, so you can look over every meld without losing your cards. */
+.table.kit { overflow-y: auto; overscroll-behavior: contain; }
+.table.kit .kit-felt { flex: 1 0 auto; }
+.table.kit .kit-bar { position: sticky; top: 0; z-index: 6; background: #0e281d; }
+.table.kit .me { position: sticky; bottom: 0; z-index: 6; background: linear-gradient(rgba(9, 27, 19, 0), rgba(9, 27, 19, 0.94) 28%); }
+/* The turn prompt sits on the felt's bottom edge: keep the melds clear of it. */
+.kit-felt:has(.team-row) { padding-bottom: calc(var(--ui-m, 1rem) * 2.6); }
