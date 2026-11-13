@@ -1,15 +1,17 @@
 import type { ChatMessage } from "@spades/rooms/client";
-import { greet, reactToMove, replyTo, type GameState, type Remark, type RulePreset, type Seat, type TableCast } from "@spades/rules";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { greet, mulberry32, pickPersonas, reactToMove, replyTo, type GameState, type Remark, type RulePreset, type Seat, type TableCast } from "@spades/rules";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Table } from "./Table";
 import { useLocalGame } from "./useLocalGame";
 import { useTable } from "./useTable";
 
-const BOTS: Record<number, string> = { 1: "Hank", 2: "Dot", 3: "Lou" };
-const CAST: TableCast = { bots: [1, 2, 3].map((seat) => ({ seat: seat as Seat, name: BOTS[seat]! })) };
-
-/** A game in this browser against three bots, who chat as they would at a family table. */
+/** A game in this browser against three bots, picked at random from the roster, who chat as they would at a family table. */
 export function LocalTable({ name, preset, seed, onLeave }: { name: string; preset: RulePreset; seed: number; onLeave: () => void }) {
+  const BOTS = useMemo(() => {
+    const [a, b, c] = pickPersonas(3, mulberry32(seed));
+    return { 1: a!.name, 2: b!.name, 3: c!.name } as Record<number, string>;
+  }, [seed]);
+  const CAST: TableCast = useMemo(() => ({ bots: [1, 2, 3].map((seat) => ({ seat: seat as Seat, name: BOTS[seat]! })) }), [BOTS]);
   const [paused, setPaused] = useState(false);
   const source = useLocalGame(preset, seed, paused, BOTS);
   const table = useTable(source);
@@ -30,7 +32,7 @@ export function LocalTable({ name, preset, seed, onLeave }: { name: string; pres
       }, r.delay);
       timers.current.add(timer);
     }
-  }, []);
+  }, [BOTS]);
 
   // Hello at the start, and reactions to every move after.
   const before = useRef<GameState | null>(null);
@@ -38,7 +40,7 @@ export function LocalTable({ name, preset, seed, onLeave }: { name: string; pres
     if (!before.current) speak(greet(CAST));
     else if (before.current !== source.game) speak(reactToMove(before.current, source.game, CAST), source.game.phase === "finished");
     before.current = source.game;
-  }, [source.game, speak]);
+  }, [source.game, speak, CAST]);
 
   const send = async (text: string) => {
     const clean = text.replace(/\s+/g, " ").trim().slice(0, 280);

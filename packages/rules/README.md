@@ -56,8 +56,30 @@ How it measures up, against the quick bots (`npx tsx scripts/match.ts <games> <d
 `talk.ts` gives bots a personality: who they are, what they say, and how long they think. It's
 pure, so the server and the practice table share it.
 
-- **Personas**: Dot (warm), Hank (dry), Lou (a joker), Bea (competitive). Any other bot name gets
-  a friendly default. Each has its own lines for every event and its own tempo.
+- **Personas**: fourteen partners, each with a voice (warm, dry, goofy, sharp, quiet, nervous or
+  dramatic) and lines of their own, a tempo, and a **play style**: `skill` (how many hands they
+  imagine), `sloppy` (chance of a careless card), `bold` (over- or underbidding) and `nilLove`.
+  Empty seats get a random one (`pickPersonas`). Any other bot name gets a friendly default.
+
+| Partner | Style | vs. quick bots | Nil bids | Avg bid |
+| --- | --- | --- | --- | --- |
+| Dot | warm, steady | 7/10 | 2% | 2.3 |
+| Hank | grumbles, fast, good | 8/10 | 2% | 2.3 |
+| Lou | jokes, overbids a little | 7/10 | 2% | 2.7 |
+| Bea | competitive, careful | 6/10 | 2% | 2.4 |
+| Maggie | counts every card | 7/10 | 2% | 2.3 |
+| Earl | bids low, hates nil | 4/10 | 1% | 2.0 |
+| Tammy | loves nil | 9/10 | 13% | 2.6 |
+| Junior | still learning, careless | 8/20 | 2% | 2.5 |
+| Pearl | sweet and sharp | 10/10 | 2% | 2.4 |
+| Duke | bids big, goes blind | 12/20 | 15% | 3.6 |
+| Ruthie | hates bags | 5/10 | 1% | 2.3 |
+| Skeeter | goofball, fast and loose | 14/20 | 2% | 2.8 |
+| Vern | quiet, very good | 13/20 | 2% | 2.4 |
+| Gigi | dramatic, plays by feel | 13/20 | 2% | 2.4 |
+
+(`npx tsx scripts/roster.ts <games> [names]`. Ten or twenty games is noisy: bidding habits show
+clearly, card-play differences only at the extremes.)
 - **`reactToMove(before, after, cast)`**: bids of nil and blind nil, an ace trumped, spades broken, a
   flashy trick, nils made and set, a team set, and the end of the game. At most two bots speak
   about one move, staggered; at the end of the game everyone speaks, graciously.

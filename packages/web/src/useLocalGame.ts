@@ -1,4 +1,4 @@
-import { applyAction, botAction, newGame, RuleError, smartAction, thinkingTime, viewFor, type GameState, type RulePreset, type Seat } from "@spades/rules";
+import { applyAction, botAction, newGame, personaFor, RuleError, smartAction, thinkingTime, viewFor, type GameState, type RulePreset, type Seat } from "@spades/rules";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Move, TableSource } from "./useTable";
 
@@ -27,8 +27,10 @@ export function useLocalGame(preset: RulePreset, seed: number, paused: boolean, 
     if (seat === undefined) return;
     const t = setTimeout(() => {
       setGame((prev) => {
-        // Thinking bots; fewer deals than on the server, since phones are slower.
-        const action = smartAction(prev, seat, { deals: 24 });
+        // Thinking bots in their persona's style; fewer deals than on the server, since phones are slower.
+        const style = personaFor(botNames[seat] ?? "").style;
+        const skill = style.skill ?? 1;
+        const action = smartAction(prev, seat, { style, deals: Math.max(2, Math.round(2 + 22 * skill * skill)) });
         return action ? applyAction(prev, action) : prev;
       });
     }, thinkingTime(game, seat, botNames[seat] ?? ""));

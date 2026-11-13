@@ -1,7 +1,7 @@
 import { openRoom, RoomError, type ChatMessage, type Room } from "@spades/rooms/client";
 import { TableChat, type ChatProps } from "./Chat";
 import type { RoomDoc } from "@spades/rooms/server";
-import type { Seat, SeatView } from "@spades/rules";
+import { personaFor, pickPersonas, type Seat, type SeatView } from "@spades/rules";
 import TextField from "@spades/ui/zubra-ui/text-field.zb";
 import { useEffect, useMemo, useState } from "react";
 import { loadSavedName, saveName } from "./storage";
@@ -154,7 +154,10 @@ function Lobby(props: {
           return (
             <li key={i} className={`seat-row team-${i % 2 === 0 ? "a" : "b"} ${mine ? "mine" : ""}`}>
               <span className="where">{SEAT_LABELS[i]}</span>
-              <strong>{s.bot ? `${s.name} (bot)` : (s.name ?? "Empty")}</strong>
+              <strong>
+                {s.bot ? `${s.name} (bot)` : (s.name ?? "Empty")}
+                {s.bot && s.name && personaFor(s.name).blurb && <small className="blurb">{personaFor(s.name).blurb}</small>}
+              </strong>
               {mine && <em>you</em>}
               {!doc.started && empty && mySeat === null && (
                 <button
@@ -173,7 +176,16 @@ function Lobby(props: {
                 </button>
               )}
               {!doc.started && empty && mySeat !== null && (
-                <button type="button" className="link" onClick={() => attempt(() => room.addBot(i, ["Hank", "Dot", "Lou", "Bea"][i]))}>
+                <button
+                  type="button"
+                  className="link"
+                  onClick={() => {
+                    // A random partner from the roster, not one already at the table.
+                    const taken = doc.seats.flatMap((s) => (s.bot && s.name ? [s.name] : []));
+                    const [pick] = pickPersonas(1, Math.random, taken);
+                    void attempt(() => room.addBot(i, pick?.name));
+                  }}
+                >
                   Add a bot
                 </button>
               )}
