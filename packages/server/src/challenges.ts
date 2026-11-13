@@ -8,7 +8,7 @@
 import { familyPalace, validatePalaceRules, type PalaceRules } from "@cardroom/palace";
 import { brokennilsTable, mulberry32, pickPersonas, validatePreset, type RulePreset } from "@spades/rules";
 import { GAMES, gameName, type GameId, type TableOptions } from "./games.js";
-import { palaceOptions } from "./palace.js";
+import { palaceOptions, palaceRulesFrom } from "./palace.js";
 import { newPlayerId, playerCookie, playerOf } from "@spades/rooms/server";
 import type { Push } from "./push.js";
 
@@ -32,7 +32,7 @@ interface Rooms {
     write(collection: string, key: string, fields: Record<string, unknown>): Promise<unknown>;
     documents(): Promise<{ get(collection: string, key: string): Record<string, unknown> | undefined }>;
   };
-  create(options: TableOptions): Promise<string>;
+  create(options: TableOptions, settings?: unknown): Promise<string>;
   seatPlayer(id: string, seat: number, player: string, name: string): Promise<void>;
   seatBot(id: string, seat: number, name: string): Promise<void>;
   say(id: string, seat: number, text: string): Promise<unknown>;
@@ -55,7 +55,7 @@ export function createChallenges(rooms: Rooms, push: Push, { mount = "/challenge
   async function get(code: string): Promise<ChallengeDoc | undefined> {
     const doc = (await docs).get("challenges", code) as unknown as ChallengeDoc | undefined;
     return doc?.player
-      ? structuredClone({ code: doc.code, player: doc.player, name: doc.name, enabled: doc.enabled, rules: doc.rules, palaceRules: doc.palaceRules ?? familyPalace, games: doc.games ?? ["spades"], recent: doc.recent ?? [] })
+      ? structuredClone({ code: doc.code, player: doc.player, name: doc.name, enabled: doc.enabled, rules: doc.rules, palaceRules: palaceRulesFrom(doc.palaceRules ?? familyPalace), games: doc.games ?? ["spades"], recent: doc.recent ?? [] })
       : undefined;
   }
   const save = (c: ChallengeDoc) => rooms.sync.write("challenges", c.code, { ...c });
@@ -85,7 +85,7 @@ export function createChallenges(rooms: Rooms, push: Push, { mount = "/challenge
       let c = existing ? await get(existing) : undefined;
       const rules = input.rules ? { ...brokennilsTable, ...(input.rules as RulePreset) } : (c?.rules ?? brokennilsTable);
       if (validatePreset(rules).length) return json({ error: validatePreset(rules).join(" ") }, 400);
-      const palaceRules = input.palaceRules ? { ...familyPalace, ...(input.palaceRules as PalaceRules) } : (c?.palaceRules ?? familyPalace);
+      const palaceRules = input.palaceRules ? palaceRulesFrom(input.palaceRules) : (c?.palaceRules ?? familyPalace);
       if (validatePalaceRules(palaceRules).length) return json({ error: validatePalaceRules(palaceRules).join(" ") }, 400);
       const games = Array.isArray(input.games) ? (input.games.filter((g) => known.has(String(g))) as GameId[]) : (c?.games ?? (["spades", "palace"] as GameId[]));
       if (!games.length) return json({ error: "Pick at least one game to be challenged to." }, 400);

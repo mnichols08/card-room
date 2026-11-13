@@ -1,3 +1,4 @@
+import { OpponentSettings } from "./TableSettings";
 import { validatePreset, type RulePreset } from "@spades/rules";
 import SelectField from "@spades/ui/zubra-ui/select-field.zb";
 import { describe, RulesFields, Toggle } from "./RulesEditor";
@@ -121,6 +122,7 @@ export function Setup({ onPickGame, onStart, onFamilyTable, onOpenHouse, onMakeH
 
       <p className="rules-summary">{describe(rules)}</p>
 
+      <OpponentSettings />
       <section className="feedback" aria-label="Sound and vibration">
         <Toggle label="Sounds" description="Cards, your turn, tricks and nils." checked={feedback.sound} onChange={(v) => setFeedbackSetting({ sound: v })} />
         {canVibrate && <Toggle label="Vibration" description="A buzz on your turn and when your team takes a trick." checked={feedback.vibrate} onChange={(v) => setFeedbackSetting({ vibrate: v })} />}

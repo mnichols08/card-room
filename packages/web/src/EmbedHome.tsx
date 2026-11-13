@@ -3,6 +3,7 @@ import type { RulePreset } from "@spades/rules";
 import TextField from "@spades/ui/zubra-ui/text-field.zb";
 import { useState } from "react";
 import { Choice } from "./RulesEditor";
+import { OpponentSettings } from "./TableSettings";
 import { loadLastPreset, loadName, loadPalaceRules, loadPalaceSeats, saveName, savePalaceSeats, starterPresets, type GameId } from "./storage";
 
 /**
@@ -20,6 +21,7 @@ export function EmbedHome({ game, onPractice }: { game: GameId; onPractice: (nam
       <TextField label="Your name" value={name} maxlength={20} autocomplete="nickname" onValueChange={(e: CustomEvent<string>) => setName(e.detail)} />
       <Choice label="Rules" value={ruleId} options={list.map((p) => [p.id, p.name])} onChange={setRuleId} />
       {game === "palace" && <Choice label="Players" value={seats} options={[2, 3, 4, 5, 6].map((n) => [String(n), `${n} players`])} onChange={(v) => setSeats(Number(v))} />}
+      <OpponentSettings />
       <button
         type="button"
         className="primary deal"

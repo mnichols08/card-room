@@ -35,15 +35,20 @@ async function viewOf(send: Send, id: string, seat: number) {
   return changes.filter((c) => c.collection === "views" && c.key === `${id}/${seat}` && c.field === "view").at(-1)?.value;
 }
 
+const label = (c: { rank: number; suit: string }) => `${({ 11: "J", 12: "Q", 13: "K", 14: "A" } as Record<number, string>)[c.rank] ?? c.rank}${({ spades: "♠", hearts: "♥", diamonds: "♦", clubs: "♣" } as Record<string, string>)[c.suit]}`;
+
 /** A person playing simply from what they can see: ready at once, lowest playable rank, else pick up or flip. */
 async function playOut(send: Send, id: string, seat: number) {
   for (let i = 0; i < 2000; i++) {
     const v = await viewOf(send, id, seat);
     if (v?.phase === "finished") return v;
-    if (v?.phase === "swapping" && !v.players[seat].ready) await send(`/rooms/${id}/act`, { move: { type: "ready" } });
+    if (v?.phase === "swapping" && !v.players[seat].ready) {
+      const move = v.can?.choose ? { type: "choose", cards: v.hand.slice(0, v.can.choose).map(label) } : { type: "ready" };
+      const r = await send(`/rooms/${id}/act`, { move });
+      expect(r.status, JSON.stringify(r.body)).toBe(200);
+    }
     else if (v?.phase === "playing" && v.turn === seat && v.can) {
       const cards: { rank: number; suit: string }[] = v.can.source === "hand" ? v.hand : v.players[seat].up;
-      const label = (c: { rank: number; suit: string }) => `${({ 11: "J", 12: "Q", 13: "K", 14: "A" } as Record<number, string>)[c.rank] ?? c.rank}${({ spades: "♠", hearts: "♥", diamonds: "♦", clubs: "♣" } as Record<string, string>)[c.suit]}`;
       const move = v.can.flip
         ? { type: "flip", index: 0 }
         : v.can.ranks.length
@@ -61,7 +66,7 @@ describe("Palace", () => {
   it("plays a whole game: a person and three bots, to the last one holding cards", async () => {
     const { phone } = setup();
     const grammi = phone();
-    const made = await grammi("/rooms", { options: { game: "palace", rules: { name: "Family Palace" }, seats: 4 } });
+    const made = await grammi("/rooms", { options: { game: "palace", rules: { id: "family-palace", name: "Family Palace" }, seats: 4 } });
     expect(made.status).toBe(201);
     const id = made.body.id;
     const lobby = (await grammi(`/rooms/${id}`)).body;
@@ -87,9 +92,11 @@ describe("Palace", () => {
     await b(`/rooms/${id}/sit`, { seat: 1, name: "B" });
     await a(`/rooms/${id}/start`, {});
     const mine = await viewOf(a, id, 0);
-    expect(mine.hand).toHaveLength(3);
+    // The family deal: 6 in hand, 3 to pick for face-up.
+    expect(mine.hand).toHaveLength(6);
+    expect(mine.can.choose).toBe(3);
     expect(await viewOf(a, id, 1)).toBeUndefined();
-    expect(mine.players[1]).toMatchObject({ hand: 3, down: 3 });
+    expect(mine.players[1]).toMatchObject({ hand: 6, down: 3, up: [] });
     expect(JSON.stringify(mine.players[1])).not.toContain("suit\":\"hearts\",\"rank\":0");
   });
 
@@ -142,5 +149,30 @@ describe("Palace", () => {
 
     await grammi("/challenges/mine", { games: ["spades"] });
     expect((await phone()(`/challenges/${link.code}`, { name: "Jimmy", game: "palace" })).status).toBe(400);
+  });
+});
+
+describe("Palace games from before the family deal", () => {
+  it("a room saved with the old rules is dealt the old way, so its moves still replay", async () => {
+    const { palaceOptions } = await import("../src/palace.js");
+    const old = { id: "family-palace", name: "Family Palace", twoResets: true, tenBurns: true, fourBurns: true, sevenLower: false, handSize: 3, tableCards: 3, swap: true, pickUpAnytime: false };
+    expect(palaceOptions(old, 4).rules).toMatchObject({ choose: false, swap: true, pickUpAnytime: false });
+    expect(palaceOptions({ id: "family-palace" }, 4).rules).toMatchObject({ choose: true, pickUpAnytime: true });
+  });
+});
+
+describe("table settings", () => {
+  it("a house table starts with the settings it was opened with, and anyone seated changes them", async () => {
+    const { phone } = setup();
+    const grammi = phone();
+    await grammi("/houses", { name: "Grammi's House", you: "brokennil" });
+    const { id } = (await grammi("/houses/grammis-house/tables", { game: "palace", seats: 3, settings: { skill: "hard", pace: "fast" } })).body;
+    expect((await grammi(`/rooms/${id}`)).body.settings).toEqual({ skill: "hard", pace: "fast" });
+    await grammi(`/rooms/${id}/sit`, { seat: 0, name: "brokennil" });
+    expect((await grammi(`/rooms/${id}/settings`, { settings: { skill: "easy", pace: "instant" } })).body.settings).toEqual({ skill: "easy", pace: "instant" });
+    expect((await grammi(`/rooms/${id}`)).body.settings).toEqual({ skill: "easy", pace: "instant" });
+    // A spades table from before settings existed plays with the defaults.
+    const old = (await grammi("/rooms", { options: { name: "Old table" } })).body.id;
+    expect((await grammi(`/rooms/${old}`)).body.settings).toEqual({ skill: "mixed", pace: "natural" });
   });
 });

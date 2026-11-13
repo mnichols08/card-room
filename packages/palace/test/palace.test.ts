@@ -11,6 +11,7 @@ import {
   palaceBot,
   palaceThinkingTime,
   reactToPalace,
+  normalizePalaceRules,
   validatePalaceRules,
   viewPalace,
   type PalaceAction,
@@ -18,12 +19,14 @@ import {
   type PCard,
 } from "../src/index.js";
 
+/** The rules these tests were written for: dealt face-up, swap before play, pick up only when stuck. */
+const swapping = { ...familyPalace, choose: false, swap: true, pickUpAnytime: false };
 const c = (rank: number, suit: PCard["suit"] = "hearts"): PCard => ({ kind: "pip", suit, rank: rank as PCard["rank"] });
 const total = (s: PalaceState) => s.deck.length + s.pile.length + s.burned + s.players.reduce((n, p) => n + p.hand.length + p.up.length + p.down.length, 0);
 
 /** A game already playing, with chosen cards. */
-function table(rules = familyPalace, hands: PCard[][], pile: PCard[] = [], deck: PCard[] = []): PalaceState {
-  const s = newPalace({ ...rules, swap: false }, hands.length, 1);
+function table(rules = swapping, hands: PCard[][], pile: PCard[] = [], deck: PCard[] = []): PalaceState {
+  const s = newPalace({ ...rules, swap: false, choose: false }, hands.length, 1);
   s.players = hands.map((hand) => ({ hand, up: [c(14, "spades")], down: [c(13, "spades")], ready: true, place: null }));
   s.pile = pile;
   s.deck = deck;
@@ -33,16 +36,16 @@ function table(rules = familyPalace, hands: PCard[][], pile: PCard[] = [], deck:
 
 describe("dealing", () => {
   it("gives each player face-down, face-up and a hand, and uses two decks for six", () => {
-    const s = newPalace(familyPalace, 4, 42);
+    const s = newPalace(swapping, 4, 42);
     for (const p of s.players) expect([p.down.length, p.up.length, p.hand.length]).toEqual([3, 3, 3]);
     expect(s.deck.length).toBe(52 - 36);
     expect(s.phase).toBe("swapping");
-    expect(newPalace(familyPalace, 6, 1).deck.length).toBe(104 - 54);
-    expect(() => newPalace(familyPalace, 7, 1)).toThrow();
+    expect(newPalace(swapping, 6, 1).deck.length).toBe(104 - 54);
+    expect(() => newPalace(swapping, 7, 1)).toThrow();
   });
 
   it("swaps, then the lowest ordinary card in hand starts", () => {
-    let s = newPalace(familyPalace, 2, 7);
+    let s = newPalace(swapping, 2, 7);
     const [h, u] = [s.players[0]!.hand[0]!, s.players[0]!.up[0]!];
     s = applyPalace(s, { type: "swap", seat: 0, hand: cardId(h), up: cardId(u) });
     expect(s.players[0]!.up.map(cardId)).toContain(cardId(h));
@@ -57,21 +60,21 @@ describe("dealing", () => {
 
 describe("what goes on the pile", () => {
   it("equal or higher, 2 resets, 10 anytime, 7 lower when that rule is on", () => {
-    expect(canPlayOn(5, [c(5)], familyPalace)).toBe(true);
-    expect(canPlayOn(4, [c(5)], familyPalace)).toBe(false);
-    expect(canPlayOn(2, [c(14)], familyPalace)).toBe(true);
-    expect(canPlayOn(3, [c(2)], familyPalace)).toBe(true);
-    expect(canPlayOn(10, [c(14)], familyPalace)).toBe(true);
-    expect(canPlayOn(9, [c(7)], familyPalace)).toBe(true);
+    expect(canPlayOn(5, [c(5)], swapping)).toBe(true);
+    expect(canPlayOn(4, [c(5)], swapping)).toBe(false);
+    expect(canPlayOn(2, [c(14)], swapping)).toBe(true);
+    expect(canPlayOn(3, [c(2)], swapping)).toBe(true);
+    expect(canPlayOn(10, [c(14)], swapping)).toBe(true);
+    expect(canPlayOn(9, [c(7)], swapping)).toBe(true);
     expect(canPlayOn(9, [c(7)], classicPalace)).toBe(false);
     expect(canPlayOn(6, [c(7)], classicPalace)).toBe(true);
-    expect(canPlayOn(2, [c(14)], { ...familyPalace, twoResets: false })).toBe(false);
+    expect(canPlayOn(2, [c(14)], { ...swapping, twoResets: false })).toBe(false);
   });
 });
 
 describe("a turn", () => {
   it("plays a set, draws back up, and passes", () => {
-    const s = table(familyPalace, [[c(5), c(5, "spades"), c(9)], [c(3), c(4), c(6)]], [c(4)], [c(8), c(12)]);
+    const s = table(swapping, [[c(5), c(5, "spades"), c(9)], [c(3), c(4), c(6)]], [c(4)], [c(8), c(12)]);
     const after = applyPalace(s, { type: "play", seat: 0, cards: ["5♥", "5♠"] });
     expect(after.pile.map(cardId)).toEqual(["4♥", "5♥", "5♠"]);
     expect(after.players[0]!.hand.map((x) => x.rank)).toEqual([8, 9, 12]);
@@ -82,35 +85,35 @@ describe("a turn", () => {
   });
 
   it("10 burns and you go again; four of a kind burns too", () => {
-    let s = table(familyPalace, [[c(10), c(3)], [c(4)]], [c(13), c(14)]);
+    let s = table(swapping, [[c(10), c(3)], [c(4)]], [c(13), c(14)]);
     s = applyPalace(s, { type: "play", seat: 0, cards: ["10♥"] });
     expect(s.pile).toEqual([]);
     expect(s.burned).toBe(3);
     expect(s.last).toMatchObject({ burned: true, again: true });
     expect(s.turn).toBe(0);
 
-    s = table(familyPalace, [[c(6, "clubs"), c(6, "diamonds"), c(3)], [c(4)]], [c(6, "spades"), c(6, "hearts")]);
+    s = table(swapping, [[c(6, "clubs"), c(6, "diamonds"), c(3)], [c(4)]], [c(6, "spades"), c(6, "hearts")]);
     s = applyPalace(s, { type: "play", seat: 0, cards: ["6♣", "6♦"] });
     expect(s.pile).toEqual([]);
     expect(s.turn).toBe(0);
-    s = table({ ...familyPalace, fourBurns: false }, [[c(6, "clubs"), c(6, "diamonds"), c(3)], [c(4)]], [c(6, "spades"), c(6, "hearts")]);
+    s = table({ ...swapping, fourBurns: false }, [[c(6, "clubs"), c(6, "diamonds"), c(3)], [c(4)]], [c(6, "spades"), c(6, "hearts")]);
     expect(applyPalace(s, { type: "play", seat: 0, cards: ["6♣", "6♦"] }).pile).toHaveLength(4);
   });
 
   it("can't play: pick up the pile (and only then, unless the house allows it)", () => {
-    const s = table(familyPalace, [[c(3), c(4)], [c(5)]], [c(9), c(12)]);
+    const s = table(swapping, [[c(3), c(4)], [c(5)]], [c(9), c(12)]);
     expect(options(s, 0)).toEqual([]);
     const after = applyPalace(s, { type: "pickup", seat: 0 });
     expect(after.players[0]!.hand.map((x) => x.rank)).toEqual([3, 4, 9, 12]);
     expect(after.pile).toEqual([]);
     expect(after.turn).toBe(1);
-    const could = table(familyPalace, [[c(13)], [c(5)]], [c(9)]);
+    const could = table(swapping, [[c(13)], [c(5)]], [c(9)]);
     expect(() => applyPalace(could, { type: "pickup", seat: 0 })).toThrow(/can play/);
-    expect(applyPalace(table({ ...familyPalace, pickUpAnytime: true }, [[c(13)], [c(5)]], [c(9)]), { type: "pickup", seat: 0 }).players[0]!.hand).toHaveLength(2);
+    expect(applyPalace(table({ ...swapping, pickUpAnytime: true }, [[c(13)], [c(5)]], [c(9)]), { type: "pickup", seat: 0 }).players[0]!.hand).toHaveLength(2);
   });
 
   it("then face-up cards, then blind flips; a missed flip picks up the pile", () => {
-    let s = table(familyPalace, [[], [c(3)]], [c(8)]);
+    let s = table(swapping, [[], [c(3)]], [c(8)]);
     s.players[0]!.up = [c(9), c(4)];
     s.players[0]!.down = [c(3, "clubs"), c(12, "clubs")];
     expect(() => applyPalace(s, { type: "flip", seat: 0, index: 0 })).toThrow(/first/);
@@ -127,7 +130,7 @@ describe("a turn", () => {
   });
 
   it("first out wins and the last one holding cards loses", () => {
-    let s = table(familyPalace, [[c(9)], [c(3)], [c(4)]], []);
+    let s = table(swapping, [[c(9)], [c(3)], [c(4)]], []);
     for (const p of s.players) {
       p.up = [];
       p.down = [];
@@ -145,9 +148,61 @@ describe("a turn", () => {
   });
 });
 
+describe("choosing your face-up cards (the family deal)", () => {
+  it("deals the face-up cards into the hand; each player picks which to lay down", () => {
+    let s = newPalace(familyPalace, 3, 11);
+    for (const p of s.players) expect([p.down.length, p.up.length, p.hand.length]).toEqual([3, 0, 6]);
+    expect(s.deck.length).toBe(52 - 27);
+    const pick = s.players[0]!.hand.slice(3).map(cardId);
+    expect(() => applyPalace(s, { type: "ready", seat: 0 })).toThrow(/Pick 3/);
+    expect(() => applyPalace(s, { type: "choose", seat: 0, cards: pick.slice(0, 2) })).toThrow(/Pick 3/);
+    expect(() => applyPalace(s, { type: "swap", seat: 0, hand: pick[0]!, up: pick[1]! })).toThrow();
+    expect(viewPalace(s, 0).can?.choose).toBe(3);
+    s = applyPalace(s, { type: "choose", seat: 0, cards: pick });
+    expect(s.players[0]!.up.map(cardId).sort()).toEqual([...pick].sort());
+    expect(s.players[0]!.hand).toHaveLength(3);
+    expect(s.players[0]!.ready).toBe(true);
+    expect(viewPalace(s, 0).can?.choose).toBe(0);
+    expect(() => applyPalace(s, { type: "choose", seat: 0, cards: pick })).toThrow();
+    for (const seat of [1, 2]) s = applyPalace(s, palaceBot(s, seat)!);
+    expect(s.phase).toBe("playing");
+    for (const p of s.players) expect([p.up.length, p.hand.length]).toEqual([3, 3]);
+  });
+
+  it("bots lay their strongest cards face-up", () => {
+    const s = newPalace(familyPalace, 2, 4);
+    s.players[1]!.hand = [c(3), c(10), c(14), c(5), c(2, "clubs"), c(8)];
+    const action = palaceBot(s, 1)!;
+    expect(action.type).toBe("choose");
+    expect((action as { cards: string[] }).cards.sort()).toEqual(["10♥", "2♣", "A♥"].sort());
+  });
+
+  it("rules saved before choosing existed keep their old deal", () => {
+    expect(normalizePalaceRules({ id: "house-abc", name: "Ours" } as never)).toMatchObject({ choose: false, swap: true, pickUpAnytime: false });
+    expect(normalizePalaceRules({ id: "family-palace", name: "Family Palace" } as never)).toMatchObject({ choose: true, pickUpAnytime: true });
+  });
+});
+
+describe("picking up on purpose", () => {
+  it("a good player takes a short pile with a prize in it rather than spend a strong card", () => {
+    // Pile: 4, A. To beat it they'd have to spend a 2 or a 10; the pile has an ace worth having.
+    const s = table(familyPalace, [[c(2), c(10), c(3)], [c(4)]], [c(4, "clubs"), c(14, "clubs")], [c(6), c(7)]);
+    expect(palaceBot(s, 0, { skill: 1 })).toEqual({ type: "pickup", seat: 0 });
+    // A careless player, or one who can beat it cheaply, or with no deck left, just plays.
+    expect(palaceBot(s, 0, { skill: 0.3 })?.type).not.toBe("pickup");
+    const cheap = table(familyPalace, [[c(2), c(5), c(3)], [c(4)]], [c(4, "clubs"), c(2, "clubs")], [c(6)]);
+    expect(palaceBot(cheap, 0, { skill: 1 })).toMatchObject({ type: "play", cards: ["3♥"] });
+    const noDeck = table(familyPalace, [[c(2), c(10), c(3)], [c(4)]], [c(4, "clubs"), c(14, "clubs")], []);
+    expect(palaceBot(noDeck, 0, { skill: 1 })?.type).toBe("play");
+    // Without the house rule, it isn't allowed.
+    expect(() => applyPalace(table(swapping, [[c(13)], [c(5)]], [c(9)]), { type: "pickup", seat: 0 })).toThrow(/can play/);
+    expect(applyPalace(table(familyPalace, [[c(13)], [c(5)]], [c(9)]), { type: "pickup", seat: 0 }).players[0]!.hand).toHaveLength(2);
+  });
+});
+
 describe("views", () => {
   it("show your own hand and everyone's face-up cards, never anyone's hand or face-down cards", () => {
-    const s = newPalace(familyPalace, 3, 9);
+    const s = newPalace(swapping, 3, 9);
     const v = viewPalace(s, 1);
     expect(v.hand).toEqual(s.players[1]!.hand);
     expect(v.players[0]).toEqual({ up: s.players[0]!.up, down: 3, hand: 3, ready: false, place: null });
@@ -159,13 +214,13 @@ describe("views", () => {
 describe("the presets", () => {
   it("are valid and bad ones say why", () => {
     for (const p of PALACE_PRESETS) expect(validatePalaceRules(p)).toEqual([]);
-    expect(validatePalaceRules({ ...familyPalace, name: "", handSize: 9 })).toHaveLength(2);
+    expect(validatePalaceRules({ ...swapping, name: "", handSize: 9 })).toHaveLength(2);
   });
 });
 
 describe("bots", () => {
   const styles = Object.values(PERSONAS).map((p) => p.style);
-  const play = (rules = familyPalace, seats = 4, seed = 1) => {
+  const play = (rules = swapping, seats = 4, seed = 1) => {
     let s = newPalace(rules, seats, seed);
     const cards = total(s);
     let steps = 0;
@@ -197,29 +252,29 @@ describe("bots", () => {
   });
 
   it("put strong cards face-up before play, and save 10s for a big pile", () => {
-    let s = newPalace(familyPalace, 2, 3);
+    let s = newPalace(swapping, 2, 3);
     s.players[0]!.hand = [c(10), c(14), c(3)];
     s.players[0]!.up = [c(4), c(5), c(6)];
     while (!s.players[0]!.ready) s = applyPalace(s, palaceBot(s, 0)!);
     expect(s.players[0]!.up.map((x) => x.rank).sort((a, b) => a - b)).toEqual([6, 10, 14]);
 
-    const small = table(familyPalace, [[c(10), c(9)], [c(3)]], [c(5)]);
+    const small = table(swapping, [[c(10), c(9)], [c(3)]], [c(5)]);
     expect(palaceBot(small, 0)).toMatchObject({ cards: ["9♥"] });
-    const big = table(familyPalace, [[c(10), c(13)], [c(3)]], [c(5), c(6), c(7), c(8), c(9), c(11), c(12), c(12, "clubs")]);
+    const big = table(swapping, [[c(10), c(13)], [c(3)]], [c(5), c(6), c(7), c(8), c(9), c(11), c(12), c(12, "clubs")]);
     expect(palaceBot(big, 0)).toMatchObject({ cards: ["10♥"] });
   });
 
   it("finish a four of a kind when they can", () => {
-    const s = table(familyPalace, [[c(8, "clubs"), c(9)], [c(3)]], [c(8, "spades"), c(8, "hearts"), c(8, "diamonds")]);
+    const s = table(swapping, [[c(8, "clubs"), c(9)], [c(3)]], [c(8, "spades"), c(8, "hearts"), c(8, "diamonds")]);
     expect(palaceBot(s, 0)).toEqual({ type: "play", seat: 0, cards: ["8♣"] });
   });
 
   it("think for a humanlike moment and talk about burns", () => {
-    const s = newPalace(familyPalace, 3, 5);
+    const s = newPalace(swapping, 3, 5);
     const t = palaceThinkingTime(s, 0, "Hank");
     expect(t).toBeGreaterThan(300);
     expect(t).toBeLessThan(6000);
-    const before = table(familyPalace, [[c(10), c(3)], [c(4)]], [c(13), c(14)]);
+    const before = table(swapping, [[c(10), c(3)], [c(4)]], [c(13), c(14)]);
     const after = applyPalace(before, { type: "play", seat: 0, cards: ["10♥"] });
     const said = reactToPalace(before, after, { bots: [{ seat: 0, name: "Skeeter" }] }, () => 0);
     expect(said[0]).toMatchObject({ seat: 0 });

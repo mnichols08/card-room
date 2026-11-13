@@ -1,14 +1,15 @@
 import { openRoom, RoomError, type ChatMessage, type Room } from "@spades/rooms/client";
 import { TableChat, type ChatProps } from "./Chat";
 import type { RoomDoc } from "@spades/rooms/server";
-import { personaFor, pickPersonas, type Seat, type SeatView } from "@spades/rules";
+import { cleanSettings, personaFor, pickPersonas, type Seat, type SeatView, type TableSettings } from "@spades/rules";
 import TextField from "@spades/ui/zubra-ui/text-field.zb";
 import { useEffect, useMemo, useState } from "react";
-import { loadSavedName, saveName } from "./storage";
+import { loadSavedName, saveName, saveTableSettings } from "./storage";
 import { Table } from "./Table";
 import { useTable, type Move } from "./useTable";
 import type { PalaceMove, PalaceView } from "@cardroom/palace";
 import { PalaceTable } from "./palace/PalaceTable";
+import { TableSettingsFields } from "./TableSettings";
 
 type Summary = { game?: string; rules: string; scores?: { points: number }[]; hand?: number; finished?: number[] };
 type AnyRoom = Room<unknown, unknown, Summary>;
@@ -76,6 +77,15 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
   const game = gameOf(doc);
   const names = Object.fromEntries(doc.seats.map((s, i) => [i, s.name ?? seatLabel(game, i)])) as Record<Seat, string>;
 
+  // The table's settings, which anyone seated can change mid-game.
+  const tableSettings = mySeat === null ? undefined : {
+    value: cleanSettings((doc as { settings?: unknown }).settings),
+    change: async (next: TableSettings) => {
+      saveTableSettings(next);
+      await room.settings(next);
+    },
+  };
+
   if (doc.started && mySeat !== null && view) {
     if (game === "palace") {
       return (
@@ -87,16 +97,26 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
           onLeave={onLeave}
           banner={<div className="banner">Table {id}</div>}
           chat={chat}
+          settings={tableSettings}
         />
       );
     }
-    return <PlayingTable room={room as unknown as SpadesRoom} view={view as SeatView} seat={mySeat} names={names} onLeave={onLeave} code={id} chat={chat} />;
+    return <PlayingTable room={room as unknown as SpadesRoom} view={view as SeatView} seat={mySeat} names={names} onLeave={onLeave} code={id} chat={chat} settings={tableSettings} />;
   }
 
-  return <Lobby room={room} doc={doc} mySeat={mySeat} onSat={setMySeat} problem={problem} setProblem={setProblem} onLeave={onLeave} chat={chat} />;
+  return <Lobby room={room} doc={doc} mySeat={mySeat} onSat={setMySeat} problem={problem} setProblem={setProblem} onLeave={onLeave} chat={chat} settings={tableSettings} />;
 }
 
-function PlayingTable(props: { room: SpadesRoom; view: SeatView; seat: Seat; names: Record<Seat, string>; onLeave: () => void; code: string; chat: ChatProps }) {
+function PlayingTable(props: {
+  room: SpadesRoom;
+  view: SeatView;
+  seat: Seat;
+  names: Record<Seat, string>;
+  onLeave: () => void;
+  code: string;
+  chat: ChatProps;
+  settings?: { value: TableSettings; change: (next: TableSettings) => Promise<void> };
+}) {
   const table = useTable({
     view: props.view,
     seat: props.seat,
@@ -113,6 +133,7 @@ function PlayingTable(props: { room: SpadesRoom; view: SeatView; seat: Seat; nam
       onLeave={props.onLeave}
       banner={<div className="banner">Table {props.code}</div>}
       chat={props.chat}
+      settings={props.settings}
     />
   );
 }
@@ -126,6 +147,7 @@ function Lobby(props: {
   setProblem: (p: string | null) => void;
   onLeave: () => void;
   chat: ChatProps;
+  settings?: { value: TableSettings; change: (next: TableSettings) => Promise<void> };
 }) {
   const { room, doc, mySeat } = props;
   const game = gameOf(doc);
@@ -161,9 +183,9 @@ function Lobby(props: {
         <div className="suits" aria-hidden>
           {game === "palace" ? "🏰" : "♠ ♥ ♣ ♦"}
         </div>
-        <h1>{game === "palace" ? "Palace" : "Spades"} · Table {room.id}</h1>
+        <h1>{doc.label ?? `${game === "palace" ? "Palace" : "Spades"} · Table ${room.id}`}</h1>
         <p>
-          {doc.started ? "This game has started." : game === "palace" ? "First one out wins. Fill empty seats with bots." : "Partners sit across from each other."}
+          {doc.started ? "This game has started." : doc.locked ? (mySeat !== null ? "Your tournament match. Deal when you're ready; the game waits for whoever's turn it is." : "A tournament match. The seats are set.") : game === "palace" ? "First one out wins. Fill empty seats with bots." : "Partners sit across from each other."}
           {info?.rules ? ` ${info.rules}.` : ""}
         </p>
       </header>
@@ -185,7 +207,7 @@ function Lobby(props: {
                 {game === "spades" && s.bot && s.name && personaFor(s.name).blurb && <small className="blurb">{personaFor(s.name).blurb}</small>}
               </strong>
               {mine && <em>you</em>}
-              {!doc.started && empty && mySeat === null && (
+              {!doc.started && !doc.locked && empty && mySeat === null && (
                 <button
                   type="button"
                   className="secondary small"
@@ -201,7 +223,7 @@ function Lobby(props: {
                   Sit here
                 </button>
               )}
-              {!doc.started && empty && mySeat !== null && (
+              {!doc.started && !doc.locked && empty && mySeat !== null && (
                 <button
                   type="button"
                   className="link"
@@ -215,7 +237,7 @@ function Lobby(props: {
                   Add a bot
                 </button>
               )}
-              {!doc.started && s.bot && mySeat !== null && (
+              {!doc.started && !doc.locked && s.bot && mySeat !== null && (
                 <button type="button" className="link" onClick={() => attempt(() => room.removeBot(i))}>
                   Remove
                 </button>
@@ -225,11 +247,18 @@ function Lobby(props: {
         })}
       </ol>
 
+      {!doc.started && props.settings && doc.seats.some((s) => s.bot) && (
+        <section className="house-block" aria-label="Computer players">
+          <TableSettingsFields settings={props.settings.value} onChange={(next) => attempt(() => props.settings!.change(next))} />
+        </section>
+      )}
       {!doc.started && (
         <>
-          <button type="button" className="secondary" onClick={share}>
-            {copied ? "Link copied" : "Invite people"}
-          </button>
+          {!doc.locked && (
+            <button type="button" className="secondary" onClick={share}>
+              {copied ? "Link copied" : "Invite people"}
+            </button>
+          )}
           {mySeat !== null && (
             <button type="button" className="primary deal" disabled={!full} onClick={() => attempt(() => room.start())}>
               {full ? "Deal" : "Waiting for every seat"}

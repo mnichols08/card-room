@@ -4,16 +4,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Table } from "./Table";
 import { useLocalGame } from "./useLocalGame";
 import { useTable } from "./useTable";
+import { loadTableSettings, saveTableSettings } from "./storage";
 
 /** A game in this browser against three bots, picked at random from the roster, who chat as they would at a family table. */
 export function LocalTable({ name, preset, seed, onLeave }: { name: string; preset: RulePreset; seed: number; onLeave: () => void }) {
+  const [settings, setSettings] = useState(loadTableSettings);
   const BOTS = useMemo(() => {
     const [a, b, c] = pickPersonas(3, mulberry32(seed));
     return { 1: a!.name, 2: b!.name, 3: c!.name } as Record<number, string>;
   }, [seed]);
   const CAST: TableCast = useMemo(() => ({ bots: [1, 2, 3].map((seat) => ({ seat: seat as Seat, name: BOTS[seat]! })) }), [BOTS]);
   const [paused, setPaused] = useState(false);
-  const source = useLocalGame(preset, seed, paused, BOTS);
+  const source = useLocalGame(preset, seed, paused, BOTS, settings);
   const table = useTable(source);
   useEffect(() => setPaused(table.paused), [table.paused]);
 
@@ -50,5 +52,19 @@ export function LocalTable({ name, preset, seed, onLeave }: { name: string; pres
     return null;
   };
 
-  return <Table table={table} names={{ 0: name, ...BOTS } as Record<Seat, string>} onLeave={onLeave} chat={{ messages, mySeat: 0, send }} />;
+  return (
+    <Table
+      table={table}
+      names={{ 0: name, ...BOTS } as Record<Seat, string>}
+      onLeave={onLeave}
+      chat={{ messages, mySeat: 0, send }}
+      settings={{
+        value: settings,
+        change: (next) => {
+          saveTableSettings(next);
+          setSettings(next);
+        },
+      }}
+    />
+  );
 }

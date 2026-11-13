@@ -416,3 +416,33 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; }
 /* Inside another site's page: no big header, a little tighter. */
 .setup.embedded { padding-top: 16px; gap: 12px; }
 .setup.embedded a { color: var(--gold); }
+
+/* Table settings: the ⚙︎ beside the sound toggle, and its sheet. */
+.settings-toggle {
+  position: absolute; top: 8px; right: 56px; z-index: 2; width: 40px; height: 40px;
+  border: 0; border-radius: 50%; background: rgba(0, 0, 0, 0.25); color: var(--cream); font-size: 1.15rem; line-height: 1; cursor: pointer;
+}
+.bar-buttons { display: flex; gap: 6px; align-items: center; }
+.bar-buttons .settings-toggle { position: static; }
+.sheet.table-settings { z-index: 20; }
+.sheet.table-settings .fine { color: var(--muted); margin-top: -6px; }
+/* A disabled button in a sheet is solid, so the cards under the sheet don't show through it. */
+.sheet .primary:disabled { opacity: 1; background: #b9a876; color: #3d3524; cursor: default; }
+
+/* Tournaments: the champion, and the bracket as rounds of match cards. */
+.champion { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 16px; border-radius: 14px; background: rgba(233, 196, 106, 0.15); border: 1px solid var(--gold); text-align: center; }
+.champion span { font-size: 2.4rem; }
+.champion strong { font-size: 1.4rem; color: var(--gold); }
+.bracket .round h2 { margin-bottom: 6px; }
+.matches { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.match { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: rgba(0, 0, 0, 0.2); }
+.match.mine { outline: 2px solid var(--gold); }
+.match .side { display: flex; justify-content: space-between; gap: 8px; font-weight: 600; }
+.match .side.won { color: var(--gold); }
+.match .side.lost { opacity: 0.55; font-weight: 400; }
+.match-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; min-height: 32px; }
+.match-foot small { color: #cfe2d6; }
+.match .call { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.primary.small { padding: 6px 14px; font-size: 0.9rem; }
+.add-entrant { display: flex; flex-direction: column; gap: 8px; }
+.sheet .field-inline input { flex: 1; min-width: 0; font: inherit; padding: 8px 10px; border-radius: 8px; border: 1px solid #c9bfa8; }

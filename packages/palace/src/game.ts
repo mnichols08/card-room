@@ -65,6 +65,7 @@ export interface PalaceState {
 }
 
 export type PalaceAction =
+  | { type: "choose"; seat: number; cards: string[] }
   | { type: "swap"; seat: number; hand: string; up: string }
   | { type: "ready"; seat: number }
   | { type: "play"; seat: number; cards: string[] }
@@ -92,16 +93,14 @@ export function newPalace(rules: PalaceRules, seats: number, seed: number, deale
   const players: PalacePlayer[] = [];
   for (let i = 0; i < seats; i++) {
     const seat = (dealer + 1 + i) % seats;
-    players[seat] = {
-      down: deck.splice(0, rules.tableCards),
-      up: sortCards(deck.splice(0, rules.tableCards)),
-      hand: sortCards(deck.splice(0, rules.handSize)),
-      ready: false,
-      place: null,
-    };
+    const down = deck.splice(0, rules.tableCards);
+    // Choosing: the face-up cards are dealt into the hand, and each player picks which to lay down.
+    const up = rules.choose ? [] : sortCards(deck.splice(0, rules.tableCards));
+    const hand = sortCards(deck.splice(0, rules.handSize + (rules.choose ? rules.tableCards : 0)));
+    players[seat] = { down, up, hand, ready: false, place: null };
   }
   const s: PalaceState = { game: "palace", rules, seats, seed, dealer, deck, pile: [], burned: 0, players, phase: "swapping", turn: dealer, finished: [], loser: null, last: null, moves: 0 };
-  return rules.swap ? s : start(s);
+  return rules.swap || rules.choose ? s : start(s);
 }
 
 /** Cards that don't do anything special under these rules; the lowest of them in hand goes first. */
@@ -222,14 +221,28 @@ export function applyPalace(state: PalaceState, action: PalaceAction): PalaceSta
   if (!p) throw new PalaceError("No such seat.");
   if (s.phase === "finished") throw new PalaceError("The game is over.");
 
-  if (action.type === "swap" || action.type === "ready") {
+  if (action.type === "swap" || action.type === "ready" || action.type === "choose") {
     if (s.phase !== "swapping") throw new PalaceError("Swapping is over.");
     if (p.ready) throw new PalaceError("You're already ready.");
+    const choosing = s.rules.choose && p.up.length === 0;
+    if (action.type === "choose") {
+      if (!choosing) throw new PalaceError("Your face-up cards are already down.");
+      const ids = Array.isArray(action.cards) ? action.cards : [];
+      if (ids.length !== s.rules.tableCards) throw new PalaceError(`Pick ${s.rules.tableCards} cards to lay face-up.`);
+      const picked = takeIds(p.hand, ids);
+      if (!picked) throw new PalaceError("You don't have those cards.");
+      p.up = sortCards(picked);
+      p.ready = true;
+      s.moves += 1;
+      return s.players.every((x) => x.ready) ? start(s) : s;
+    }
+    if (choosing) throw new PalaceError(`Pick ${s.rules.tableCards} cards to lay face-up first.`);
     if (action.type === "ready") {
       p.ready = true;
       s.moves += 1;
       return s.players.every((x) => x.ready) ? start(s) : s;
     }
+    if (!s.rules.swap) throw new PalaceError("These rules don't swap.");
     const h = p.hand.findIndex((c) => cardId(c) === action.hand);
     const u = p.up.findIndex((c) => cardId(c) === action.up);
     if (h < 0 || u < 0) throw new PalaceError("You don't have those cards.");
@@ -306,7 +319,13 @@ export function viewPalace(s: PalaceState, seat: number | null) {
     loser: s.loser,
     can:
       me && seat !== null
-        ? { source: sourceOf(me), ranks: options(s, seat).map((o) => o.rank), pickUp: canPickUp(s, seat), flip: s.phase === "playing" && s.turn === seat && sourceOf(me) === "down" }
+        ? {
+            source: sourceOf(me),
+            ranks: options(s, seat).map((o) => o.rank),
+            pickUp: canPickUp(s, seat),
+            flip: s.phase === "playing" && s.turn === seat && sourceOf(me) === "down",
+            choose: s.phase === "swapping" && s.rules.choose && me.up.length === 0 ? s.rules.tableCards : 0,
+          }
         : null,
   };
 }

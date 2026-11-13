@@ -1,3 +1,4 @@
+import { createTournaments } from "./tournaments.js";
 // Houses: a family's own corner of the card room. A house has members (who joined with its invite
 // link), saved house rules with one as the default, and the tables it has opened.
 //
@@ -10,7 +11,7 @@ import { newPlayerId, playerCookie, playerOf, type RoomDoc } from "@spades/rooms
 import { leaderboard, palaceLeaderboard, type FinishedGame, type FinishedPalace } from "./leaderboard.js";
 import type { Push } from "./push.js";
 import { gameName, type GameId, type TableOptions } from "./games.js";
-import { palaceOptions, type PalaceSummary } from "./palace.js";
+import { palaceOptions, palaceRulesFrom, type PalaceSummary } from "./palace.js";
 
 export type Role = "owner" | "admin" | "member";
 
@@ -30,6 +31,8 @@ interface TableRecord {
   game?: GameId;
   rules: string;
   created: number;
+  /** The tournament this table is a match in. */
+  tournament?: string;
 }
 
 export interface HouseDoc {
@@ -44,6 +47,8 @@ export interface HouseDoc {
   palacePresets?: PalaceRules[];
   palaceDefault?: string;
   tables: TableRecord[];
+  /** Tournament ids, oldest first. */
+  tournaments?: string[];
 }
 
 interface Rooms {
@@ -51,8 +56,12 @@ interface Rooms {
     write(collection: string, key: string, fields: Record<string, unknown>): Promise<unknown>;
     documents(): Promise<{ get(collection: string, key: string): Record<string, unknown> | undefined }>;
   };
-  create(options: TableOptions): Promise<string>;
+  create(options: TableOptions, settings?: unknown): Promise<string>;
   room(id: string): Promise<RoomDoc<unknown> | undefined>;
+  seatPlayer(id: string, seat: number, player: string, name: string): Promise<void>;
+  seatBot(id: string, seat: number, name: string): Promise<void>;
+  start(id: string): Promise<string | null>;
+  lock(id: string, label?: string): Promise<void>;
 }
 
 const LETTERS = "abcdefghjkmnpqrstuvwxyz23456789";
@@ -81,7 +90,7 @@ const gameOf = (value: unknown): GameId => (value === "palace" ? "palace" : "spa
 /** Palace house rules from a page: checked, and given an id of their own if they're new. */
 function cleanPalace(value: unknown): PalaceRules | string {
   if (!value || typeof value !== "object") return "Those rules are missing.";
-  const rules = { ...familyPalace, ...(value as PalaceRules) };
+  const rules = palaceRulesFrom(value);
   rules.name = cleanName(rules.name, "House rules");
   // The id is the page's, or a new one: never the defaults' (that would replace them).
   const given = (value as { id?: unknown }).id;
@@ -107,10 +116,11 @@ export function createHouses(rooms: Rooms, { mount = "/houses", push }: { mount?
     const doc = (await docs).get("houses", slug);
     if (!doc) return undefined;
     // Keep only the house's own fields (the view may carry sync bookkeeping such as $clocks).
-    const { slug: s, name, code, members, presets, defaultPreset, palacePresets, palaceDefault, tables } = doc as unknown as HouseDoc;
-    return structuredClone({ slug: s, name, code, members, presets, defaultPreset, palacePresets: palacePresets ?? [familyPalace], palaceDefault: palaceDefault ?? palacePresets?.[0]?.id ?? familyPalace.id, tables }) as HouseDoc;
+    const { slug: s, name, code, members, presets, defaultPreset, palacePresets, palaceDefault, tables, tournaments } = doc as unknown as HouseDoc;
+    return structuredClone({ slug: s, name, code, members, presets, defaultPreset, palacePresets: (palacePresets ?? [familyPalace]).map(palaceRulesFrom), palaceDefault: palaceDefault ?? palacePresets?.[0]?.id ?? familyPalace.id, tables, tournaments: tournaments ?? [] }) as HouseDoc;
   };
   const save = (house: HouseDoc) => rooms.sync.write("houses", house.slug, { ...house });
+  const tournaments = createTournaments(rooms, { push, saveHouse: (h) => save(h as HouseDoc) });
 
   /** What a member sees. No player secrets; the invite code, since members share the link. */
   async function forMember(house: HouseDoc, me: Member) {
@@ -123,6 +133,7 @@ export function createHouses(rooms: Rooms, { mount = "/houses", push }: { mount?
           return {
             id: t.id,
             game: t.game ?? "spades",
+            tournament: t.tournament ?? null,
             rules: t.rules,
             created: t.created,
             seats: room?.seats ?? [],
@@ -141,6 +152,7 @@ export function createHouses(rooms: Rooms, { mount = "/houses", push }: { mount?
       defaultPreset: house.defaultPreset,
       palacePresets: house.palacePresets,
       palaceDefault: house.palaceDefault,
+      tournaments: await tournaments.list(house),
       // Games still going first, then the rest, newest first.
       tables: tables.sort((a, b) => Number((a.summary as { phase?: string } | null)?.phase === "finished") - Number((b.summary as { phase?: string } | null)?.phase === "finished")),
     };
@@ -229,6 +241,17 @@ export function createHouses(rooms: Rooms, { mount = "/houses", push }: { mount?
       return json(leaderboard(await finishedGames(house), members));
     }
 
+    // /houses/:slug/tournaments[/:id[/:action]]
+    if (action === "tournaments") {
+      if (!me) return json({ error: "Join the house first." }, 403);
+      const rulesFor = (game: GameId, id: unknown) =>
+        game === "palace"
+          ? (house.palacePresets!.find((p) => p.id === (id ?? house.palaceDefault)) ?? house.palacePresets![0] ?? familyPalace)
+          : (house.presets.find((p) => p.id === (id ?? house.defaultPreset)) ?? house.presets[0] ?? brokennilsTable);
+      const reply = await tournaments.handle(house, me, parts.slice(2), method, input, rulesFor);
+      return json(reply.body, reply.status);
+    }
+
     if (method !== "POST") return json({ error: "Not found" }, 404);
 
     // POST /houses/:slug/join { code, name }
@@ -245,18 +268,18 @@ export function createHouses(rooms: Rooms, { mount = "/houses", push }: { mount?
     if (!me) return json({ error: "Join the house first." }, 403);
     const canManage = me.role === "owner" || me.role === "admin";
 
-    // POST /houses/:slug/tables { game?, presetId?, seats? } → a new table with house rules
+    // POST /houses/:slug/tables { game?, presetId?, seats?, settings? } → a new table with house rules
     if (action === "tables") {
       const game = gameOf(input.game);
       let id: string;
       let rulesName: string;
       if (game === "palace") {
         const rules = house.palacePresets!.find((p) => p.id === (input.presetId ?? house.palaceDefault)) ?? house.palacePresets![0] ?? familyPalace;
-        id = await rooms.create(palaceOptions(rules, input.seats));
+        id = await rooms.create(palaceOptions(rules, input.seats), input.settings);
         rulesName = rules.name;
       } else {
         const preset = house.presets.find((p) => p.id === (input.presetId ?? house.defaultPreset)) ?? house.presets[0] ?? brokennilsTable;
-        id = await rooms.create(preset);
+        id = await rooms.create(preset, input.settings);
         rulesName = preset.name;
       }
       house.tables.push({ id, game, rules: rulesName, created: Date.now() });
@@ -363,6 +386,8 @@ export function createHouses(rooms: Rooms, { mount = "/houses", push }: { mount?
   }
 
   return {
+    /** A table finished: if it was a tournament match, move its winner on. */
+    tableFinished: (id: string, summary: unknown) => tournaments.tableFinished(id, summary, get),
     /** Answers house requests; null for anything else. */
     async fetch(request: Request): Promise<Response | null> {
       const { pathname } = new URL(request.url);

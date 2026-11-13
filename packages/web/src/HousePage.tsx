@@ -6,15 +6,17 @@ import { GamePicker } from "./GamePicker";
 import { HouseError, houses, inviteLink, type House, type HouseTable, type PalaceStandings, type Standings } from "./housesApi";
 import { PalaceRulesFields, palaceSummary } from "./palace/PalaceRules";
 import { NotifyButton } from "./NotifyButton";
+import { NewTournament } from "./TournamentPage";
 import { describe, RulesFields } from "./RulesEditor";
 import { Choice } from "./RulesEditor";
-import { forgetHouse, loadGame, loadPalaceSeats, loadSavedName, rememberHouse, saveGame, saveName, savePalaceSeats, type GameId } from "./storage";
+import { forgetHouse, loadGame, loadTableSettings, loadPalaceSeats, loadSavedName, rememberHouse, saveGame, saveName, savePalaceSeats, type GameId } from "./storage";
 
 interface Props {
   slug: string;
   /** The invite code, when the page was opened from an invite link. */
   code: string | null;
   onOpenTable: (id: string) => void;
+  onOpenTournament: (id: string) => void;
   onLeave: () => void;
 }
 
@@ -25,7 +27,7 @@ type State =
   | { kind: "closed"; message: string };
 
 /** A family's own corner: their tables, their people, their rules. */
-export function HousePage({ slug, code, onOpenTable, onLeave }: Props) {
+export function HousePage({ slug, code, onOpenTable, onOpenTournament, onLeave }: Props) {
   const [state, setState] = useState<State>({ kind: "loading" });
   const [problem, setProblem] = useState<string | null>(null);
 
@@ -83,7 +85,7 @@ export function HousePage({ slug, code, onOpenTable, onLeave }: Props) {
   if (state.kind === "invited") return <Invited houseName={state.name} onJoin={(name) => attempt(() => houses.join(slug, code!, name))} problem={problem} />;
 
   const { house } = state;
-  return <MemberView house={house} attempt={attempt} problem={problem} onOpenTable={onOpenTable} onLeave={onLeave} />;
+  return <MemberView house={house} attempt={attempt} problem={problem} onOpenTable={onOpenTable} onOpenTournament={onOpenTournament} onLeave={onLeave} />;
 }
 
 function Invited({ houseName, onJoin, problem }: { houseName: string; onJoin: (name: string) => void; problem: string | null }) {
@@ -119,9 +121,11 @@ function MemberView(props: {
   attempt: (work: () => Promise<House | void>) => Promise<void>;
   problem: string | null;
   onOpenTable: (id: string) => void;
+  onOpenTournament: (id: string) => void;
   onLeave: () => void;
 }) {
   const { house, attempt } = props;
+  const [makingTournament, setMakingTournament] = useState(false);
   const canManage = house.me.role === "owner" || house.me.role === "admin";
   const [presetId, setPresetId] = useState(house.defaultPreset);
   // Follow the house default when it changes, or when the chosen rules are deleted.
@@ -192,7 +196,7 @@ function MemberView(props: {
             onClick={() =>
               attempt(async () => {
                 savePalaceSeats(seats);
-                props.onOpenTable((await houses.openTable(house.slug, palaceRules.id, "palace", seats)).id);
+                props.onOpenTable((await houses.openTable(house.slug, palaceRules.id, "palace", seats, loadTableSettings())).id);
               })
             }
           >
@@ -215,7 +219,7 @@ function MemberView(props: {
             </select>
           </label>
         )}
-        <button type="button" className="primary deal" onClick={() => attempt(async () => props.onOpenTable((await houses.openTable(house.slug, presetId)).id))}>
+        <button type="button" className="primary deal" onClick={() => attempt(async () => props.onOpenTable((await houses.openTable(house.slug, presetId, "spades", undefined, loadTableSettings())).id))}>
           Start a table
         </button>
         <p className="rules-summary">{describe(house.presets.find((p) => p.id === presetId) ?? defaultRules ?? house.presets[0]!)}</p>
@@ -241,6 +245,37 @@ function MemberView(props: {
           ))}
         </ul>
         <NotifyButton what="someone opens a table here" />
+      </section>
+
+      <section className="house-block" aria-label="Tournaments">
+        <h2>Tournaments</h2>
+        {house.tournaments.length === 0 && <p className="fine">{canManage ? "Run a bracket: everyone signs up, plays their match when they can, and one of you takes the crown." : "No tournaments yet."}</p>}
+        <ul className="house-list">
+          {house.tournaments.map((t) => (
+            <li key={t.id}>
+              <div>
+                <strong>
+                  {t.game === "palace" ? "🏰" : "♠️"} {t.name}
+                </strong>
+                <small>
+                  {t.status === "signup"
+                    ? `Signing up · ${t.entrants} ${t.game === "spades" ? "team" : "player"}${t.entrants === 1 ? "" : "s"} so far`
+                    : t.status === "playing"
+                      ? `Playing · ${t.round}`
+                      : `🏆 ${t.champion}`}
+                </small>
+              </div>
+              <button type="button" className="secondary small" onClick={() => props.onOpenTournament(t.id)}>
+                {t.status === "signup" ? "Sign up" : "Bracket"}
+              </button>
+            </li>
+          ))}
+        </ul>
+        {canManage && (
+          <button type="button" className="secondary" onClick={() => setMakingTournament(true)}>
+            Start a {game === "palace" ? "Palace" : "spades"} tournament
+          </button>
+        )}
       </section>
 
       {game === "palace" ? <PalaceLeaderboardBlock house={house} /> : <LeaderboardBlock house={house} />}
@@ -341,6 +376,19 @@ function MemberView(props: {
         Back to the start
       </button>
 
+      {makingTournament && (
+        <NewTournament
+          house={house}
+          game={game}
+          presetId={game === "palace" ? palaceId : presetId}
+          settings={loadTableSettings()}
+          onClose={() => setMakingTournament(false)}
+          onMade={(id) => {
+            setMakingTournament(false);
+            props.onOpenTournament(id);
+          }}
+        />
+      )}
       {editingPalace && (
         <PalaceRulesEditor
           rules={editingPalace}
