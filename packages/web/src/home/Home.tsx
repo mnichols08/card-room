@@ -19,6 +19,7 @@ const FANS: Record<string, ReturnType<typeof card>[]> = {
   gin: [card(7, "clubs"), card(7, "diamonds"), card(7, "hearts")],
   pinochle: [card(12, "spades"), card(11, "diamonds"), card(14, "hearts")],
   canasta: [card(13, "hearts"), card(13, "clubs"), card(13, "spades")],
+  gofish: [card(5, "hearts"), card(5, "spades"), card(5, "diamonds")],
 };
 
 const SEATS: Record<string, { seats: [number, number]; teams: boolean }> = {
