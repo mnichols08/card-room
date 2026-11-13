@@ -9,6 +9,7 @@
 //   views/<id>/<seat>   one seat's view of the game                                  (that seat only)
 //   games/<id>          options, seed and seat holders                               (server only)
 //   moves/<id>          every move, one field per move, for replays and restarts     (server only)
+//   chat/<id>           the table's chat, one field per message                       (everyone)
 import { createSyncServer, memoryLog, type Log } from "@zubra/sync/server";
 
 export interface RoomDefinition<State, Move, View, Options, Summary = unknown> {
@@ -43,6 +44,20 @@ export interface RoomDoc<Summary = unknown> {
   summary: Summary | null;
   version: number;
 }
+
+export interface ChatMessage {
+  /** The seat that said it. */
+  seat: number;
+  name: string;
+  text: string;
+  /** Server time (ms). */
+  at: number;
+  bot: boolean;
+}
+
+/** How long a message may be, and how often one player may send. */
+export const CHAT_LIMIT = 280;
+const CHAT_GAP_MS = 400;
 
 export interface ViewDoc<View = unknown> {
   view: View;
@@ -112,6 +127,7 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     authorize: async ({ request, collection, key, kind }) => {
       if (kind === "change") return false; // the server is the only writer
       if (collection === "rooms") return true; // reading, and presence (who's at the table)
+      if (collection === "chat" && kind === "read") return true;
       if (collection === "views" && kind === "read") {
         const [id, seat] = splitViewKey(key);
         const player = playerOf(request);
@@ -148,6 +164,28 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     }
     live.set(id, entry);
     return entry;
+  }
+
+  /** Messages per room, counted once from the log and then kept here. */
+  const chatCount = new Map<string, number>();
+  const lastSaid = new Map<string, number>();
+
+  /** Add a message to a room's chat, as a seat. Bots speak through this too. */
+  async function say(id: string, seat: number, text: string): Promise<ChatMessage | string> {
+    const clean = text.replace(/\s+/g, " ").trim().slice(0, CHAT_LIMIT);
+    if (!clean) return "Say something first.";
+    const r = await room(id);
+    const who = r?.seats[seat];
+    if (!r || !who) return "No such seat.";
+    if (!chatCount.has(id)) {
+      const existing = (await docs).get("chat", id) ?? {};
+      chatCount.set(id, Object.keys(existing).filter((k) => /^m\d+$/.test(k)).length);
+    }
+    const n = chatCount.get(id)!;
+    chatCount.set(id, n + 1);
+    const message: ChatMessage = { seat, name: who.name ?? `Seat ${seat + 1}`, text: clean, at: Date.now(), bot: who.bot };
+    await sync.write("chat", id, { [`m${String(n).padStart(6, "0")}`]: message });
+    return message;
   }
 
   /** Open a new room with these options. Resolves to its id. */
@@ -293,6 +331,17 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
       return json({ ok: true });
     }
 
+    // POST /rooms/:id/say { text }
+    if (action === "say") {
+      const key = `${id}/${mySeat}`;
+      const now = Date.now();
+      if (now - (lastSaid.get(key) ?? 0) < CHAT_GAP_MS) return json({ error: "Slow down a little." }, 429);
+      const result = await say(id, mySeat, String(input.text ?? ""));
+      if (typeof result === "string") return json({ error: result }, 400);
+      lastSaid.set(key, now); // only a message that was sent counts toward the pace
+      return json(result);
+    }
+
     if (action === "act") {
       const entry = await stateOf(id);
       if (entry.state === null) return json({ error: "The game hasn't started." }, 409);
@@ -312,6 +361,7 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
   return {
     sync,
     create,
+    say,
     /** The public room doc, or undefined. */
     room,
     /** How many rooms have their state in memory (finished ones are dropped). */

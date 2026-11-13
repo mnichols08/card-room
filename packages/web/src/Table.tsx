@@ -7,6 +7,7 @@ import SeatBadge from "@spades/ui/seat-badge.zb";
 import { useState } from "react";
 import { loadFeedbackSettings, play, saveFeedbackSettings } from "./feedback/sounds";
 import { useTableSounds } from "./feedback/useTableSounds";
+import { Bubble, TableChat, useBubbles, type ChatProps } from "./Chat";
 import type { TableState } from "./useTable";
 
 interface Props {
@@ -15,11 +16,13 @@ interface Props {
   onLeave: () => void;
   /** Shown under the scoreboard: the table code, who's here. */
   banner?: React.ReactNode;
+  /** Table talk, at family tables. */
+  chat?: ChatProps;
 }
 
 const SIDES = ["bottom", "left", "top", "right"] as const;
 
-export function Table({ table: t, names, onLeave, banner }: Props) {
+export function Table({ table: t, names, onLeave, banner, chat }: Props) {
   const view = t.view!;
   const me = t.seat;
   const preset = view.preset;
@@ -31,6 +34,7 @@ export function Table({ table: t, names, onLeave, banner }: Props) {
   const [selected, setSelected] = useState<Card[]>([]);
   const [soundOn, setSoundOn] = useState(() => loadFeedbackSettings().sound);
   useTableSounds(t);
+  const bubbles = useBubbles(chat?.messages ?? []);
 
   function toggleSound() {
     const next = { ...loadFeedbackSettings(), sound: !soundOn };
@@ -122,6 +126,7 @@ export function Table({ table: t, names, onLeave, banner }: Props) {
       </div>
 
       <section className="me">
+        {chat && <TableChat {...chat} />}
         <div className="me-badge">{seat(me, "row")}</div>
         <div className="hand" role="group" aria-label="Your hand">
           {t.hand === null
@@ -138,6 +143,13 @@ export function Table({ table: t, names, onLeave, banner }: Props) {
               ))}
         </div>
       </section>
+
+      {/* Bubbles float above everything, near the seat that spoke. */}
+      <div className="bubble-layer" aria-live="polite">
+        {[...bubbles.entries()].map(([s, m]) => (
+          <Bubble key={`${s}-${m.at}`} message={m} side={side(s as Seat)} />
+        ))}
+      </div>
 
       {myTurnToBid && (
         <div className="sheet">

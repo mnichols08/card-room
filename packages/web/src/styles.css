@@ -266,3 +266,94 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; }
 .house-block h3 { margin: 6px 0 0; font-size: 1.05rem; }
 .highlights { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 6px; font-size: 0.95rem; }
 .highlights strong { color: var(--gold); }
+
+/* ---------- Chat ---------- */
+.chat-toggle {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 3;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.25);
+  font-size: 1.1rem;
+}
+.me { position: relative; }
+.me .chat-toggle { top: 10px; left: 10px; }
+.lobby { position: relative; }
+.lobby .chat-toggle { position: fixed; top: 12px; left: auto; right: 12px; }
+.chat-toggle .badge {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--red);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 18px;
+}
+.chat-sheet {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: min(480px, 100%);
+  max-height: 70vh;
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 14px max(14px, env(safe-area-inset-bottom));
+  border-radius: 16px 16px 0 0;
+  background: var(--cream);
+  color: var(--ink);
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.4);
+}
+.chat-head { display: flex; justify-content: space-between; align-items: center; }
+.chat-head .link { color: var(--felt); }
+.chat-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 6px; min-height: 120px; }
+.chat-list li { display: flex; flex-direction: column; max-width: 85%; padding: 6px 10px; border-radius: 12px; background: #efe6d4; align-self: flex-start; }
+.chat-list li.mine { align-self: flex-end; background: #e8c46a55; }
+.chat-list li.empty { background: none; color: var(--muted); }
+.chat-list .who { font-size: 0.72rem; font-weight: 700; color: var(--felt); }
+.chat-list li.them .who { color: #3a5a99; }
+.chat-list .text { word-wrap: break-word; }
+.emoji-row { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 2px; }
+.emoji-row button { flex: none; border: 0; background: #efe6d4; border-radius: 10px; font-size: 1.3rem; padding: 6px 8px; }
+.chat-form { display: flex; gap: 8px; }
+.chat-form input { flex: 1; font: inherit; padding: 10px 12px; border-radius: 999px; border: 1px solid #d9d2c3; background: white; color: var(--ink); }
+.chat-sheet .error { color: var(--red); margin: 0; }
+
+.me-badge { position: relative; }
+/* Bubbles have their own layer above the table and its sheets: a partner's "go nil!" matters
+   most while you're bidding. Each sits near the seat that spoke. */
+.bubble-layer { position: fixed; inset: 0; z-index: 12; pointer-events: none; }
+.bubble {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  max-width: 200px;
+  padding: 6px 10px 7px;
+  border-radius: 14px;
+  background: var(--cream);
+  color: var(--ink);
+  font-size: 0.9rem;
+  line-height: 1.25;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  animation: bubble-in 180ms ease-out;
+}
+.bubble .said-by { font-size: 0.7rem; font-weight: 700; color: var(--felt); }
+.bubble.emoji { align-items: center; }
+.bubble.emoji span:last-child { font-size: 1.9rem; line-height: 1.1; }
+.bubble.top { top: 182px; left: 50%; translate: -50% 0; }
+.bubble.left { top: 46%; left: 8px; }
+.bubble.right { top: 46%; right: 8px; }
+.bubble.bottom { bottom: calc(var(--card-h) + 92px); left: 50%; translate: -50% 0; }
+@keyframes bubble-in { from { opacity: 0; scale: 0.8; } to { opacity: 1; scale: 1; } }
+@media (prefers-reduced-motion: reduce) { .bubble { animation: none; } }

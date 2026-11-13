@@ -198,3 +198,59 @@ describe("finished rooms", () => {
     expect((await send("/rooms/done01/act", { move: { add: 1 } }, cookie))!.status).toBe(200);
   });
 });
+
+describe("chat", () => {
+  it("seated players talk; everyone at the table reads it; strangers can't post", async () => {
+    const { browser, rooms } = setup();
+    const a = browser();
+    const b = browser();
+    const stranger = browser();
+    await a.post("/rooms", { options: { start: 0 } });
+    await a.post("/rooms/abc123/sit", { seat: 0, name: "brokennil" });
+    await b.post("/rooms/abc123/sit", { seat: 1, name: "Rick" });
+    await a.post("/rooms/abc123/bot", { seat: 2, name: "Dot" });
+
+    expect((await a.post("/rooms/abc123/say", { text: "  good luck  ♠️ " })).body).toMatchObject({ seat: 0, name: "brokennil", text: "good luck ♠️", bot: false });
+    expect((await stranger.post("/rooms/abc123/say", { text: "hi" })).status).toBe(403);
+    expect((await b.post("/rooms/abc123/say", { text: "   " })).status).toBe(400);
+    const long = await b.post("/rooms/abc123/say", { text: "x".repeat(1000) });
+    expect(long.body.text).toHaveLength(280);
+    expect(await rooms.say("abc123", 2, "🎉")).toMatchObject({ seat: 2, name: "Dot", bot: true });
+
+    const said = (await stranger.pull()).filter((c) => c.collection === "chat").map((c) => [c.field, c.value.text]);
+    expect(said).toEqual([
+      ["m000000", "good luck ♠️"],
+      ["m000001", "x".repeat(280)],
+      ["m000002", "🎉"],
+    ]);
+  });
+
+  it("slows down a player who sends too fast", async () => {
+    const { browser } = setup();
+    const a = browser();
+    await a.post("/rooms", { options: { start: 0 } });
+    await a.post("/rooms/abc123/sit", { seat: 0, name: "A" });
+    expect((await a.post("/rooms/abc123/say", { text: "one" })).status).toBe(200);
+    expect((await a.post("/rooms/abc123/say", { text: "two" })).status).toBe(429);
+    await wait(450);
+    expect((await a.post("/rooms/abc123/say", { text: "three" })).status).toBe(200);
+  });
+
+  it("numbers messages after a restart without overwriting old ones", async () => {
+    const log = memoryLog({ keep: "latest" });
+    const first = setup(log);
+    const a = first.browser();
+    await a.post("/rooms", { options: { start: 0 } });
+    await a.post("/rooms/abc123/sit", { seat: 0, name: "A" });
+    await a.post("/rooms/abc123/say", { text: "before" });
+    await wait(10);
+    const second = createRooms(counting, { log, botDelay: 5 });
+    open.push(second);
+    await second.say("abc123", 0, "after");
+    const pulled = (await (await second.fetch(new Request(`${BASE}/_zb/sync/pull?since=0`)))!.json()).changes.filter((c: { collection: string }) => c.collection === "chat");
+    expect(pulled.map((c: { field: string; value: { text: string } }) => [c.field, c.value.text])).toEqual([
+      ["m000000", "before"],
+      ["m000001", "after"],
+    ]);
+  });
+});
