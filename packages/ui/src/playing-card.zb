@@ -62,6 +62,8 @@
       filter var(--dur-1, 120ms);
   }
   .card[data-size=table] { width: var(--trick-w, 52px); height: var(--trick-h, 74px); border-radius: calc(var(--trick-w, 52px) * 0.1); }
+  /* Mini: the cards in front of the other players. */
+  .card[data-size=mini] { width: var(--mini-w, 34px); height: var(--mini-h, 48px); border-radius: calc(var(--mini-w, 34px) * 0.1); }
   .card.red { color: var(--ink-red); }
   .glyph { font-family: "Apple Symbols", "Segoe UI Symbol", "Noto Sans Symbols 2", system-ui, sans-serif; font-style: normal; font-variant-emoji: text; line-height: 1; }
 
@@ -149,6 +151,7 @@
     box-shadow: var(--elev-1, 0 2px 5px rgba(0, 0, 0, 0.3)), inset 0 0 0 calc(var(--u) * 4) #fffdf8, inset 0 0 0 calc(var(--u) * 5) rgba(232, 196, 106, 0.7);
   }
   .back[data-size=table] { --bw: var(--trick-w, 52px); height: var(--trick-h, 74px); border-radius: calc(var(--trick-w, 52px) * 0.1); }
+  .back[data-size=mini] { --bw: var(--mini-w, 34px); height: var(--mini-h, 48px); border-radius: calc(var(--mini-w, 34px) * 0.1); }
   .back::after {
     content: "♠\FE0E"; position: absolute; inset: 0; display: grid; place-items: center;
     font-size: calc(var(--u) * 12); line-height: 1; color: #7a1f2b; font-variant-emoji: text;

@@ -43,13 +43,13 @@
   .place { color: var(--primary, #e8c46a); font-weight: 700; }
   .last { color: #ffb4a8; font-weight: 700; }
 </style>
-<palace-seat name up={[]} down={0} held={0} active={false} place={0} last={false}>
+<palace-seat name up={[]} down={0} held={0} active={false} place={0} last={false} compact={false}>
   <div class="seat" class:active={active} class:out={place > 0} aria-current={active ? "true" : null}>
     <strong>{name}</strong>
     <span zb-if={last} class="last">Left holding the cards</span>
     <span zb-else-if={place > 0} class="place">{medal(place)}</span>
-    <span zb-else>{cards(held)} in hand</span>
-    <div zb-if={place === 0 && !last} class="table-cards" aria-label={`${up.length} face up, ${down} face down`}>
+    <span zb-else>{compact ? `${held} in hand` : `${cards(held)} in hand`}</span>
+    <div zb-if={!compact && place === 0 && !last} class="table-cards" aria-label={`${up.length} face up, ${down} face down`}>
       <zb-each items={chips} as="chip" key={chip.id}>
         <span class="chip" class:red={chip.red} class:diamonds={chip.suit === "diamonds"} class:clubs={chip.suit === "clubs"}>{chip.text}</span>
       </zb-each>
