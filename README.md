@@ -57,3 +57,31 @@ railway config apply
 
 Then, in the dashboard, generate a domain for the service under **Networking**. Generated
 domains aren't part of the file. Every merge to `main` deploys.
+
+#### Setting it up in the dashboard instead
+
+1. **New project → Deploy from GitHub repo → `mnichols08/spades`.** Railway sees the npm
+   workspaces and offers a service per package (`rules`, `rooms`, `ui`, `web`, `server`).
+   **Deploy only one.** The others are libraries and the front end, all built into the server.
+   Delete any that get created.
+2. **Settings → Source:** root directory `/` (the repository root, not `packages/server`), and
+   builder **Dockerfile**. Leave build and start commands empty.
+3. **Volume:** <kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>K</kbd> → "volume" (desktop browser; the mobile
+   dashboard can't add one), attach it to the service, mount path `/data`.
+4. **Variables:** `SPADES_DB=/data/spades.db`. Without it, tables live in memory and every deploy
+   wipes them.
+5. **Networking → Generate Domain.** The target port must be the one the server logs at start
+   (`spades on http://localhost:8080`). Railway sets `PORT` (usually 8080), which overrides the
+   Dockerfile's 8787. Or set `PORT=8787` yourself and use 8787.
+
+#### When it doesn't work
+
+| What you see | Why | Fix |
+| --- | --- | --- |
+| "Application failed to respond", but the deploy log says `spades on http://localhost:8080` | The domain points at another port | Set the domain's target port to the logged one |
+| `/healthz` says `ok`, the page says "Build the web app first" | Built from `packages/server`, so the web app wasn't built | Root directory `/`, builder Dockerfile |
+| Tables disappear after a deploy | No volume, or `SPADES_DB` unset | Volume at `/data` and `SPADES_DB=/data/spades.db` |
+| Players at one table see different games | More than one replica | One replica |
+| A Node version error in the build | The builder picked an old Node | `.nvmrc` pins 24; or set `RAILPACK_NODE_VERSION=24` |
+
+Keep spades in a project of its own, so `railway config apply` can never touch another app.
