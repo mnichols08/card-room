@@ -138,7 +138,7 @@ export function Table({ table: t, names, onLeave, banner, chat, settings }: Prop
               <PlayingCard card={play.card} size="table" won={t.trickWinner === play.seat} data-flip={cardId(play.card)} data-from={`[data-seat="${play.seat}"]`} />
             </div>
           ))}
-          {t.trickWinner !== null && <div className="took">{names[t.trickWinner]} takes it</div>}
+          {t.trickWinner !== null && <div className="took">{t.trickWinner === t.seat ? "You take it" : `${names[t.trickWinner]} takes it`}</div>}
         </div>
 
         <div className="status" role="status">

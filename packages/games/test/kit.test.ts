@@ -34,7 +34,8 @@ function checkView(v: KitView, seat: number) {
   for (const id of v.tap?.cards ?? []) expect(ids.has(id)).toBe(true);
   for (const id of v.pick?.cards ?? []) expect(ids.has(id)).toBe(true);
   expect(v.players).toHaveLength(v.seats);
-  expect(v.players[seat]!.cards).toBe(v.hand.length);
+  if (v.handHidden) expect(v.hand).toEqual([]);
+  else expect(v.players[seat]!.cards).toBe(v.hand.length);
 }
 
 for (const game of KIT_GAMES) {
@@ -68,7 +69,8 @@ for (const game of KIT_GAMES) {
       const b = game.newGame(game.presets[0], game.seats.default, 99);
       expect(JSON.stringify(a)).toBe(JSON.stringify(b));
       const c = game.newGame(game.presets[0], game.seats.default, 100);
-      expect(JSON.stringify(game.view(c, 0).hand)).not.toBe(JSON.stringify(game.view(a, 0).hand));
+      if (game.view(a, 0).handHidden) expect(JSON.stringify({ ...c, rng: 0, dealer: 0 })).not.toBe(JSON.stringify({ ...a, rng: 0, dealer: 0 }));
+      else expect(JSON.stringify(game.view(c, 0).hand)).not.toBe(JSON.stringify(game.view(a, 0).hand));
     });
 
     it("refuses moves out of turn and leaves the state alone", () => {

@@ -1,13 +1,23 @@
 // One table for every game on the card kit. The engine's view says everything: your hand and what
 // a tap does, cards to pick, buttons to press, the trick or the piles in the middle, the melds on
 // the table, the scores. This only lays it out: others around you, the middle, your hand below.
-import { kitGame, type Center, type KCard, type KitView, type Meld } from "@cardroom/games";
+import {
+  kitGame,
+  type Center,
+  type KCard,
+  type KitView,
+  type Meld,
+} from "@cardroom/games";
 import { type TableSettings } from "@spades/rules";
 import PlayingCard from "@spades/ui/playing-card.zb";
 import { useEffect, useRef, useState } from "react";
 import { Bubble, TableChat, useBubbles, type ChatProps } from "../Chat";
 import { Confetti } from "../Confetti";
-import { loadFeedbackSettings, play, saveFeedbackSettings } from "../feedback/sounds";
+import {
+  loadFeedbackSettings,
+  play,
+  saveFeedbackSettings,
+} from "../feedback/sounds";
 import { lift, motionScale, useCardFlip, useFlash } from "../motion";
 import { seatAround } from "../palace/PalaceTable";
 import { TableSettingsButton } from "../TableSettings";
@@ -20,16 +30,32 @@ export interface KitTableProps {
   onLeave: () => void;
   banner?: React.ReactNode;
   chat?: ChatProps;
-  settings?: { value: TableSettings; change: (next: TableSettings) => Promise<void> | void };
+  settings?: {
+    value: TableSettings;
+    change: (next: TableSettings) => Promise<void> | void;
+  };
 }
 
 /** Engines name seats as {0}, {1}…: put the players' names in. */
-export const named = (text: string, names: string[]) => text.replace(/\{(\d+)\}/g, (_, n) => names[Number(n)] ?? `Seat ${Number(n) + 1}`);
+export const named = (text: string, names: string[]) =>
+  text.replace(
+    /\{(\d+)\}/g,
+    (_, n) => names[Number(n)] ?? `Seat ${Number(n) + 1}`,
+  );
 
 /** "Ann & Cy" for a side of the table. */
-const sideName = (seats: number[], names: string[]) => seats.map((s) => names[s] ?? `Seat ${s + 1}`).join(" & ");
+const sideName = (seats: number[], names: string[]) =>
+  seats.map((s) => names[s] ?? `Seat ${s + 1}`).join(" & ");
 
-export function KitTable({ view, names, act, onLeave, banner, chat, settings }: KitTableProps) {
+export function KitTable({
+  view,
+  names,
+  act,
+  onLeave,
+  banner,
+  chat,
+  settings,
+}: KitTableProps) {
   const game = kitGame(view.game)!;
   const me = view.me;
   const [error, setError] = useState<string | null>(null);
@@ -39,13 +65,19 @@ export function KitTable({ view, names, act, onLeave, banner, chat, settings }: 
   const root = useRef<HTMLElement>(null);
   const scale = motionScale(settings?.value.pace);
   useCardFlip(root, scale);
-  const others = Array.from({ length: view.seats - 1 }, (_, i) => (me + 1 + i) % view.seats);
+  const others = Array.from(
+    { length: view.seats - 1 },
+    (_, i) => (me + 1 + i) % view.seats,
+  );
   const spots = seatAround(others);
-  const myTurn = view.turn === me || (view.turn === null && (!!view.pick || !!view.choices));
+  const myTurn =
+    view.turn === me || (view.turn === null && (!!view.pick || !!view.choices));
   const breathe = useFlash(view.turn === me, 700, false) && view.turn === me;
 
   // A pick starts empty whenever what's being picked changes.
-  const pickKey = view.pick ? `${view.phase}:${view.pick.prompt}:${view.pick.cards.join(",")}` : "";
+  const pickKey = view.pick
+    ? `${view.phase}:${view.pick.prompt}:${view.pick.cards.join(",")}`
+    : "";
   useEffect(() => setPicked([]), [pickKey]);
   useEffect(() => {
     if (!error) return;
@@ -54,7 +86,15 @@ export function KitTable({ view, names, act, onLeave, banner, chat, settings }: 
   }, [error]);
 
   // Sounds: a card landing, your turn, the end.
-  const centerKey = JSON.stringify(view.center.kind === "trick" ? view.center.plays.map((p) => p.card.id) : view.center.kind === "piles" ? [view.center.discardCount, view.center.stock] : view.center.kind === "fan" ? [view.center.from, view.center.count] : []);
+  const centerKey = JSON.stringify(
+    view.center.kind === "trick"
+      ? view.center.plays.map((p) => p.card.id)
+      : view.center.kind === "piles"
+        ? [view.center.discardCount, view.center.stock]
+        : view.center.kind === "fan"
+          ? [view.center.from, view.center.count]
+          : [],
+  );
   const seen = useRef<string | null>(null);
   useEffect(() => {
     if (seen.current !== null && seen.current !== centerKey) play("card");
@@ -67,7 +107,8 @@ export function KitTable({ view, names, act, onLeave, banner, chat, settings }: 
   }, [view.turn, me]);
   const overSeen = useRef(!!view.over);
   useEffect(() => {
-    if (view.over && !overSeen.current) play(view.over.winners.includes(me) ? "won" : "lost");
+    if (view.over && !overSeen.current)
+      play(view.over.winners.includes(me) ? "won" : "lost");
     overSeen.current = !!view.over;
   }, [view.over, me]);
 
@@ -83,10 +124,19 @@ export function KitTable({ view, names, act, onLeave, banner, chat, settings }: 
 
   function tapCard(card: KCard) {
     if (view.pick?.cards.includes(card.id)) {
-      setPicked((p) => (p.includes(card.id) ? p.filter((x) => x !== card.id) : p.length < view.pick!.max ? [...p, card.id] : view.pick!.max === 1 ? [card.id] : p));
+      setPicked((p) =>
+        p.includes(card.id)
+          ? p.filter((x) => x !== card.id)
+          : p.length < view.pick!.max
+            ? [...p, card.id]
+            : view.pick!.max === 1
+              ? [card.id]
+              : p,
+      );
       return;
     }
-    if (view.tap?.cards.includes(card.id)) void send({ type: view.tap.type, card: card.id }, [card.id]);
+    if (view.tap?.cards.includes(card.id))
+      void send({ type: view.tap.type, card: card.id }, [card.id]);
     else if (view.tap) {
       setError("You can't play that one now.");
       play("nope");
@@ -111,28 +161,56 @@ export function KitTable({ view, names, act, onLeave, banner, chat, settings }: 
     "Waiting for everyone…"
   );
 
-  const tappable = new Set([...(view.tap?.cards ?? []), ...(view.pick?.cards ?? [])]);
-  const pickReady = view.pick && picked.length >= view.pick.min && picked.length <= view.pick.max;
-  const meldsOf = (seat: number) => view.melds.filter((m) => !m.byTeam && m.owner === seat);
+  const tappable = new Set([
+    ...(view.tap?.cards ?? []),
+    ...(view.pick?.cards ?? []),
+  ]);
+  const pickReady =
+    view.pick &&
+    picked.length >= view.pick.min &&
+    picked.length <= view.pick.max;
+  const meldsOf = (seat: number) =>
+    view.melds.filter((m) => !m.byTeam && m.owner === seat);
   const teamMelds = view.melds.filter((m) => m.byTeam);
 
   return (
     <main className={`table kit kit-${view.game}`} ref={root}>
       <header className="palace-bar kit-bar">
-        <button type="button" className="leave" aria-label="Leave game" onClick={() => (view.over || confirm("Leave this game?")) && onLeave()}>
+        <button
+          type="button"
+          className="leave"
+          aria-label="Leave game"
+          onClick={() =>
+            (view.over || confirm("Leave this game?")) && onLeave()
+          }
+        >
           ←
         </button>
         <div className="kit-scores" aria-label="Scores">
           {view.scores.map((s, i) => (
-            <span key={i} className={`kit-score${s.seats.includes(me) ? " us" : ""}`}>
+            <span
+              key={i}
+              className={`kit-score${s.seats.includes(me) ? " us" : ""}`}
+            >
               <small>{sideName(s.seats, names)}</small>
               <strong>{s.value}</strong>
             </span>
           ))}
         </div>
         <span className="bar-buttons">
-          {settings && <TableSettingsButton settings={settings.value} onChange={settings.change} />}
-          <button type="button" className="sound-toggle inline" onClick={toggleSound} aria-pressed={soundOn} aria-label={soundOn ? "Turn sounds off" : "Turn sounds on"}>
+          {settings && (
+            <TableSettingsButton
+              settings={settings.value}
+              onChange={settings.change}
+            />
+          )}
+          <button
+            type="button"
+            className="sound-toggle inline"
+            onClick={toggleSound}
+            aria-pressed={soundOn}
+            aria-label={soundOn ? "Turn sounds off" : "Turn sounds on"}
+          >
             {soundOn ? "🔊" : "🔇"}
           </button>
         </span>
@@ -146,15 +224,26 @@ export function KitTable({ view, names, act, onLeave, banner, chat, settings }: 
               .filter((s) => s.area === area)
               .map(({ seat }) => (
                 <div key={seat} className={`opp ${area}`} data-seat={seat}>
-                  <KitSeat view={view} seat={seat} name={names[seat] ?? `Seat ${seat + 1}`} />
-                  {meldsOf(seat).length > 0 && <MeldRow melds={meldsOf(seat)} size="mini" names={names} />}
+                  <KitSeat
+                    view={view}
+                    seat={seat}
+                    name={names[seat] ?? `Seat ${seat + 1}`}
+                  />
+                  {meldsOf(seat).length > 0 && (
+                    <MeldRow melds={meldsOf(seat)} size="mini" names={names} />
+                  )}
                 </div>
               ))}
           </div>
         ))}
 
         <div className="center">
-          <CenterArea center={view.center} view={view} names={names} send={send} />
+          <CenterArea
+            center={view.center}
+            view={view}
+            names={names}
+            send={send}
+          />
           <div className="center-info">
             {view.info.length > 0 && (
               <ul className="kit-info">
@@ -170,10 +259,20 @@ export function KitTable({ view, names, act, onLeave, banner, chat, settings }: 
               {status}
             </div>
             {view.choices && !view.result && (
-              <div className={`felt-actions kit-choices ${view.choices.layout ?? ""}`}>
-                {view.choices.prompt && <p>{named(view.choices.prompt, names)}</p>}
+              <div
+                className={`felt-actions kit-choices ${view.choices.layout ?? ""}`}
+              >
+                {view.choices.prompt && (
+                  <p>{named(view.choices.prompt, names)}</p>
+                )}
                 {view.choices.options.map((o, i) => (
-                  <button key={i} type="button" className={o.primary ? "primary" : "secondary"} title={o.hint} onClick={() => void send(o.move)}>
+                  <button
+                    key={i}
+                    type="button"
+                    className={o.primary ? "primary" : "secondary"}
+                    title={o.hint}
+                    onClick={() => void send(o.move)}
+                  >
                     {named(o.label, names)}
                   </button>
                 ))}
@@ -188,7 +287,10 @@ export function KitTable({ view, names, act, onLeave, banner, chat, settings }: 
                     className={a.primary ? "primary" : "secondary"}
                     disabled={!pickReady}
                     onClick={() => {
-                      void send({ type: a.type, ...(a.extra ?? {}), cards: picked }, picked);
+                      void send(
+                        { type: a.type, ...(a.extra ?? {}), cards: picked },
+                        picked,
+                      );
                       setPicked([]);
                     }}
                   >
@@ -218,26 +320,65 @@ export function KitTable({ view, names, act, onLeave, banner, chat, settings }: 
         <div className="me-badge">
           <KitSeat view={view} seat={me} name={names[me] ?? "You"} row />
         </div>
-        <div className={`hand ${breathe ? "breathe" : ""}`} role="group" aria-label="Your hand" style={{ "--n": view.hand.length } as React.CSSProperties}>
-          {view.hand.map((card, i) => (
-            <PlayingCard
-              key={card.id}
-              data-flip={card.id}
-              data-from={view.center.kind === "piles" ? ".kit-stock" : undefined}
-              style={{ "--i": i } as React.CSSProperties}
-              card={card}
-              playable={myTurn && tappable.has(card.id)}
-              dim={!!view.tap && view.turn === me && !tappable.has(card.id)}
-              selected={picked.includes(card.id)}
-              onPick={() => tapCard(card)}
-            />
-          ))}
-        </div>
+        {view.handHidden ? (
+          <div
+            className="my-pile"
+            aria-label={`Your pile: ${view.players[me]?.cards ?? 0} cards, face down`}
+          >
+            {(view.players[me]?.cards ?? 0) > 0 ? (
+              <PlayingCard
+                back
+                size="table"
+                style={
+                  {
+                    "--depth": Math.min(
+                      6,
+                      Math.ceil((view.players[me]?.cards ?? 0) / 8),
+                    ),
+                  } as React.CSSProperties
+                }
+              />
+            ) : (
+              <div className="empty-slot">Out</div>
+            )}
+          </div>
+        ) : (
+          <div
+            className={`hand ${breathe ? "breathe" : ""}`}
+            role="group"
+            aria-label="Your hand"
+            style={{ "--n": view.hand.length } as React.CSSProperties}
+          >
+            {view.hand.map((card, i) => (
+              <PlayingCard
+                key={card.id}
+                data-flip={card.id}
+                data-from={
+                  view.center.kind === "piles" ? ".kit-stock" : undefined
+                }
+                style={{ "--i": i } as React.CSSProperties}
+                card={card}
+                playable={myTurn && tappable.has(card.id)}
+                dim={!!view.tap && view.turn === me && !tappable.has(card.id)}
+                selected={picked.includes(card.id)}
+                onPick={() => tapCard(card)}
+              />
+            ))}
+          </div>
+        )}
       </section>
 
       <div className="bubble-layer" aria-live="polite">
         {[...bubbles.entries()].map(([s, m]) => (
-          <Bubble key={`${s}-${m.at}`} message={m} side={s === me ? "bottom" : (spots.find((x) => x.seat === s)?.area ?? "top")} />
+          <Bubble
+            key={`${s}-${m.at}`}
+            message={m}
+            side={
+              s === me
+                ? "bottom"
+                : (spots.find((x) => x.seat === s)?.area ?? "top")
+            }
+          />
         ))}
       </div>
 
@@ -246,7 +387,12 @@ export function KitTable({ view, names, act, onLeave, banner, chat, settings }: 
           <ResultTable result={view.result} names={names} me={me} />
           {view.choices ? (
             view.choices.options.map((o, i) => (
-              <button key={i} type="button" className={o.primary ? "primary" : "secondary"} onClick={() => void send(o.move)}>
+              <button
+                key={i}
+                type="button"
+                className={o.primary ? "primary" : "secondary"}
+                onClick={() => void send(o.move)}
+              >
                 {named(o.label, names)}
               </button>
             ))
@@ -258,9 +404,21 @@ export function KitTable({ view, names, act, onLeave, banner, chat, settings }: 
       {view.over && view.over.winners.includes(me) && <Confetti />}
       {view.over && (
         <div className="sheet won-sheet">
-          <h2>{view.over.winners.includes(me) ? (view.teams ? "You won! 🎉" : "You won! 🏆") : named(view.over.title, names)}</h2>
-          {view.over.winners.includes(me) && !view.result && !view.over.title.includes(`{${me}}`) && <p className="won-line">{named(view.over.title, names)}</p>}
-          {view.result && <ResultTable result={view.result} names={names} me={me} untitled />}
+          <h2>
+            {view.over.winners.includes(me)
+              ? view.teams
+                ? "You won! 🎉"
+                : "You won! 🏆"
+              : named(view.over.title, names)}
+          </h2>
+          {view.over.winners.includes(me) &&
+            !view.result &&
+            !view.over.title.includes(`{${me}}`) && (
+              <p className="won-line">{named(view.over.title, names)}</p>
+            )}
+          {view.result && (
+            <ResultTable result={view.result} names={names} me={me} untitled />
+          )}
           <button type="button" className="primary" onClick={onLeave}>
             Play again
           </button>
@@ -272,25 +430,56 @@ export function KitTable({ view, names, act, onLeave, banner, chat, settings }: 
 }
 
 /** A player at the table: name, their line ("Bid 3 · Took 1"), cards held, dealer and turn. */
-function KitSeat({ view, seat, name, row }: { view: KitView; seat: number; name: string; row?: boolean }) {
+function KitSeat({
+  view,
+  seat,
+  name,
+  row,
+}: {
+  view: KitView;
+  seat: number;
+  name: string;
+  row?: boolean;
+}) {
   const p = view.players[seat]!;
   const active = view.turn === seat && !view.over;
   const team = view.teams ? (seat % 2 === view.me % 2 ? "us" : "them") : "";
   return (
-    <div className={`kit-seat ${team}${active ? " active" : ""}${p.out ? " out" : ""}${row ? " row" : ""}`} aria-current={active ? "true" : undefined}>
+    <div
+      className={`kit-seat ${team}${active ? " active" : ""}${p.out ? " out" : ""}${row ? " row" : ""}`}
+      aria-current={active ? "true" : undefined}
+    >
       <strong>
         {name}
-        {p.dealer && <span className="dealer" title="Dealer">D</span>}
+        {p.dealer && (
+          <span className="dealer" title="Dealer">
+            D
+          </span>
+        )}
       </strong>
       {p.line && <span>{named(p.line, [])}</span>}
-      {!row && <small>{p.cards} card{p.cards === 1 ? "" : "s"}</small>}
+      {!row && (
+        <small>
+          {p.cards} card{p.cards === 1 ? "" : "s"}
+        </small>
+      )}
       {p.badge && <em>{p.badge}</em>}
     </div>
   );
 }
 
 /** The middle of the table: a trick laid toward each player, or the stock and discard piles. */
-function CenterArea({ center, view, names, send }: { center: Center; view: KitView; names: string[]; send: (move: Record<string, unknown>) => void }) {
+function CenterArea({
+  center,
+  view,
+  names,
+  send,
+}: {
+  center: Center;
+  view: KitView;
+  names: string[];
+  send: (move: Record<string, unknown>) => void;
+}) {
   if (center.kind === "trick") {
     // Nothing played yet and melds on show (Pinochle's meld): leave the room to the melds.
     if (!center.plays.length && view.melds.length) return null;
@@ -302,12 +491,30 @@ function CenterArea({ center, view, names, send }: { center: Center; view: KitVi
           const k = (p.seat - view.me + n) % n;
           const angle = (k * 2 * Math.PI) / n;
           return (
-            <div key={p.card.id} className="kit-played" style={{ "--x": (-Math.sin(angle)).toFixed(3), "--y": Math.cos(angle).toFixed(3), "--tilt": `${((k * 7) % 11) - 5}deg` } as React.CSSProperties}>
-              <PlayingCard card={p.card} size="table" won={center.winner === p.seat} data-flip={p.card.id} data-from={`[data-seat="${p.seat}"]`} />
+            <div
+              key={p.card.id}
+              className="kit-played"
+              style={
+                {
+                  "--x": (-Math.sin(angle)).toFixed(3),
+                  "--y": Math.cos(angle).toFixed(3),
+                  "--tilt": `${((k * 7) % 11) - 5}deg`,
+                } as React.CSSProperties
+              }
+            >
+              <PlayingCard
+                card={p.card}
+                size="table"
+                won={center.winner === p.seat}
+                data-flip={p.card.id}
+                data-from={`[data-seat="${p.seat}"]`}
+              />
             </div>
           );
         })}
-        {center.winner !== null && <div className="took">{names[center.winner]} takes it</div>}
+        {center.winner !== null && (
+          <div className="took">{center.winner === view.me ? "You take it" : `${names[center.winner]} takes it`}</div>
+        )}
         {center.lead && <div className="kit-lead">{center.lead}</div>}
       </div>
     );
@@ -316,13 +523,30 @@ function CenterArea({ center, view, names, send }: { center: Center; view: KitVi
     // Their hand, face down and fanned: tap the card you want.
     const n = center.count;
     return (
-      <div className="kit-fan-area" aria-label={center.label ? named(center.label, names) : "Their cards"}>
-        <div className="kit-fan" data-from={`[data-seat="${center.from}"]`} style={{ "--n": n } as React.CSSProperties}>
+      <div
+        className="kit-fan-area"
+        aria-label={center.label ? named(center.label, names) : "Their cards"}
+      >
+        <div
+          className="kit-fan"
+          data-from={`[data-seat="${center.from}"]`}
+          style={{ "--n": n } as React.CSSProperties}
+        >
           {Array.from({ length: n }, (_, i) => {
             const tilt = n > 1 ? (i / (n - 1) - 0.5) * Math.min(40, n * 4) : 0;
-            const style = { "--tilt": `${tilt.toFixed(1)}deg`, "--lift": `${(Math.abs(tilt) * 0.35).toFixed(1)}px` } as React.CSSProperties;
+            const style = {
+              "--tilt": `${tilt.toFixed(1)}deg`,
+              "--lift": `${(Math.abs(tilt) * 0.35).toFixed(1)}px`,
+            } as React.CSSProperties;
             return center.takeType ? (
-              <button key={i} type="button" className="kit-fan-card pile-button" style={style} aria-label={`Take card ${i + 1} of ${n}`} onClick={() => send({ type: center.takeType!, index: i })}>
+              <button
+                key={i}
+                type="button"
+                className="kit-fan-card pile-button"
+                style={style}
+                aria-label={`Take card ${i + 1} of ${n}`}
+                onClick={() => send({ type: center.takeType!, index: i })}
+              >
                 <PlayingCard back size="table" />
               </button>
             ) : (
@@ -343,44 +567,84 @@ function CenterArea({ center, view, names, send }: { center: Center; view: KitVi
         <div className="deck kit-stock">
           {center.stock === null ? null : center.stock > 0 ? (
             center.drawMove ? (
-              <button type="button" className="pile-button" aria-label={`Draw a card (${center.stock} left)`} onClick={() => send(center.drawMove!)}>
-                <PlayingCard back size="table" style={{ "--depth": Math.min(6, Math.ceil(center.stock / 8)) } as React.CSSProperties} />
+              <button
+                type="button"
+                className="pile-button"
+                aria-label={`Draw a card (${center.stock} left)`}
+                onClick={() => send(center.drawMove!)}
+              >
+                <PlayingCard
+                  back
+                  size="table"
+                  style={
+                    {
+                      "--depth": Math.min(6, Math.ceil(center.stock / 8)),
+                    } as React.CSSProperties
+                  }
+                />
               </button>
             ) : (
-              <PlayingCard back size="table" style={{ "--depth": Math.min(6, Math.ceil(center.stock / 8)) } as React.CSSProperties} />
+              <PlayingCard
+                back
+                size="table"
+                style={
+                  {
+                    "--depth": Math.min(6, Math.ceil(center.stock / 8)),
+                  } as React.CSSProperties
+                }
+              />
             )
           ) : (
             <div className="empty-slot">Empty</div>
           )}
-          {center.stock !== null && <small>{center.stockLabel ?? `${center.stock} to draw`}</small>}
-        </div>
-        {!center.noDiscard && <div className="pile">
-          {top.length ? (
-            <div className="pile-stack">
-              {top.map((c, i) => {
-                const isTop = i === top.length - 1;
-                const card = <PlayingCard card={c} size="table" data-flip={c.id} />;
-                return (
-                  <div key={c.id} className="pile-card" style={{ "--i": i } as React.CSSProperties}>
-                    {isTop && center.takeMove ? (
-                      <button type="button" className="pile-button" aria-label={`Take the discard pile (${center.discardCount})`} onClick={() => send(center.takeMove!)}>
-                        {card}
-                      </button>
-                    ) : (
-                      card
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="empty-slot">{center.discardLabel ? "" : "Discards"}</div>
+          {center.stock !== null && (
+            <small>{center.stockLabel ?? `${center.stock} to draw`}</small>
           )}
-          <small>
-            {center.discardLabel ? named(center.discardLabel, names) : `${center.discardCount} in the pile`}
-            {center.note ? ` · ${named(center.note, names)}` : ""}
-          </small>
-        </div>}
+        </div>
+        {!center.noDiscard && (
+          <div className="pile">
+            {top.length ? (
+              <div className="pile-stack">
+                {top.map((c, i) => {
+                  const isTop = i === top.length - 1;
+                  const card = (
+                    <PlayingCard card={c} size="table" data-flip={c.id} />
+                  );
+                  return (
+                    <div
+                      key={c.id}
+                      className="pile-card"
+                      style={{ "--i": i } as React.CSSProperties}
+                    >
+                      {isTop && center.takeMove ? (
+                        <button
+                          type="button"
+                          className="pile-button"
+                          aria-label={`Take the discard pile (${center.discardCount})`}
+                          onClick={() => send(center.takeMove!)}
+                        >
+                          {card}
+                        </button>
+                      ) : (
+                        card
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="empty-slot">
+                {center.discardLabel ? "" : "Discards"}
+              </div>
+            )}
+            <small>
+              {center.discardLabel
+                ? named(center.discardLabel, names)
+                : `${center.discardCount} in the pile`}
+              {center.note ? ` · ${named(center.note, names)}` : ""}
+            </small>
+          </div>
+        )}
       </div>
     );
   }
@@ -388,7 +652,15 @@ function CenterArea({ center, view, names, send }: { center: Center; view: KitVi
 }
 
 /** Melds in a row: each meld a little fan of cards with its label. */
-function MeldRow({ melds, size, names }: { melds: Meld[]; size: "mini" | "table"; names: string[] }) {
+function MeldRow({
+  melds,
+  size,
+  names,
+}: {
+  melds: Meld[];
+  size: "mini" | "table";
+  names: string[];
+}) {
   return (
     <div className={`kit-melds ${size}`}>
       {melds.map((m, i) => (
@@ -406,7 +678,15 @@ function MeldRow({ melds, size, names }: { melds: Meld[]; size: "mini" | "table"
 }
 
 /** Partnership melds (Canasta): yours and theirs, each under the team's names. */
-function TeamMelds({ melds, view, names }: { melds: Meld[]; view: KitView; names: string[] }) {
+function TeamMelds({
+  melds,
+  view,
+  names,
+}: {
+  melds: Meld[];
+  view: KitView;
+  names: string[];
+}) {
   const mine = (view.me % 2) as 0 | 1;
   return (
     <div className="kit-team-melds">
@@ -415,7 +695,11 @@ function TeamMelds({ melds, view, names }: { melds: Meld[]; view: KitView; names
         return (
           <section key={team} className={team === mine ? "us" : "them"}>
             <h3>{sideName([team, team + 2], names)}</h3>
-            {list.length ? <MeldRow melds={list} size="mini" names={names} /> : <p className="fine">No melds yet</p>}
+            {list.length ? (
+              <MeldRow melds={list} size="mini" names={names} />
+            ) : (
+              <p className="fine">No melds yet</p>
+            )}
           </section>
         );
       })}
@@ -423,7 +707,17 @@ function TeamMelds({ melds, view, names }: { melds: Meld[]; view: KitView; names
   );
 }
 
-function ResultTable({ result, names, me, untitled }: { result: NonNullable<KitView["result"]>; names: string[]; me: number; untitled?: boolean }) {
+function ResultTable({
+  result,
+  names,
+  me,
+  untitled,
+}: {
+  result: NonNullable<KitView["result"]>;
+  names: string[];
+  me: number;
+  untitled?: boolean;
+}) {
   return (
     <>
       {!untitled && <h2>{named(result.title, names)}</h2>}
@@ -432,7 +726,11 @@ function ResultTable({ result, names, me, untitled }: { result: NonNullable<KitV
           <tr>
             <th scope="col" />
             {result.sides.map((seats, i) => (
-              <th key={i} scope="col" className={seats.includes(me) ? "us" : ""}>
+              <th
+                key={i}
+                scope="col"
+                className={seats.includes(me) ? "us" : ""}
+              >
                 {sideName(seats, names)}
               </th>
             ))}
@@ -443,7 +741,16 @@ function ResultTable({ result, names, me, untitled }: { result: NonNullable<KitV
             <tr key={row.label} className={row.tone === "total" ? "total" : ""}>
               <th scope="row">{row.label}</th>
               {row.values.map((v, i) => (
-                <td key={i} className={row.tone === "score" ? (v.startsWith("-") || v.startsWith("−") ? "neg" : "pos") : ""}>
+                <td
+                  key={i}
+                  className={
+                    row.tone === "score"
+                      ? v.startsWith("-") || v.startsWith("−")
+                        ? "neg"
+                        : "pos"
+                      : ""
+                  }
+                >
                   {v}
                 </td>
               ))}

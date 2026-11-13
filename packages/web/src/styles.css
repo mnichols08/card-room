@@ -812,3 +812,6 @@ button.kit-fan-card { transition: translate var(--dur-1, 120ms) var(--ease-out, 
 @media (hover: hover) { button.kit-fan-card:hover { translate: 0 calc(var(--lift) - var(--trick-h) * 0.18); z-index: 2; } }
 button.kit-fan-card:focus-visible { translate: 0 calc(var(--lift) - var(--trick-h) * 0.18); z-index: 2; }
 .won-sheet .won-line { margin: 0; color: var(--ink); opacity: 0.8; }
+/* Your own face-down pile, when you never see your cards (War). */
+.my-pile { display: flex; justify-content: center; padding: 6px 0 4px; }
+.my-pile playing-card { --trick-w: calc(var(--card-w) * 1.05); --trick-h: calc(var(--trick-w) * var(--card-ratio, 1.4)); }
