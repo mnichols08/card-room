@@ -36,6 +36,13 @@
   const ten = rank === "10"
   const spadeAce = ace && card.suit === "spades"
   const jokerWord = joker ? (card.size === "big" ? "BIG" : "LIL") : ""
+  const king = court && card.rank === 13
+  const queen = court && card.rank === 12
+  const jack = court && card.rank === 11
+  // Cards share one document, so each portrait's half needs its own id for <use> to find.
+  globalThis.__courtIds = (globalThis.__courtIds ?? 0) + 1
+  const halfId = `court-half-${globalThis.__courtIds}`
+  const halfRef = `#${halfId}`
 </script>
 <style>
   :host { display: inline-block; flex: none; }
@@ -79,10 +86,11 @@
   /* The middle of the card. Small cards: one big symbol clear of the index. */
   .face { position: absolute; inset: 0; pointer-events: none; }
   .face .big { position: absolute; left: 60%; top: 62%; translate: -50% -50%; font-size: 44cqw; }
-  .face .letter { position: absolute; left: 62%; top: 64%; translate: -50% -50%; font: 700 40cqw/1 Georgia, "Times New Roman", serif; }
+  /* Court cards: a double-ended portrait, clear of the corner index (top left; bottom right too on bigger cards). */
+  .face .royal { position: absolute; top: 6cqw; bottom: 6cqw; left: 37cqw; right: 5cqw; width: auto; height: auto; }
   .face .pip { display: none; position: absolute; translate: -50% -50%; font-size: 17cqw; }
   .face .pip.flip { rotate: 180deg; }
-  .face .frame, .face .ring, .face .jword { display: none; }
+  .face .ring, .face .jword { display: none; }
   .face.ace .big { left: 50%; top: 52%; font-size: 56cqw; }
   .face.joker .big { left: 55%; top: 60%; font-size: 46cqw; }
   .face.joker .big::before { content: "★"; }
@@ -96,23 +104,14 @@
     .face.pips { inset: 14cqw 10cqw; }
     .face.pips .big { display: none; }
     .face.pips .pip { display: block; }
-    .face.court .letter { left: 50%; top: 50%; font-size: 44cqw; }
-    .face.court .frame {
-      display: block; position: absolute; inset: 18cqw 16cqw; border-radius: 4cqw;
-      border: 1px solid color-mix(in oklab, currentColor 35%, transparent);
-      background: color-mix(in oklab, currentColor 7%, #fffdf8);
-    }
-    .face.court .frame::before, .face.court .frame::after {
-      content: attr(data-suit); position: absolute; left: 50%; translate: -50% 0; font-size: 16cqw; line-height: 1;
-    }
-    .face.court .frame::before { top: 4cqw; }
-    .face.court .frame::after { bottom: 4cqw; rotate: 180deg; }
+    .face .royal { left: 26cqw; right: 26cqw; top: 7cqw; bottom: 7cqw; }
     .face.joker .big { left: 46%; top: 50%; }
     .face.joker .jword {
       display: block; position: absolute; right: 7cqw; top: 50%; translate: 0 -50%;
       writing-mode: vertical-rl; font: 800 11cqw/1 system-ui, sans-serif; letter-spacing: 0.2em;
     }
   }
+  .card[data-size=table] .face .royal { left: 26cqw; right: 26cqw; top: 7cqw; bottom: 7cqw; }
   .card[data-size=table] .face.pips { inset: 14cqw 10cqw; }
   .card[data-size=table] .face.pips .big { display: none; }
   .card[data-size=table] .face.pips .pip { display: block; }
@@ -189,10 +188,64 @@
       <i zb-if={!joker} class="glyph">{symbol}</i>
     </span>
     <span class="face" class:pips={kind === "pips"} class:court={court} class:ace={ace} class:joker={joker} aria-hidden="true">
-      <span zb-if={court} class="frame glyph" data-suit={symbol}></span>
+      <svg zb-if={court} class="royal" viewBox="0 0 100 200" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <g id={halfId}>
+            <path d="M12 100 L16 77 Q20 65 36 61 L64 61 Q80 65 84 77 L88 100 Z" fill="currentColor" />
+            <path d="M16 77 Q20 65 36 61 M84 77 Q80 65 64 61" fill="none" stroke="#c9a227" stroke-width="1.6" />
+            <path d="M34 61 L50 81 L66 61 L60 61 L50 73 L40 61 Z" fill="#c9a227" stroke="#7a5a10" stroke-width="0.6" />
+            <path d="M40 61 L50 73 L60 61 Z" fill="#2c4a8a" />
+            <text x="50" y="91" text-anchor="middle" font-size="12" fill="#fffdf8" class="glyph">{symbol}</text>
+            <rect x="13" y="93.5" width="74" height="6.5" fill="#fffdf8" stroke="#c9a227" stroke-width="0.7" />
+            <path d="M22 95.5 v3 M34 95.5 v3 M46 95.5 v3 M58 95.5 v3 M70 95.5 v3 M82 95.5 v3" stroke="#1d1a16" stroke-width="1.4" />
+            <g zb-if={queen}>
+              <path d="M35 50 Q33 30 50 30 Q67 30 65 50 L68 66 Q60 60 60 50 Q58 39 50 39 Q42 39 40 50 Q40 60 32 66 Z" fill="#6b3a1f" />
+            </g>
+            <circle cx="50" cy="47" r="12" fill="#f4dcc2" stroke="#3b2a1a" stroke-width="0.7" />
+            <circle cx="45.5" cy="46" r="1.2" fill="#2b1d12" />
+            <circle cx="54.5" cy="46" r="1.2" fill="#2b1d12" />
+            <path d="M46 53 Q50 55.5 54 53" fill="none" stroke="#9b3b2b" stroke-width="1" stroke-linecap="round" />
+            <g zb-if={king}>
+              <path d="M38.5 49 Q38 66 50 70 Q62 66 61.5 49 Q58 57 50 57.5 Q42 57 38.5 49 Z" fill="#6b4a2b" />
+              <path d="M44 52.5 Q50 50 56 52.5 Q50 54 44 52.5 Z" fill="#6b4a2b" />
+              <path d="M36 35 L36 18 L43 26 L50 12 L57 26 L64 18 L64 35 Z" fill="#d9b23a" stroke="#7a5a10" stroke-width="0.8" stroke-linejoin="round" />
+              <rect x="36" y="31" width="28" height="5" fill="#b8901f" stroke="#7a5a10" stroke-width="0.6" />
+              <circle cx="43" cy="33.5" r="1.5" fill="#b3261e" />
+              <circle cx="50" cy="33.5" r="1.5" fill="#2c4a8a" />
+              <circle cx="57" cy="33.5" r="1.5" fill="#b3261e" />
+              <circle cx="50" cy="11" r="2.2" fill="#d9b23a" stroke="#7a5a10" stroke-width="0.6" />
+              <line x1="20" y1="38" x2="20" y2="98" stroke="#b8b8c0" stroke-width="2.6" />
+              <line x1="13" y1="52" x2="27" y2="52" stroke="#c9a227" stroke-width="3" stroke-linecap="round" />
+              <circle cx="20" cy="56" r="2" fill="#c9a227" />
+            </g>
+            <g zb-if={queen}>
+              <path d="M37 37 Q50 18 63 37 Q50 31 37 37 Z" fill="#d9b23a" stroke="#7a5a10" stroke-width="0.8" />
+              <circle cx="43" cy="29" r="1.8" fill="#fffdf8" stroke="#a89060" stroke-width="0.4" />
+              <circle cx="50" cy="25.5" r="2.2" fill="#b3261e" />
+              <circle cx="57" cy="29" r="1.8" fill="#fffdf8" stroke="#a89060" stroke-width="0.4" />
+              <line x1="21" y1="52" x2="21" y2="98" stroke="#3d7a3d" stroke-width="1.8" />
+              <path d="M21 70 Q14 66 13 60 Q19 62 21 68 Z" fill="#3d7a3d" />
+              <circle cx="21" cy="47" r="5" fill="#c0392b" />
+              <circle cx="21" cy="47" r="2" fill="#e8c46a" />
+            </g>
+            <g zb-if={jack}>
+              <path d="M37.5 49 Q36 34 50 34 Q64 34 62.5 49 L63 56 Q60 45 50 43 Q40 45 37 56 Z" fill="#8a5a2b" />
+              <path d="M35 38 Q37 23 52 24 Q65 25 65 38 Z" fill="#2c4a8a" stroke="#1a2c55" stroke-width="0.8" />
+              <rect x="35" y="35" width="30" height="4" fill="#c9a227" />
+              <path d="M61 27 Q76 8 88 13 Q76 16 64 31 Z" fill="currentColor" />
+              <line x1="80" y1="34" x2="80" y2="98" stroke="#7a5a3a" stroke-width="2.2" />
+              <path d="M80 30 L90 37 L80 43 Z" fill="#b8b8c0" stroke="#6a6a72" stroke-width="0.6" />
+            </g>
+          </g>
+        </defs>
+        <rect x="2" y="2" width="96" height="196" rx="7" fill="#fbf3df" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.55" />
+        <rect x="6" y="6" width="88" height="188" rx="5" fill="none" stroke="#c9a227" stroke-width="1" />
+        <use href={halfRef} />
+        <use href={halfRef} transform="rotate(180 50 100)" />
+        <line x1="8" y1="100" x2="92" y2="100" stroke="#c9a227" stroke-width="1.2" />
+      </svg>
       <span zb-if={spadeAce} class="ring"></span>
-      <span zb-if={court} class="letter">{rank}</span>
-      <span zb-else class="big glyph">{symbol}</span>
+      <span zb-if={!court} class="big glyph">{symbol}</span>
       <zb-each items={pips} as="p" key={p.id}>
         <span class="pip glyph" class:flip={p.flip} style={{ left: p.x, top: p.y }}>{symbol}</span>
       </zb-each>
