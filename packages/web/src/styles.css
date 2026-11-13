@@ -747,3 +747,47 @@ html[data-motion="off"] .kit-seat.active strong::before, html[data-motion="calm"
 .table.kit .me { position: sticky; bottom: 0; z-index: 6; background: linear-gradient(rgba(9, 27, 19, 0), rgba(9, 27, 19, 0.94) 28%); }
 /* The turn prompt sits on the felt's bottom edge: keep the melds clear of it. */
 .kit-felt:has(.team-row) { padding-bottom: calc(var(--ui-m, 1rem) * 2.6); }
+
+/* ---- Setup screens (SetupLayout) --------------------------------------------------------------- */
+/* Phones: the columns and cards fall away, and the parts line up in the order you fill them in. */
+.setup-body { display: flex; flex-direction: column; gap: 16px; }
+.setup-col, .setup-card { display: contents; }
+.setup-part { display: flex; flex-direction: column; gap: 16px; }
+.s-houses { order: 0; }
+.s-you { order: 1; }
+.s-table { order: 2; }
+.s-about { order: 3; }
+.s-actions { order: 4; }
+.s-more { order: 5; }
+.desk-only { display: none; }
+
+/* Laptops: how it's played on the left, who's playing (and the buttons) on the right. */
+@media (min-width: 960px) {
+  .setup.wide { max-width: 1120px; padding: 40px 48px 64px; gap: 20px; background: none; }
+  body:has(.setup.wide) { background: radial-gradient(ellipse at 50% 20%, var(--felt-light), var(--felt) 45%, var(--felt-dark)) fixed; }
+  .setup.wide .setup-head h1 { font-size: 3.6rem; }
+  .setup.wide .setup-head p { font-size: 1.1rem; }
+  .setup.wide .all-games { align-self: flex-start; }
+  .setup-body { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(360px, 0.8fr); gap: 28px; align-items: start; }
+  .setup-col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+  .setup-col.side { grid-column: 2; grid-row: 1; }
+  .setup-col.main { grid-column: 1; grid-row: 1; }
+  .setup-card {
+    display: flex; flex-direction: column; gap: 16px;
+    padding: 24px 26px; border-radius: 18px;
+    background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+  }
+  .setup-card.start { border-color: rgba(232, 196, 106, 0.35); }
+  .setup-card.quiet { background: rgba(0, 0, 0, 0.12); box-shadow: none; }
+  .s-more .fine { text-align: left; }
+  .setup-card h2 { margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: 1.3rem; color: var(--gold); }
+  .desk-only { display: block; }
+  .setup-part { order: 0; }
+  /* Room to read: the rules in a comfortable size, the editor in two columns. */
+  .s-about { font-size: 1.02rem; }
+  .s-about .rules-summary { font-size: 1.05rem; }
+  .s-about .rules { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 20px; align-items: start; }
+  .s-about .rules > .rule-actions, .s-about .rules > .error, .s-about .rules > :is(h2, h3, p) { grid-column: 1 / -1; }
+  .s-actions .deal { font-size: 1.15rem; padding-block: 16px; }
+}
