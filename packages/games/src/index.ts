@@ -9,5 +9,6 @@ export * from "./pinochle.js";
 export * from "./canasta.js";
 export * from "./gofish.js";
 export * from "./oldmaid.js";
+export * from "./war.js";
 export * from "./registry.js";
 export * from "./talk.js";
