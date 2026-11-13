@@ -1,6 +1,7 @@
 import { createRoom } from "@spades/rooms/client";
 import type { RulePreset } from "@spades/rules";
 import { useEffect, useState } from "react";
+import { ChallengePage } from "./ChallengePage";
 import { HousePage } from "./HousePage";
 import { houses } from "./housesApi";
 import { LocalTable } from "./LocalTable";
@@ -12,7 +13,8 @@ type Screen =
   | { kind: "setup" }
   | { kind: "local"; name: string; preset: RulePreset; seed: number }
   | { kind: "room"; id: string; house: string | null }
-  | { kind: "house"; slug: string; code: string | null };
+  | { kind: "house"; slug: string; code: string | null }
+  | { kind: "challenge"; code: string };
 
 /** The screen is in the URL, so links work and the back button does what people expect. */
 function fromUrl(): Screen {
@@ -21,6 +23,8 @@ function fromUrl(): Screen {
   const house = q.get("house");
   if (table) return { kind: "room", id: table, house };
   if (house) return { kind: "house", slug: house, code: q.get("code") };
+  const challenge = q.get("challenge");
+  if (challenge) return { kind: "challenge", code: challenge };
   return { kind: "setup" };
 }
 
@@ -57,6 +61,7 @@ export function App() {
   if (screen.kind === "room") {
     return <RoomTable key={screen.id} id={screen.id} onLeave={screen.house ? () => openHouse(screen.house!) : home} />;
   }
+  if (screen.kind === "challenge") return <ChallengePage code={screen.code} onSent={(id) => openTable(id, null)} onLeave={home} />;
   if (screen.kind === "house") {
     return <HousePage key={screen.slug} slug={screen.slug} code={screen.code} onOpenTable={(id) => openTable(id, screen.slug)} onLeave={home} />;
   }

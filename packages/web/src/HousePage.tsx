@@ -2,6 +2,7 @@ import { validatePreset, type RulePreset } from "@spades/rules";
 import TextField from "@spades/ui/zubra-ui/text-field.zb";
 import { useCallback, useEffect, useState } from "react";
 import { HouseError, houses, inviteLink, type House, type HouseTable, type Standings } from "./housesApi";
+import { NotifyButton } from "./NotifyButton";
 import { describe, RulesFields } from "./RulesEditor";
 import { forgetHouse, loadSavedName, rememberHouse, saveName } from "./storage";
 
@@ -190,6 +191,7 @@ function MemberView(props: {
             </li>
           ))}
         </ul>
+        <NotifyButton what="someone opens a table here" />
       </section>
 
       <LeaderboardBlock house={house} />

@@ -18,3 +18,10 @@ jobs:
       - run: npm run build
       - run: npm run typecheck
       - run: npm test
+      # Tests run through vitest, which forgives some Node ESM import mistakes; boot the real build.
+      - name: Smoke test the built server
+        run: |
+          PORT=8790 SPADES_DB=:memory: node packages/server/dist/index.js &
+          for i in $(seq 1 20); do curl -fs localhost:8790/healthz && break; sleep 0.5; done
+          curl -fs localhost:8790/push/key
+          curl -fs localhost:8790/ | grep -q manifest.webmanifest

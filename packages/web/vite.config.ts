@@ -11,7 +11,7 @@ export default defineConfig({
   // In .tsx files, a .zb import is a typed React component: props in, on<Event> handlers out.
   plugins: [zubra(), react()],
   // `npm run dev -w @spades/server` serves the rooms and the sync log on 8787.
-  server: { proxy: { "/rooms": "http://localhost:8787", "/_zb": "http://localhost:8787" } },
+  server: { proxy: Object.fromEntries(["/rooms", "/_zb", "/houses", "/challenges", "/push"].map((p) => [p, "http://localhost:8787"])) },
   resolve: {
     alias: {
       "@spades/rules": local("../rules/src/index.ts"),

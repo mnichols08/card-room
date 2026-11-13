@@ -2,6 +2,7 @@ import { validatePreset, type RulePreset } from "@spades/rules";
 import SelectField from "@spades/ui/zubra-ui/select-field.zb";
 import { describe, RulesFields, Toggle } from "./RulesEditor";
 import TextField from "@spades/ui/zubra-ui/text-field.zb";
+import { ChallengeLink } from "./ChallengeLink";
 import { useMemo, useState } from "react";
 import { loadFeedbackSettings, play, saveFeedbackSettings, type SoundName } from "./feedback/sounds";
 import {
@@ -212,6 +213,7 @@ export function Setup({ onStart, onFamilyTable, onOpenHouse, onMakeHouse }: Prop
         </section>
       )}
       {problem && <p className="error">{problem}</p>}
+      <ChallengeLink name={name} rules={rules} />
       <p className="fine">A family table gets a link to send to everyone. Empty seats can be filled with computer players.</p>
     </main>
   );

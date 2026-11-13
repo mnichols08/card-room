@@ -8,7 +8,7 @@
 // Subscriptions are kept per player in `pushsubs/<player>` in the sync log, which only the server
 // can read: a subscription is a capability to message someone's phone.
 import { createHash } from "node:crypto";
-import webpush from "web-push";
+import { sendNotification, setVapidDetails } from "web-push";
 
 export interface Notice {
   title: string;
@@ -58,8 +58,8 @@ export function createPush(store: Store, options: PushOptions = {}) {
   const enabled = !!(options.send || (options.publicKey && options.privateKey));
   let send: Sender | null = options.send ?? null;
   if (!send && enabled) {
-    webpush.setVapidDetails(options.subject ?? "mailto:cardroom@example.com", options.publicKey!, options.privateKey!);
-    send = (subscription, payload) => webpush.sendNotification(subscription, payload, { TTL: 60 * 60 * 6, urgency: "high" });
+    setVapidDetails(options.subject ?? "https://github.com/mnichols08/spades", options.publicKey!, options.privateKey!);
+    send = (subscription, payload) => sendNotification(subscription, payload, { TTL: 60 * 60 * 6, urgency: "high" });
   }
   const docs = store.documents();
 

@@ -34,6 +34,7 @@ const TYPES: Record<string, string> = {
   ".svg": "image/svg+xml",
   ".png": "image/png",
   ".json": "application/json",
+  ".webmanifest": "application/manifest+json",
   ".woff2": "font/woff2",
 };
 
@@ -47,7 +48,12 @@ createServer(async (req, res) => {
     if (!file.startsWith(web)) return void res.writeHead(403).end();
     if (!existsSync(file) || statSync(file).isDirectory()) file = join(web, "index.html"); // the app routes itself
     if (!existsSync(file)) return void res.writeHead(404).end("Build the web app first: npm run build -w @spades/web");
-    res.writeHead(200, { "content-type": TYPES[extname(file)] ?? "application/octet-stream" });
+    // The page and the service worker must never be stale; the hashed assets can be cached for good.
+    const fresh = file.endsWith("index.html") || file.endsWith("sw.js") || file.endsWith(".webmanifest");
+    res.writeHead(200, {
+      "content-type": TYPES[extname(file)] ?? "application/octet-stream",
+      "cache-control": fresh ? "no-cache" : path.startsWith("/assets/") ? "public, max-age=31536000, immutable" : "public, max-age=3600",
+    });
     createReadStream(file).pipe(res);
   } catch (e) {
     console.error(e);
