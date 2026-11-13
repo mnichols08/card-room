@@ -6,3 +6,4 @@ export * from "./presets.js";
 export * from "./game.js";
 export * from "./bot.js";
 export * from "./smart.js";
+export * from "./talk.js";

@@ -14,7 +14,8 @@ const web = resolve(process.env.SPADES_WEB ?? fileURLToPath(new URL("../../web/d
 const log = process.env.SPADES_DB
   ? await (await import("@zubra/sync/sqlite")).sqliteLog(process.env.SPADES_DB, { keep: "latest" })
   : undefined;
-const cardRoom = createCardRoom({ log, botDelay: Number(process.env.SPADES_BOT_DELAY ?? 700) });
+// Bots take humanlike time unless SPADES_BOT_DELAY fixes it (handy for testing).
+const cardRoom = createCardRoom({ log, botDelay: process.env.SPADES_BOT_DELAY ? Number(process.env.SPADES_BOT_DELAY) : undefined });
 
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",

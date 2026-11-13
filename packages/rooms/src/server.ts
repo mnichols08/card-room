@@ -27,6 +27,18 @@ export interface RoomDefinition<State, Move, View, Options, Summary = unknown> {
   bot?(state: State, seat: number): Move | null;
   /** Whether the game is over. Finished rooms are dropped from memory (the log keeps them). */
   finished?(state: State): boolean;
+  /** How long (ms) a bot takes over its move, so bots feel like people. Default 700. */
+  botDelay?(state: State, seat: number, name: string): number;
+}
+
+/** What happened in a room, for an app that wants to react (bots chatting, say). */
+export interface MoveEvent<State, Move, Summary> {
+  id: string;
+  before: State;
+  after: State;
+  seat: number;
+  move: Move;
+  room: RoomDoc<Summary>;
 }
 
 export class RefusedMove extends Error {
@@ -84,8 +96,14 @@ export interface RoomsOptions {
   syncMount?: string;
   /** The sync log. Default: in memory, keeping each field's latest value. */
   log?: Log;
-  /** How long a bot waits before moving (ms). Default 700. */
+  /** A fixed time (ms) every bot waits before moving, overriding the room's own botDelay. For tests. */
   botDelay?: number;
+  /** After every move is published. */
+  onMove?(event: MoveEvent<any, any, any>): void;
+  /** After a game starts. */
+  onStart?(event: { id: string; state: any; room: RoomDoc<any> }): void;
+  /** After a person (not a bot) says something. */
+  onSay?(event: { id: string; message: ChatMessage; room: RoomDoc<any> }): void;
   /** Seeds for new games. Default: random. */
   seed?: () => number;
   /** Room ids. Default: 6 random letters and digits. */
@@ -116,7 +134,15 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
   options: RoomsOptions = {},
 ) {
   const mount = (options.mount ?? "/rooms").replace(/\/$/, "");
-  const botDelay = options.botDelay ?? 700;
+  const fixedDelay = options.botDelay;
+  /** Run an app's hook without letting it break the room. */
+  const safely = (fn: () => void) => {
+    try {
+      fn();
+    } catch (e) {
+      console.error("rooms: a hook threw", e);
+    }
+  };
   const newSeed = options.seed ?? (() => crypto.getRandomValues(new Uint32Array(1))[0]!);
   const newId = options.id ?? (() => randomId(6));
   const live = new Map<string, Live<State>>();
@@ -223,11 +249,19 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
   }
 
   /** Apply a move. No await between deciding and recording it, so two moves can't interleave. */
-  function apply(id: string, entry: Live<State>, seat: number, move: Move) {
-    const next = def.act(entry.state as State, seat, move); // throws to refuse
+  function apply(id: string, entry: Live<State>, seat: number, move: Move): State {
+    const before = entry.state as State;
+    const next = def.act(before, seat, move); // throws to refuse
     entry.state = next;
     const n = entry.moves++;
     void sync.write("moves", id, { [String(n)]: { seat, move } });
+    return before;
+  }
+
+  async function moved(id: string, before: State, after: State, seat: number, move: Move) {
+    if (!options.onMove) return;
+    const r = await room(id);
+    if (r) safely(() => options.onMove!({ id, before, after, seat, move, room: r }));
   }
 
   /** If it's a bot's move, make it after a pause. */
@@ -238,19 +272,22 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     for (let seat = 0; seat < def.seats; seat++) {
       if (!seats[seat]?.bot) continue;
       if (def.bot(entry.state, seat) === null) continue;
+      const delay = fixedDelay ?? def.botDelay?.(entry.state, seat, seats[seat]!.name ?? "") ?? 700;
       entry.timer = setTimeout(async () => {
         entry.timer = null;
         const move = entry.state === null ? null : def.bot!(entry.state, seat);
         if (move === null) return;
+        let before: State;
         try {
-          apply(id, entry, seat, move);
+          before = apply(id, entry, seat, move);
         } catch (e) {
           console.error(`rooms: bot in ${id} seat ${seat} made a refused move`, e);
           return;
         }
         await publish(id, entry);
+        void moved(id, before, entry.state as State, seat, move);
         if (!forgetIfFinished(id, entry)) void driveBots(id);
-      }, botDelay);
+      }, delay);
       return;
     }
   }
@@ -327,6 +364,10 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
       entry.state = def.setup(g.options, seed);
       entry.moves = 0;
       await publish(id, entry);
+      if (options.onStart) {
+        const started = await room(id);
+        if (started) safely(() => options.onStart!({ id, state: entry.state, room: started }));
+      }
       void driveBots(id);
       return json({ ok: true });
     }
@@ -339,18 +380,24 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
       const result = await say(id, mySeat, String(input.text ?? ""));
       if (typeof result === "string") return json({ error: result }, 400);
       lastSaid.set(key, now); // only a message that was sent counts toward the pace
+      if (options.onSay) {
+        const said = await room(id);
+        if (said) safely(() => options.onSay!({ id, message: result, room: said }));
+      }
       return json(result);
     }
 
     if (action === "act") {
       const entry = await stateOf(id);
       if (entry.state === null) return json({ error: "The game hasn't started." }, 409);
+      let before: State;
       try {
-        apply(id, entry, mySeat, input.move as Move);
+        before = apply(id, entry, mySeat, input.move as Move);
       } catch (e) {
         return json({ error: e instanceof Error ? e.message : "That move isn't allowed." }, 400);
       }
       await publish(id, entry);
+      void moved(id, before, entry.state as State, mySeat, input.move as Move);
       if (!forgetIfFinished(id, entry)) void driveBots(id);
       return json({ ok: true });
     }

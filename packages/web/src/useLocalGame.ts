@@ -1,12 +1,10 @@
-import { applyAction, botAction, newGame, RuleError, smartAction, viewFor, type GameState, type RulePreset, type Seat } from "@spades/rules";
+import { applyAction, botAction, newGame, RuleError, smartAction, thinkingTime, viewFor, type GameState, type RulePreset, type Seat } from "@spades/rules";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Move, TableSource } from "./useTable";
 
 export const HUMAN: Seat = 0;
-const BOT_DELAY_MS = 650;
-
 /** A game in this browser: you in seat 0, bots everywhere else. Bots wait while the table is paused. */
-export function useLocalGame(preset: RulePreset, seed: number, paused: boolean): TableSource {
+export function useLocalGame(preset: RulePreset, seed: number, paused: boolean, botNames: Record<number, string> = {}): TableSource & { game: GameState } {
   const [game, setGame] = useState<GameState>(() => newGame(preset, seed));
   const latest = useRef(game);
   latest.current = game;
@@ -33,10 +31,10 @@ export function useLocalGame(preset: RulePreset, seed: number, paused: boolean):
         const action = smartAction(prev, seat, { deals: 24 });
         return action ? applyAction(prev, action) : prev;
       });
-    }, BOT_DELAY_MS);
+    }, thinkingTime(game, seat, botNames[seat] ?? ""));
     return () => clearTimeout(t);
   }, [game, paused]);
 
   const view = useMemo(() => viewFor(game, HUMAN), [game]);
-  return { view, seat: HUMAN, act };
+  return { view, seat: HUMAN, act, game };
 }

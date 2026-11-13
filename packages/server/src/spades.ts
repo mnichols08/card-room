@@ -1,6 +1,7 @@
 import {
   applyAction,
   smartAction,
+  thinkingTime,
   brokennilsTable,
   newGame,
   validatePreset,
@@ -50,6 +51,8 @@ export const spadesRoom: RoomDefinition<GameState, Move, SeatView, RulePreset, S
     winner: state.winner,
   }),
   finished: (state) => state.phase === "finished",
+  // Each bot takes its persona's time, longer on close calls: people don't play instantly.
+  botDelay: (state, seat, name) => thinkingTime(state, seat as Seat, name),
   bot(state, seat) {
     // The thinking bot: it reads the table, guesses the hidden hands and plays like a partner.
     const action = smartAction(state, seat as Seat);
