@@ -719,3 +719,10 @@ html[data-motion="off"] .kit-seat.active strong::before, html[data-motion="calm"
 .kit-team-melds h3 { margin: 0; font-size: var(--ui-s); color: var(--them); text-align: center; }
 .kit-team-melds .us h3 { color: var(--us); }
 .summary th.us { color: var(--felt); }
+
+/* ---- The front page (the Vue game chooser lives inside) ---------------------------------------- */
+.home { min-height: 100%; background: radial-gradient(ellipse at 50% 0%, var(--felt-light), var(--felt) 45%, var(--felt-dark)); }
+@media (min-width: 1024px) {
+  .home { background: radial-gradient(ellipse at 50% 0%, #2b6a50, #1f4d3a 40%, #0d2219 85%); }
+}
+.all-games { align-self: flex-start; margin: -12px 0 -4px; }

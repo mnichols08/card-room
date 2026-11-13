@@ -99,7 +99,7 @@ async function playPalace(send: ReturnType<ReturnType<typeof setup>["phone"]>, i
     else if (v?.phase === "swapping" && !v.players[seat].ready) await send(`/rooms/${id}/act`, { move: { type: "ready" } });
     else if (v?.phase === "playing" && v.turn === seat && v.can) {
       const cards: { rank: number; suit: string }[] = v.can.source === "hand" ? v.hand : v.players[seat].up;
-      const move = v.can.flip ? { type: "flip", index: 0 } : v.can.ranks.length ? { type: "play", cards: cards.filter((c) => c.rank === v.can.ranks[0]).map(label) } : { type: "pickup" };
+      const move = v.can.flip ? { type: "flip", index: 0 } : v.can.ranks.length ? { type: "play", cards: cards.filter((c) => c.rank === v.can.ranks[0]).slice(0, v.can.source === "up" && v.rules?.upOneAtATime ? 1 : undefined).map(label) } : { type: "pickup" };
       await send(`/rooms/${id}/act`, { move });
     }
     await sleep(2);

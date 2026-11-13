@@ -5,7 +5,7 @@ import SelectField from "@spades/ui/zubra-ui/select-field.zb";
 import TextField from "@spades/ui/zubra-ui/text-field.zb";
 import { useMemo, useState } from "react";
 import { ChallengeLink } from "../ChallengeLink";
-import { GamePicker } from "../GamePicker";
+import { AllGames } from "../GamePicker";
 import { Choice } from "../RulesEditor";
 import { deleteKitPreset, loadKitRules, loadKitSeats, loadMyHouses, loadName, loadSavedKit, saveKitPreset, saveKitRules, saveKitSeats, saveName, type GameId } from "../storage";
 import { OpponentSettings } from "../TableSettings";
@@ -15,13 +15,14 @@ type Rules = { id: string; name: string } & Record<string, unknown>;
 
 interface Props {
   game: KitGameId;
-  onPickGame: (game: GameId) => void;
+  /** Back to the Card Room's front page, with every game. */
+  onHome: () => void;
   onPractice: (name: string, rules: Rules, seats: number) => void;
   onFamilyTable: (rules: Rules, seats: number) => Promise<void>;
   onOpenHouse: (slug: string) => void;
 }
 
-export function KitSetup({ game: id, onPickGame, onPractice, onFamilyTable, onOpenHouse }: Props) {
+export function KitSetup({ game: id, onHome, onPractice, onFamilyTable, onOpenHouse }: Props) {
   const game = kitGame(id)!;
   const [name, setName] = useState(loadName);
   const [rules, setRules] = useState<Rules>(() => loadKitRules(id));
@@ -36,13 +37,13 @@ export function KitSetup({ game: id, onPickGame, onPractice, onFamilyTable, onOp
   const errors: string[] = game.validate(rules);
   const isSaved = saved.some((p) => p.id === rules.id);
   const remember = () => {
-    saveName(name.trim() || "You");
+    saveName(name);
     saveKitRules(id, rules);
     saveKitSeats(id, seats);
   };
 
   function saveAs() {
-    const label = window.prompt("Name these rules", game.presets.some((p: Rules) => p.id === rules.id) ? `${name}'s ${game.name}` : rules.name);
+    const label = window.prompt("Name these rules", game.presets.some((p: Rules) => p.id === rules.id) ? `${name.trim() || "My"}'s ${game.name}` : rules.name);
     if (!label?.trim()) return;
     const next = { ...rules, id: isSaved && label.trim() === rules.name ? rules.id : `${id}-${Date.now()}`, name: label.trim().slice(0, 30) };
     saveKitPreset(id, next);
@@ -62,7 +63,7 @@ export function KitSetup({ game: id, onPickGame, onPractice, onFamilyTable, onOp
         <h1>{game.name}</h1>
         <p>{game.tagline}</p>
       </header>
-      <GamePicker game={id} onPick={onPickGame} />
+      <AllGames onClick={onHome} />
 
       {myHouses.length > 0 && (
         <section className="house-block" aria-label="Your houses">

@@ -4,7 +4,7 @@ import SelectField from "@spades/ui/zubra-ui/select-field.zb";
 import { describe, RulesFields, Toggle } from "./RulesEditor";
 import TextField from "@spades/ui/zubra-ui/text-field.zb";
 import { ChallengeLink } from "./ChallengeLink";
-import { GamePicker } from "./GamePicker";
+import { AllGames } from "./GamePicker";
 import type { GameId } from "./storage";
 import { useMemo, useState } from "react";
 import { loadFeedbackSettings, play, saveFeedbackSettings, type SoundName } from "./feedback/sounds";
@@ -21,7 +21,8 @@ import {
 } from "./storage";
 
 interface Props {
-  onPickGame: (game: GameId) => void;
+  /** Back to the Card Room's front page, with every game. */
+  onHome: () => void;
   onStart: (name: string, preset: RulePreset) => void;
   /** Start a table on the server with these rules. Rejects when the server can't be reached. */
   onFamilyTable: (preset: RulePreset) => Promise<void>;
@@ -30,7 +31,7 @@ interface Props {
   onMakeHouse: (houseName: string, you: string, preset: RulePreset) => Promise<void>;
 }
 
-export function Setup({ onPickGame, onStart, onFamilyTable, onOpenHouse, onMakeHouse }: Props) {
+export function Setup({ onHome, onStart, onFamilyTable, onOpenHouse, onMakeHouse }: Props) {
   const [name, setName] = useState(loadName);
   const [saved, setSaved] = useState(loadSavedPresets);
   const [rules, setRules] = useState<RulePreset>(loadLastPreset);
@@ -76,7 +77,7 @@ export function Setup({ onPickGame, onStart, onFamilyTable, onOpenHouse, onMakeH
 
   function start() {
     const trimmed = name.trim() || "You";
-    saveName(trimmed);
+    saveName(name);
     saveLastPreset(rules);
     onStart(trimmed, rules);
   }
@@ -90,7 +91,7 @@ export function Setup({ onPickGame, onStart, onFamilyTable, onOpenHouse, onMakeH
         <h1>Spades</h1>
         <p>Pull up a chair.</p>
       </header>
-      <GamePicker game="spades" onPick={onPickGame} />
+      <AllGames onClick={onHome} />
 
       {myHouses.length > 0 && (
         <section className="house-block" aria-label="Your houses">
@@ -171,7 +172,7 @@ export function Setup({ onPickGame, onStart, onFamilyTable, onOpenHouse, onMakeH
         onClick={async () => {
           setBusy(true);
           setProblem(null);
-          saveName(name.trim() || "You");
+          saveName(name);
           saveLastPreset(rules);
           try {
             await onFamilyTable(rules);
@@ -204,7 +205,7 @@ export function Setup({ onPickGame, onStart, onFamilyTable, onOpenHouse, onMakeH
               setBusy(true);
               setProblem(null);
               const you = name.trim() || "Host";
-              saveName(you);
+              saveName(name);
               try {
                 await onMakeHouse(houseName.trim() || `${you}'s House`, you, rules);
               } catch {

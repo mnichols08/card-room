@@ -8,7 +8,7 @@ export function NotifyButton({ what }: { what: string }) {
     <div className="notify">
       {state === "install-first" && (
         <p className="fine">
-          To get a buzz on this iPhone when {what}: tap the Share button <span aria-hidden>⎋</span>, choose <strong>Add to Home Screen</strong>, then open Spades from
+          To get a buzz on this iPhone when {what}: tap the Share button <span aria-hidden>⎋</span>, choose <strong>Add to Home Screen</strong>, then open Card Room from
           your Home Screen and turn notifications on there.
         </p>
       )}
@@ -25,7 +25,7 @@ export function NotifyButton({ what }: { what: string }) {
           </button>
         </p>
       )}
-      {state === "denied" && <p className="fine">Notifications are blocked for Spades. You can allow them in this phone's settings for the site.</p>}
+      {state === "denied" && <p className="fine">Notifications are blocked for Card Room. You can allow them in this phone's settings for the site.</p>}
       {problem && <p className="error">{problem}</p>}
     </div>
   );

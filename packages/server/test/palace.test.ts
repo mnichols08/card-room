@@ -52,7 +52,7 @@ async function playOut(send: Send, id: string, seat: number) {
       const move = v.can.flip
         ? { type: "flip", index: 0 }
         : v.can.ranks.length
-          ? { type: "play", cards: cards.filter((c) => c.rank === v.can.ranks[0]).map(label) }
+          ? { type: "play", cards: cards.filter((c) => c.rank === v.can.ranks[0]).slice(0, v.can.source === "up" && v.rules?.upOneAtATime ? 1 : undefined).map(label) }
           : { type: "pickup" };
       const r = await send(`/rooms/${id}/act`, { move });
       expect(r.status, JSON.stringify(r.body)).toBe(200);
