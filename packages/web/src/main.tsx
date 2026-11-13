@@ -3,8 +3,10 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { unlockAudioOnFirstTap } from "./feedback/sounds";
 import { registerServiceWorker } from "./notifications";
+import { applyDisplay } from "./display";
 import "./styles.css";
 
+applyDisplay();
 unlockAudioOnFirstTap();
 registerServiceWorker();
 

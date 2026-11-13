@@ -566,3 +566,35 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; }
 .confetti span.red { color: #e0453a; } .confetti span.black { color: #1d1a16; } .confetti span.gold { color: var(--gold); }
 @keyframes confetti-fall { from { translate: var(--x) -10vh; rotate: 0deg; } to { translate: calc(var(--x) + 6vw) 105vh; rotate: var(--r); } }
 @media (prefers-reduced-motion: reduce) { .confetti { display: none; } .empty-slot .burnt { animation: none; } }
+
+/* ---- This device's look (see display.ts) ------------------------------------------------------ */
+/* Four-colour suits: diamonds blue, clubs green. Unlayered, so it wins over the card's own colours. */
+html[data-suits="4"] playing-card .card.diamonds,
+html[data-suits="4"] palace-seat .chip.diamonds { color: #1f5fbf; }
+html[data-suits="4"] playing-card .card.clubs,
+html[data-suits="4"] palace-seat .chip.clubs { color: #1c7a3e; }
+/* Animations off: nothing moves (the same as the device asking for reduced motion). */
+html[data-motion="off"] *,
+html[data-motion="off"] *::before,
+html[data-motion="off"] *::after { animation: none !important; transition: none !important; }
+/* Calm: shorter, smaller, and nothing that keeps moving. */
+html[data-motion="calm"] { --dur-1: 80ms; --dur-2: 140ms; --dur-3: 180ms; }
+html[data-motion="calm"] .confetti,
+html[data-motion="calm"] seat-badge .active,
+html[data-motion="calm"] palace-seat .active,
+html[data-motion="calm"] .table-slot .flip,
+html[data-motion="calm"] .hand.breathe > playing-card { animation: none !important; }
+html[data-motion="calm"] .hand.dealing > playing-card { animation-duration: 180ms !important; animation-delay: calc(var(--i, 0) * 12ms) !important; }
+.sheet.table-settings h3 { margin: 8px 0 -4px; font-size: 1rem; color: var(--felt); }
+/* A card you just played lifts at once, while a shared table confirms it. */
+.me playing-card.sent { translate: 0 calc(var(--card-h) * -0.22); transition: translate 90ms var(--ease-out); }
+/* Without the pulse, the player whose turn it is gets a ▶ before their name. */
+html[data-motion="off"] seat-badge .active strong::before,
+html[data-motion="off"] palace-seat .active strong::before,
+html[data-motion="calm"] seat-badge .active strong::before,
+html[data-motion="calm"] palace-seat .active strong::before { content: "▶ "; }
+/* Phones: the side cards sit closer in, clear of the left and right players' badges. */
+@media (max-width: 599px) {
+  .played { --g: calc(var(--trick-w) * 0.12); }
+  .seat-slot.left, .seat-slot.right { top: 26%; }
+}

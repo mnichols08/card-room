@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { Bubble, TableChat, useBubbles, type ChatProps } from "../Chat";
 import { loadFeedbackSettings, play, saveFeedbackSettings } from "../feedback/sounds";
 import { Confetti } from "../Confetti";
-import { motionScale, useCardFlip, useFlash } from "../motion";
+import { lift, motionScale, useCardFlip, useFlash } from "../motion";
 import { usePalaceFx } from "./PalaceFx";
 
 type PCard = Extract<Card, { kind: "pip" }>;
@@ -106,8 +106,10 @@ export function PalaceTable({ view, seat: me, names, act, onLeave, banner, chat,
 
   const send = async (move: PalaceMove) => {
     setChoosing(null);
+    const putBack = move.type === "play" ? lift(root.current, move.cards) : () => {};
     const refused = await act(move);
     if (refused) {
+      putBack();
       setError(refused);
       play("nope");
     }

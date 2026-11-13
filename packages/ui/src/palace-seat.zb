@@ -11,7 +11,7 @@
   const red = (c) => c.suit === "hearts" || c.suit === "diamonds"
   const medal = (n) => (n === 1 ? "🥇 Out first" : n === 2 ? "🥈 Out" : n === 3 ? "🥉 Out" : `Out ${n}th`)
   const cards = (n) => `${n} card${n === 1 ? "" : "s"}`
-  const chips = up.map((c, i) => ({ id: `${label(c)}-${i}`, text: label(c), red: red(c) }))
+  const chips = up.map((c, i) => ({ id: `${label(c)}-${i}`, text: label(c), red: red(c), suit: c.suit }))
 </script>
 <style>
   :host { display: block; }
@@ -51,7 +51,7 @@
     <span zb-else>{cards(held)} in hand</span>
     <div zb-if={place === 0 && !last} class="table-cards" aria-label={`${up.length} face up, ${down} face down`}>
       <zb-each items={chips} as="chip" key={chip.id}>
-        <span class="chip" class:red={chip.red}>{chip.text}</span>
+        <span class="chip" class:red={chip.red} class:diamonds={chip.suit === "diamonds"} class:clubs={chip.suit === "clubs"}>{chip.text}</span>
       </zb-each>
       <span zb-if={down > 0} class="down" title="Face down">{down}</span>
     </div>

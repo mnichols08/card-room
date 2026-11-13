@@ -2,6 +2,7 @@ import { PACES, SKILLS, type TableSettings } from "@spades/rules";
 import { useState } from "react";
 import { Choice } from "./RulesEditor";
 import { loadTableSettings, saveTableSettings } from "./storage";
+import { loadDisplay, MOTIONS, saveDisplay, type DisplaySettings } from "./display";
 
 /** Opponents and speed, as two plain pickers. */
 export function TableSettingsFields({ settings, onChange }: { settings: TableSettings; onChange: (next: TableSettings) => void }) {
@@ -14,13 +15,38 @@ export function TableSettingsFields({ settings, onChange }: { settings: TableSet
   );
 }
 
+/** This device's own look: animations and suit colours. Saved at once. */
+export function DisplayFields() {
+  const [display, setDisplay] = useState(loadDisplay);
+  const change = (patch: Partial<DisplaySettings>) => {
+    const next = { ...display, ...patch };
+    saveDisplay(next);
+    setDisplay(next);
+  };
+  return (
+    <>
+      <Choice label="Animations" value={display.motion} options={MOTIONS.map((m) => [m.id, m.label])} onChange={(v) => change({ motion: v as DisplaySettings["motion"] })} />
+      <p className="fine">{MOTIONS.find((m) => m.id === display.motion)?.hint}</p>
+      <Choice
+        label="Suit colours"
+        value={display.suits}
+        options={[
+          ["2", "Red and black"],
+          ["4", "Four colours: ♦ blue, ♣ green"],
+        ]}
+        onChange={(v) => change({ suits: v === "4" ? 4 : 2 })}
+      />
+    </>
+  );
+}
+
 /** The ⚙︎ at the table: change opponents and speed mid-game. */
 export function TableSettingsButton({ settings, onChange }: { settings: TableSettings; onChange: (next: TableSettings) => Promise<void> | void }) {
   const [open, setOpen] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   return (
     <>
-      <button type="button" className="settings-toggle" aria-label="Table settings: opponents and speed" aria-expanded={open} onClick={() => setOpen(true)}>
+      <button type="button" className="settings-toggle" aria-label="Table settings: opponents, speed and animations" aria-expanded={open} onClick={() => setOpen(true)}>
         ⚙︎
       </button>
       {open && (
@@ -38,6 +64,8 @@ export function TableSettingsButton({ settings, onChange }: { settings: TableSet
             }}
           />
           {problem && <p className="error">{problem}</p>}
+          <h3>On this device</h3>
+          <DisplayFields />
           <button type="button" className="primary" onClick={() => setOpen(false)}>
             Done
           </button>
@@ -51,7 +79,7 @@ export function TableSettingsButton({ settings, onChange }: { settings: TableSet
 export function OpponentSettings() {
   const [settings, setSettings] = useState(loadTableSettings);
   return (
-    <section className="feedback" aria-label="Computer players">
+    <section className="feedback" aria-label="Computer players and the look of the table">
       <TableSettingsFields
         settings={settings}
         onChange={(next) => {
@@ -59,6 +87,7 @@ export function OpponentSettings() {
           setSettings(next);
         }}
       />
+      <DisplayFields />
     </section>
   );
 }

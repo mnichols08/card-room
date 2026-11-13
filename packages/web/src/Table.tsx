@@ -6,7 +6,7 @@ import ScoreBoard from "@spades/ui/score-board.zb";
 import SeatBadge from "@spades/ui/seat-badge.zb";
 import { useEffect, useRef, useState } from "react";
 import { Confetti } from "./Confetti";
-import { collect, motionScale, rectOf, useCardFlip, useFlash } from "./motion";
+import { collect, lift, motionScale, rectOf, useCardFlip, useFlash } from "./motion";
 import { loadFeedbackSettings, play, saveFeedbackSettings } from "./feedback/sounds";
 import { useTableSounds } from "./feedback/useTableSounds";
 import { Bubble, TableChat, useBubbles, type ChatProps } from "./Chat";
@@ -87,7 +87,10 @@ export function Table({ table: t, names, onLeave, banner, chat, settings }: Prop
       );
       return;
     }
-    if (myTurnToPlay) void t.act({ type: "play", card });
+    if (myTurnToPlay) {
+      const putBack = lift(root.current, [cardId(card)]);
+      void t.act({ type: "play", card }).then((refused) => refused && putBack());
+    }
   }
 
   function bid(detail: number | "nil" | "blind-nil") {

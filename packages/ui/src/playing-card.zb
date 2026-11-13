@@ -164,6 +164,8 @@
     class="card"
     data-size={size}
     class:red={red}
+    class:diamonds={!joker && card.suit === "diamonds"}
+    class:clubs={!joker && card.suit === "clubs"}
     class:playable={playable}
     class:dim={dim}
     class:selected={selected}

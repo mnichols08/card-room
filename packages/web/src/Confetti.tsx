@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { motionSetting } from "./display";
 
 const SUITS = ["♠︎", "♥︎", "♦︎", "♣︎"];
 
@@ -27,7 +28,7 @@ export function Confetti({ count = 24 }: { count?: number }) {
       }),
     [count],
   );
-  if (!on) return null;
+  if (!on || motionSetting() !== "on") return null;
   return (
     <div className="confetti" aria-hidden="true">
       {bits.map((b, i) => (

@@ -7,16 +7,24 @@
 // Mark a card's wrapper with data-flip="<card id>". A card that's new gets data-from="<selector>"
 // to come in from somewhere (a seat, the deck); without it, a new card just appears.
 import type { Pace } from "@spades/rules";
+import { motionSetting } from "./display";
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 
 export const EASE_OUT = "cubic-bezier(.2,.8,.2,1)";
 export const EASE_IN = "cubic-bezier(.5,0,.75,0)";
 export const EASE_BACK = "cubic-bezier(.34,1.4,.64,1)";
 
-export const reducedMotion = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+/** The device asks for less motion, or the player turned animations off. */
+export const reducedMotion = () => motionSetting() === "off" || (typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches);
 
-/** How much cards travel: 1 for full motion, 0.75 at the fast pace, 0 for reduced motion or instant (a quick fade instead). */
-export const motionScale = (pace?: Pace) => (reducedMotion() || pace === "instant" ? 0 : pace === "fast" ? 0.75 : 1);
+/**
+ * How much cards travel: 1 for full motion, less at the fast pace or with calm animations, and 0
+ * (a quick fade instead) for reduced motion, animations off, or the instant pace.
+ */
+export const motionScale = (pace?: Pace) => {
+  if (reducedMotion() || pace === "instant") return 0;
+  return (pace === "fast" ? 0.75 : 1) * (motionSetting() === "calm" ? 0.6 : 1);
+};
 
 export interface Seen {
   rect: DOMRect;
@@ -58,7 +66,8 @@ export function useCardFlip(root: RefObject<HTMLElement | null>, scale: number) 
       if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && Math.abs(s - 1) < 0.02) return;
       const isNew = !before;
       if (scale === 0) {
-        if (isNew) el.animate({ opacity: [0, 1] }, { duration: 90 });
+        // Instant pace or reduced motion: a quick fade. Animations turned off: nothing at all.
+        if (isNew && motionSetting() !== "off") el.animate({ opacity: [0, 1] }, { duration: 90 });
         return;
       }
       const spin = isNew ? (dx < 0 ? 10 : -10) : 0;
@@ -71,6 +80,16 @@ export function useCardFlip(root: RefObject<HTMLElement | null>, scale: number) 
     last.current = now;
   });
   return departed;
+}
+
+/**
+ * Lift the cards you just played straight away, before the table answers (a shared table takes a
+ * moment). Returns a function that puts them back, for when the move is refused.
+ */
+export function lift(root: HTMLElement | null, ids: string[]): () => void {
+  const hosts = ids.flatMap((id) => [...(root?.querySelectorAll<HTMLElement>(`.me [data-flip="${CSS.escape(id)}"]`) ?? [])]);
+  hosts.forEach((h) => h.classList.add("sent"));
+  return () => hosts.forEach((h) => h.classList.remove("sent"));
 }
 
 /** True for `ms` after `key` changes (and on the first render, if `initial`). */

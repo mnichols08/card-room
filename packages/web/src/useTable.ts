@@ -68,10 +68,12 @@ export function useTable(source: TableSource) {
     summary,
     dismissSummary: () => setSummary(null),
     error,
-    act: async (move: Move) => {
-      if (paused) return;
+    /** Resolves to the reason when the move is refused (it's shown as the error too), else null. */
+    act: async (move: Move): Promise<string | null> => {
+      if (paused) return "Wait a moment.";
       const refused = await source.act(move);
       if (refused) setError(refused);
+      return refused;
     },
   };
 }
