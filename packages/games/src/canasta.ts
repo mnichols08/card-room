@@ -308,6 +308,19 @@ function apply(state: CanastaState, seat: number, move: Move): CanastaState {
       const reds = s.red3s[team].length;
       layRedThrees(s, seat);
       s.hands[seat] = sortHand(s.hands[seat]!);
+      // Red threes with nothing left to replace them can leave too few cards to play on: with the
+      // stock gone, the hand is over (or, holding nothing and with a canasta, you've gone out).
+      const left = s.hands[seat]!.length;
+      const canasta = s.melds[team].some(isCanasta);
+      if (left === 0 && canasta) {
+        goOut(s, seat);
+        return s;
+      }
+      if (!s.stock.length && (left === 0 || (left === 1 && !canasta))) {
+        s.narration = "The stock ran out.";
+        scoreHand(s, null);
+        return s;
+      }
       s.phase = "meld";
       s.narration = s.red3s[team].length > reds ? `${who(seat)} drew a red three` : null;
       return s;

@@ -238,8 +238,12 @@ describe("a house tournament", () => {
   it("a computer-only spades match plays itself and moves its winner on", async () => {
     const { phone } = setup();
     const grammi = phone();
-    await grammi("/houses", { name: "Grammi's House", you: "brokennil" });
-    const id = (await grammi("/houses/grammis-house/tournaments", { name: "Bots", game: "spades", settings: { pace: "instant" } })).body.id;
+    const made = (await grammi("/houses", { name: "Grammi's House", you: "brokennil" })).body;
+    // A short game: this is about a match finishing and its winner moving on, not a full game to 500
+    // (which can outrun the deadline on a slow CI machine).
+    const short = await grammi("/houses/grammis-house/presets", { preset: { ...made.presets[0], id: "short", name: "Short", playTo: 100 } });
+    expect(short.status).toBe(200);
+    const id = (await grammi("/houses/grammis-house/tournaments", { name: "Bots", game: "spades", presetId: "short", settings: { pace: "instant" } })).body.id;
     const at = `/houses/grammis-house/tournaments/${id}`;
     await grammi(`${at}/add`, { players: ["computer", "computer"] });
     await grammi(`${at}/add`, { players: ["computer", "computer"] });

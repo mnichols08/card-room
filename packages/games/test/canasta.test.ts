@@ -117,4 +117,12 @@ describe("Canasta", () => {
     expect(rows["Left in hand"]).toEqual([-20, -45]);
     expect(done.scores).toEqual([1170, 170]);
   });
+
+  it("drawing a red three off an empty stock with one card and no canasta ends the hand", () => {
+    const s = table({ mine: "9♥", stock: hand("3♥"), opened: [true, true] });
+    const after = canasta.apply(s, 0, { type: "draw" });
+    expect(after.red3s[0]).toHaveLength(1);
+    expect(after.phase).toBe("scored");
+    expect(after.lastHand!.wentOut).toBeNull();
+  });
 });
