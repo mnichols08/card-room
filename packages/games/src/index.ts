@@ -11,5 +11,6 @@ export * from "./gofish.js";
 export * from "./oldmaid.js";
 export * from "./war.js";
 export * from "./whist.js";
+export * from "./golf.js";
 export * from "./registry.js";
 export * from "./talk.js";

@@ -815,3 +815,17 @@ button.kit-fan-card:focus-visible { translate: 0 calc(var(--lift) - var(--trick-
 /* Your own face-down pile, when you never see your cards (War). */
 .my-pile { display: flex; justify-content: center; padding: 6px 0 4px; }
 .my-pile playing-card { --trick-w: calc(var(--card-w) * 1.05); --trick-h: calc(var(--trick-w) * var(--card-ratio, 1.4)); }
+
+/* Cards laid out in front of a player (Golf): rows and columns, yours tappable. */
+.card-grid { display: grid; grid-template-columns: repeat(var(--cols), auto); gap: 6px; justify-content: center; }
+.card-grid.mini { gap: 3px; }
+.grid-cell { display: block; line-height: 0; }
+button.grid-cell { padding: 0; border: 0; background: none; cursor: pointer; border-radius: calc(var(--trick-w) * 0.1); outline-offset: 3px; }
+@media (hover: hover) { button.grid-cell:hover { translate: 0 -4px; } }
+/* The card just drawn, beside the piles until it's placed. */
+.held-card { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.held-card small { color: var(--gold); font-size: var(--ui-s); font-weight: 600; }
+/* Players at your sides have their grid turned to face them: three rows of two, each column's pair side by side. */
+@media (max-width: 599px) { .opp.left .card-grid, .opp.right .card-grid { grid-template-columns: repeat(2, auto); grid-template-rows: repeat(3, auto); grid-auto-flow: column; } }
+/* Laptops: your own grid a little smaller, so both rows sit on the felt. */
+@media (min-width: 1024px) { .mine-on-table .card-grid.table { --trick-w: calc(var(--card-w) * 0.62); --trick-h: calc(var(--trick-w) * var(--card-ratio)); } }

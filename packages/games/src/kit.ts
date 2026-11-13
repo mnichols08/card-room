@@ -5,7 +5,7 @@
 // scores. One table screen draws every game from that, and one room runs them all on the server.
 import { mulberry32, type Card, type PlayStyle, type Suit } from "@spades/rules";
 
-export type KitGameId = "hearts" | "ohhell" | "euchre" | "crazy8" | "gin" | "pinochle" | "canasta" | "gofish" | "oldmaid" | "war" | "whist";
+export type KitGameId = "hearts" | "ohhell" | "euchre" | "crazy8" | "gin" | "pinochle" | "canasta" | "gofish" | "oldmaid" | "war" | "whist" | "golf";
 
 /** A move that isn't allowed. The message is shown to the player as is. */
 export class GameError extends Error {}
@@ -125,6 +125,9 @@ export type Center =
       discardLabel?: string;
       /** Only a stock, no discard pile beside it (Go Fish's pond). */
       noDiscard?: boolean;
+      /** A card just drawn, shown beside the piles until it's placed (Golf). */
+      held?: KCard | null;
+      heldLabel?: string;
     }
   /** Another player's hand, face down: tap a card to take it (Old Maid). Sends { type: takeType, index }. */
   | { kind: "fan"; from: number; count: number; takeType: string | null; label?: string }
@@ -166,6 +169,10 @@ export interface KitView {
   players: SeatInfo[];
   center: Center;
   melds: Meld[];
+  /** Cards laid out in front of each player in rows and columns (Golf); null is a face-down card. */
+  grids?: { owner: number; cols: number; cards: (KCard | null)[] }[];
+  /** Cells of your own grid you can tap now: sends { type, index }. */
+  gridTap?: { type: string; cells: number[]; prompt?: string } | null;
   /** Small facts for the table: "Trump ♥", "Hearts broken", "Hand 3 of 13". */
   info: string[];
   /** What just happened, in words. */
