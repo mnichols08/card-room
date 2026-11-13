@@ -153,7 +153,7 @@ export function KitTable({
 
   const status = error ? (
     <span className="error">{error}</span>
-  ) : view.over ? null : view.turn === me ? (
+  ) : view.over || view.seats === 1 ? null : view.turn === me ? (
     <span className="mine">
       {view.pick?.prompt || view.gridTap?.prompt || "Your turn"}
     </span>
@@ -222,7 +222,9 @@ export function KitTable({
       </header>
       {banner}
 
-      <div className="felt palace-felt kit-felt">
+      <div
+        className={`felt palace-felt kit-felt${view.seats === 1 ? " solo" : ""}`}
+      >
         {(["top", "left", "right"] as const).map((area) => (
           <div key={area} className={`opp-area ${area}`}>
             {spots
@@ -356,7 +358,7 @@ export function KitTable({
                   } as React.CSSProperties
                 }
               />
-            ) : view.grids ? null : (
+            ) : view.grids || view.seats === 1 ? null : (
               <div className="empty-slot">Out</div>
             )}
           </div>
@@ -541,6 +543,8 @@ function CenterArea({
       </div>
     );
   }
+  if (center.kind === "solitaire")
+    return <SolitaireArea center={center} send={send} />;
   if (center.kind === "fan") {
     // Their hand, face down and fanned: tap the card you want.
     const n = center.count;
@@ -665,7 +669,9 @@ function CenterArea({
                 )}
               </div>
             ) : (
-              <div className="empty-slot">{center.discardLabel ? "" : "Discards"}</div>
+              <div className="empty-slot">
+                {center.discardLabel ? "" : "Discards"}
+              </div>
             )}
             <small>
               {center.discardLabel
@@ -722,6 +728,119 @@ function CenterArea({
     );
   }
   return null;
+}
+
+/** A solitaire layout: stock, turned cards, free cells, foundations, then the columns. Tap a card to move it. */
+function SolitaireArea({
+  center,
+  send,
+}: {
+  center: Extract<Center, { kind: "solitaire" }>;
+  send: (move: Record<string, unknown>) => void;
+}) {
+  const can = new Set(center.tap?.cards ?? []);
+  const cols = center.columns.length;
+  const tapCard = (c: KCard, last: boolean, i: number) =>
+    can.has(c.id) ? (
+      <button
+        key={c.id}
+        type="button"
+        className={`sol-card${last ? " last" : ""}`}
+        style={{ "--i": i } as React.CSSProperties}
+        aria-label={`Move the ${c.kind === "pip" ? c.rank : "card"}`}
+        onClick={() => send({ type: center.tap!.type, card: c.id })}
+      >
+        <PlayingCard card={c} size="table" data-flip={c.id} />
+      </button>
+    ) : (
+      <span
+        key={c.id}
+        className={`sol-card${last ? " last" : ""}`}
+        style={{ "--i": i } as React.CSSProperties}
+      >
+        <PlayingCard card={c} size="table" data-flip={c.id} />
+      </span>
+    );
+  const slot = (label: string, key: string) => (
+    <div key={key} className="sol-slot" aria-label={label}>
+      <span>{label}</span>
+    </div>
+  );
+  const SUIT_MARKS = ["♠", "♥", "♦", "♣"];
+  return (
+    <div className="sol" style={{ "--cols": cols } as React.CSSProperties}>
+      <div className="sol-top">
+        {center.stock !== null && (
+          <div className="sol-stock">
+            {center.stock > 0 ? (
+              center.drawMove ? (
+                <button
+                  type="button"
+                  className="sol-card"
+                  aria-label={`Turn the stock (${center.stock} left)`}
+                  onClick={() => send(center.drawMove!)}
+                >
+                  <PlayingCard back size="table" />
+                </button>
+              ) : (
+                <PlayingCard back size="table" />
+              )
+            ) : center.drawMove ? (
+              <button
+                type="button"
+                className="sol-slot again"
+                aria-label="Turn the pile over"
+                onClick={() => send(center.drawMove!)}
+              >
+                <span>↻</span>
+              </button>
+            ) : (
+              slot("", "stock-empty")
+            )}
+            {center.stockLabel && <small>{center.stockLabel}</small>}
+          </div>
+        )}
+        {center.stock !== null && (
+          <div className="sol-waste">
+            {center.waste.map((c, i) =>
+              tapCard(c, i === center.waste.length - 1, i),
+            )}
+          </div>
+        )}
+        {center.cells && (
+          <div className="sol-cells">
+            {center.cells.map((c, i) =>
+              c ? tapCard(c, true, 0) : slot("", `cell-${i}`),
+            )}
+          </div>
+        )}
+        <div className="sol-found">
+          {center.foundations.map((c, i) =>
+            c ? (
+              <span key={i} className="sol-card">
+                <PlayingCard card={c} size="table" data-flip={c.id} />
+              </span>
+            ) : (
+              slot(SUIT_MARKS[i] ?? "", `f-${i}`)
+            ),
+          )}
+        </div>
+      </div>
+      <div className="sol-cols">
+        {center.columns.map((col, ci) => (
+          <div key={ci} className="sol-col" aria-label={`Column ${ci + 1}`}>
+            {col.down === 0 && col.up.length === 0 && slot("", `col-${ci}`)}
+            {Array.from({ length: col.down }, (_, i) => (
+              <span key={`d${i}`} className="sol-card down">
+                <PlayingCard back size="table" />
+              </span>
+            ))}
+            {col.up.map((c, i) => tapCard(c, i === col.up.length - 1, i))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 /** Cards laid out in rows and columns in front of a player (Golf); null is face down. */
