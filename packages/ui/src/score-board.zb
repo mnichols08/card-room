@@ -1,0 +1,51 @@
+<!--
+  The two teams' scores and bags, and the hand and target in the middle. Used at the table and,
+  without the back button, on a blog page that shows a game.
+  `us` and `them` are `{ name, points, bags }`.
+  @fires leave - The back button was pressed.
+-->
+<script>
+  import { emit } from '@zubra/runtime'
+
+  const bags = (n) => `${n} bag${n === 1 ? "" : "s"}`
+</script>
+<style>
+  :host { display: block; }
+  header {
+    display: grid;
+    grid-template-columns: auto 1fr auto 1fr;
+    align-items: center;
+    gap: 8px;
+    padding: max(10px, env(safe-area-inset-top)) 12px 10px;
+    background: rgba(0, 0, 0, 0.3);
+    color: var(--table-ink, #fbf6ec);
+  }
+  header.no-back { grid-template-columns: 1fr auto 1fr; }
+  .leave { background: none; border: 0; color: var(--primary, #e8c46a); font-size: 1.4rem; padding: 0 6px; cursor: pointer; }
+  .team { display: flex; flex-direction: column; align-items: center; line-height: 1.15; min-width: 0; }
+  .team span { font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .team strong { font-size: 1.6rem; font-family: Georgia, "Times New Roman", serif; }
+  small { font-size: 0.7rem; opacity: 0.8; }
+  .us strong { color: var(--team-us, #e8c46a); }
+  .them strong { color: var(--team-them, #a9c7ff); }
+  .middle { display: flex; flex-direction: column; align-items: center; }
+</style>
+<score-board us={{ name: "", points: 0, bags: 0 }} them={{ name: "", points: 0, bags: 0 }} hand={1} play-to={500} back={true}>
+  <header class:no-back={!back} aria-label="Score">
+    <button zb-if={back} type="button" class="leave" aria-label="Leave game" onclick={() => emit('leave')}>←</button>
+    <div class="team us">
+      <span>{us.name}</span>
+      <strong>{us.points}</strong>
+      <small>{bags(us.bags)}</small>
+    </div>
+    <div class="middle">
+      <small>Hand {hand}</small>
+      <small>to {playTo}</small>
+    </div>
+    <div class="team them">
+      <span>{them.name}</span>
+      <strong>{them.points}</strong>
+      <small>{bags(them.bags)}</small>
+    </div>
+  </header>
+</score-board>

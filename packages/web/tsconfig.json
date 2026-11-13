@@ -4,10 +4,30 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "jsx": "react-jsx",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "noEmit": true,
-    "paths": { "@spades/rules": ["../rules/src/index.ts"] },
-    "allowImportingTsExtensions": false
+    "paths": {
+      "@spades/rules": [
+        "../rules/src/index.ts"
+      ],
+      "@spades/ui/*": [
+        "../ui/src/*"
+      ]
+    },
+    "types": [
+      "@zubra/unplugin/client",
+      "node"
+    ],
+    "allowArbitraryExtensions": true
   },
-  "include": ["src", "vite.config.ts"]
+  "include": [
+    "src",
+    "vite.config.ts",
+    "../ui/src",
+    "zubra-unplugin.d.ts"
+  ]
 }

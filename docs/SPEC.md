@@ -78,13 +78,18 @@ in v1. Results feed the house leaderboard.
 ```
 packages/
   rules/    pure TypeScript rules engine — no I/O, fully deterministic, unit tested
-  server/   realtime game server (WebSocket); owns game state, hides other players' hands
-  web/      the card table UI (mobile-first)
-  embed/    tiny script/web component for open.blog sites: game nights, leaderboard, join button
+  ui/       table components written in Zubra (.zb): custom elements shared by web and embed
+  web/      the card table app: React, using the ui components through @zubra/unplugin
+  rooms/    a kit over @zubra/sync for server-decided, turn-based rooms with private per-seat views
+  embed/    the ui components on open.blog pages: game nights, leaderboard, join button
 ```
 
-- **The server is the source of truth.** Clients send intents (`bid`, `play`), the server
-  runs them through `rules`, then sends each seat a view with only its own hand.
+- **One set of components, two consumers.** The table's pieces are Zubra components, used from
+  React in the app and as plain HTML on the blog. Proving Zubra works inside React is a goal in itself.
+- **The server is the source of truth.** Clients send moves (`bid`, `play`) to a server action,
+  which runs them through `rules` and writes each seat's view to `@zubra/sync`. Each player's
+  connection is scoped so it can read only its own hand. The `rooms` package packages that pattern;
+  it starts here and moves to its own repo once its API settles.
 - **Deterministic engine.** Shuffles take a seed so any game can be replayed from its log,
   which makes disputes ("I know I had the big joker!") and bug reports easy.
 - **Embed is read-mostly.** It fetches public house info (name, upcoming game nights,
@@ -94,11 +99,12 @@ packages/
 
 1. **Rules engine** — presets, deck, legal plays, tricks, bidding, scoring, game reducer, tests. ✅
 2. **Local table** — `web` plays a full game against simple bots, no server. Rules editor saves presets in the browser. ✅
-3. **Realtime server** — tables, seats, reconnects, per-seat views, game log persistence.
-4. **Houses** — accounts, invite links, roles, preset editor, house default preset.
-5. **Tournaments & leaderboard.**
-6. **open.blog embed** for Grammi's House.
-7. *(Later)* Public lobby.
+3. **Zubra components** — the table and setup screen rebuilt on `.zb` components inside React. ✅
+4. **Rooms kit + realtime tables** — `packages/rooms` over `@zubra/sync`: seats, server-checked moves, per-seat views, bots and a move log.
+5. **Houses** — accounts, invite links, roles, preset editor, house default preset.
+6. **Tournaments & leaderboard.**
+7. **open.blog embed** for Grammi's House.
+8. *(Later)* Public lobby.
 
 ## Open questions
 
