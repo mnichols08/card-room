@@ -181,7 +181,8 @@ function Lobby(props: {
               <span className="where">{seatLabel(game, i)}</span>
               <strong>
                 {s.bot ? `${s.name} (bot)` : (s.name ?? "Empty")}
-                {s.bot && s.name && personaFor(s.name).blurb && <small className="blurb">{personaFor(s.name).blurb}</small>}
+                {/* The blurbs describe how they play spades. */}
+                {game === "spades" && s.bot && s.name && personaFor(s.name).blurb && <small className="blurb">{personaFor(s.name).blurb}</small>}
               </strong>
               {mine && <em>you</em>}
               {!doc.started && empty && mySeat === null && (
