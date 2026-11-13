@@ -256,3 +256,13 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; }
 .rules-sheet-body { min-height: auto; margin: 24px auto; border-radius: 16px; }
 .check { display: flex; align-items: center; gap: 10px; }
 .check input { width: 22px; height: 22px; accent-color: var(--gold); }
+
+.standings { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+.standings th, .standings td { padding: 8px 6px; text-align: right; border-bottom: 1px solid rgba(255, 255, 255, 0.12); }
+.standings th[scope="row"], .standings thead th:nth-child(2) { text-align: left; }
+.standings td:first-child { width: 1.5rem; text-align: center; color: var(--gold); }
+.standings thead th { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #cfe2d6; font-weight: 600; }
+.standings tr.me th, .standings tr.me td { color: var(--gold); }
+.house-block h3 { margin: 6px 0 0; font-size: 1.05rem; }
+.highlights { margin: 0; padding-left: 1.1rem; display: flex; flex-direction: column; gap: 6px; font-size: 0.95rem; }
+.highlights strong { color: var(--gold); }
