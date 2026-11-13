@@ -665,7 +665,7 @@ function CenterArea({
                 )}
               </div>
             ) : (
-              <div className="empty-slot">Discards</div>
+              <div className="empty-slot">{center.discardLabel ? "" : "Discards"}</div>
             )}
             <small>
               {center.discardLabel
