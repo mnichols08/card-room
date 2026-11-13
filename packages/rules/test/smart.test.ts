@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildDeck, cardId, isTrump, mulberry32, pip, sameCard } from "../src/cards.js";
 import { applyAction, newGame, type GameState } from "../src/game.js";
-import { classic, jokersAndDeuces, brokennilsTable } from "../src/presets.js";
+import { classic, jokersAndDeuces, familyTable } from "../src/presets.js";
 import { knowledge, sampleDeal, smartAction, thinkBid, thinkCard } from "../src/smart.js";
 import { estimateTricks } from "../src/bot.js";
 import type { Bid, Card, Seat } from "../src/types.js";
@@ -130,7 +130,7 @@ describe("thinking bids", () => {
 });
 
 describe("thinking bots play whole games", () => {
-  for (const preset of [classic, jokersAndDeuces, brokennilsTable]) {
+  for (const preset of [classic, jokersAndDeuces, familyTable]) {
     it(`legally, to the end (${preset.name})`, () => {
       let s = newGame(preset, 42);
       for (let i = 0; i < 4000 && s.phase !== "finished"; i++) {

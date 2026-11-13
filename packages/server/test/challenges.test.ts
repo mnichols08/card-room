@@ -81,7 +81,7 @@ describe("challenges", () => {
     const grammi = phone();
     const rick = phone();
     const link = (await grammi("/challenges/mine", { name: "brokennil" })).body;
-    expect(link).toMatchObject({ name: "brokennil", enabled: true, rules: "brokennil's Table" });
+    expect(link).toMatchObject({ name: "brokennil", enabled: true, rules: "Family Table" });
     await grammi("/push/subscribe", { subscription: sub(1) });
 
     expect((await rick(`/challenges/${link.code}`)).body).toMatchObject({ name: "brokennil", enabled: true });

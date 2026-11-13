@@ -1,4 +1,4 @@
-import { brokennilsTable, builtInPresets, cleanSettings, DEFAULT_SETTINGS, type RulePreset, type TableSettings } from "@spades/rules";
+import { familyTable, renamedPreset, builtInPresets, cleanSettings, DEFAULT_SETTINGS, type RulePreset, type TableSettings } from "@spades/rules";
 import { familyPalace, normalizePalaceRules, type PalaceRules } from "@cardroom/palace";
 import { isKitGame, kitGame, type KitGameId } from "@cardroom/games";
 
@@ -33,7 +33,7 @@ export const saveName = (name: string) => {
   if (name.trim()) write(NAME_KEY, name.trim());
 };
 
-export const loadSavedPresets = () => read<RulePreset[]>(PRESETS_KEY, []);
+export const loadSavedPresets = () => read<RulePreset[]>(PRESETS_KEY, []).map(renamedPreset);
 export function savePreset(preset: RulePreset) {
   const others = loadSavedPresets().filter((p) => p.id !== preset.id);
   write(PRESETS_KEY, [...others, preset]);
@@ -42,10 +42,10 @@ export function deleteSavedPreset(id: string) {
   write(PRESETS_KEY, loadSavedPresets().filter((p) => p.id !== id));
 }
 
-export const loadLastPreset = () => read<RulePreset>(LAST_PRESET_KEY, brokennilsTable);
+export const loadLastPreset = () => renamedPreset(read<RulePreset>(LAST_PRESET_KEY, familyTable));
 export const saveLastPreset = (preset: RulePreset) => write(LAST_PRESET_KEY, preset);
 
-export const starterPresets: RulePreset[] = [brokennilsTable, ...builtInPresets];
+export const starterPresets: RulePreset[] = [familyTable, ...builtInPresets];
 
 const HOUSES_KEY = "spades:houses";
 /** The houses this browser belongs to, for the setup screen. The server is the source of truth. */

@@ -3,7 +3,7 @@ import {
   smartAction,
   thinkingTime,
   personaFor,
-  brokennilsTable,
+  familyTable,
   paceDelay,
   styleFor,
   type TableSettings,
@@ -30,14 +30,14 @@ export interface Summary {
   winner: GameState["winner"];
 }
 
-/** The room's options are the house rules. Anything invalid falls back to brokennil's Table. */
+/** The room's options are the house rules. Anything invalid falls back to Family Table. */
 function rulesFrom(options: unknown): RulePreset {
   const preset = options as RulePreset | null;
-  if (!preset || typeof preset !== "object" || typeof preset.name !== "string") return brokennilsTable;
+  if (!preset || typeof preset !== "object" || typeof preset.name !== "string") return familyTable;
   try {
-    return validatePreset({ ...brokennilsTable, ...preset }).length === 0 ? { ...brokennilsTable, ...preset } : brokennilsTable;
+    return validatePreset({ ...familyTable, ...preset }).length === 0 ? { ...familyTable, ...preset } : familyTable;
   } catch {
-    return brokennilsTable;
+    return familyTable;
   }
 }
 

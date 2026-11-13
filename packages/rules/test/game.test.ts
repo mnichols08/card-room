@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { cardId } from "../src/cards.js";
 import { applyAction, canBidBlindNil, newGame, RuleError, viewFor, type GameState } from "../src/game.js";
 import { legalPlays } from "../src/tricks.js";
-import { brokennilsTable, classic, derivePreset, jokersAndDeuces, quick250 } from "../src/presets.js";
+import { familyTable, classic, derivePreset, jokersAndDeuces, quick250 } from "../src/presets.js";
 import type { RulePreset, Seat } from "../src/types.js";
 
 /** Bid 3 each, then always play the first legal card. */
@@ -52,13 +52,13 @@ describe("turn and bid validation", () => {
   it("rejects blind nil unless the preset allows it", () => {
     const s = newGame(classic, 1);
     expect(() => applyAction(s, { type: "bid", seat: s.turn, bid: { kind: "blind-nil" } })).toThrow(/Blind nil/);
-    const b = newGame(brokennilsTable, 1);
+    const b = newGame(familyTable, 1);
     expect(() => applyAction(b, { type: "bid", seat: b.turn, bid: { kind: "blind-nil" } })).not.toThrow();
   });
 
   it("blind nil can be limited to teams that are behind", () => {
-    const behind = derivePreset(brokennilsTable, "b", "Behind", {
-      blindNil: { ...brokennilsTable.blindNil, onlyWhenDownBy: 100 },
+    const behind = derivePreset(familyTable, "b", "Behind", {
+      blindNil: { ...familyTable.blindNil, onlyWhenDownBy: 100 },
     });
     const s = newGame(behind, 1);
     expect(canBidBlindNil(s, 1)).toBe(false);
@@ -85,8 +85,8 @@ describe("turn and bid validation", () => {
 
 describe("blind nil passing", () => {
   it("blind nil bidder and partner swap cards before play", () => {
-    const passTwo = derivePreset(brokennilsTable, "p", "Pass 2", {
-      blindNil: { ...brokennilsTable.blindNil, passCards: 2 },
+    const passTwo = derivePreset(familyTable, "p", "Pass 2", {
+      blindNil: { ...familyTable.blindNil, passCards: 2 },
     });
     let s = newGame(passTwo, 11); // seat 1 bids first; partner is seat 3
     s = applyAction(s, { type: "bid", seat: 1, bid: { kind: "blind-nil" } });
@@ -119,7 +119,7 @@ describe("viewFor", () => {
   });
 
   it("can hide the hand while a player decides on blind nil", () => {
-    const s = newGame(brokennilsTable, 8);
+    const s = newGame(familyTable, 8);
     expect(viewFor(s, 1, { hideHand: true }).hand).toBeNull();
   });
 });
