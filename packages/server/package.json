@@ -14,10 +14,12 @@
   "dependencies": {
     "@spades/rooms": "*",
     "@spades/rules": "*",
-    "@zubra/sync": "^5.9.2"
+    "@zubra/sync": "^5.9.2",
+    "web-push": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@types/web-push": "^3.6.4",
     "typescript": "^5.6.0",
     "vitest": "^2.1.0"
   }

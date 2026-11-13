@@ -15,7 +15,17 @@ const log = process.env.SPADES_DB
   ? await (await import("@zubra/sync/sqlite")).sqliteLog(process.env.SPADES_DB, { keep: "latest" })
   : undefined;
 // Bots take humanlike time unless SPADES_BOT_DELAY fixes it (handy for testing).
-const cardRoom = createCardRoom({ log, botDelay: process.env.SPADES_BOT_DELAY ? Number(process.env.SPADES_BOT_DELAY) : undefined });
+const cardRoom = createCardRoom({
+  log,
+  botDelay: process.env.SPADES_BOT_DELAY ? Number(process.env.SPADES_BOT_DELAY) : undefined,
+  // Push notifications are on when the server has VAPID keys (`npx web-push generate-vapid-keys`).
+  push: {
+    publicKey: process.env.SPADES_VAPID_PUBLIC_KEY,
+    privateKey: process.env.SPADES_VAPID_PRIVATE_KEY,
+    subject: process.env.SPADES_VAPID_SUBJECT,
+  },
+});
+if (!cardRoom.push.enabled) console.log("push notifications are off: set SPADES_VAPID_PUBLIC_KEY and SPADES_VAPID_PRIVATE_KEY to turn them on");
 
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
