@@ -2,6 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { houses, type House, type Side, type Tournament } from "./housesApi";
 import { NotifyButton } from "./NotifyButton";
 import { Choice } from "./RulesEditor";
+import { isKitGame, kitGame } from "@cardroom/games";
+import { GAME_LIST } from "./GamePicker";
+import type { GameId } from "./storage";
+
+/** Partners (spades, Euchre…): entrants are teams of two. */
+const teamGame = (game: string) => game === "spades" || (isKitGame(game) && kitGame(game)!.teams);
 
 interface Props {
   slug: string;
@@ -57,7 +63,7 @@ export function TournamentPage({ slug, id, onOpenTable, onBack }: Props) {
   }
 
   const canManage = house.me.role === "owner" || house.me.role === "admin";
-  const emoji = t.game === "palace" ? "🏰" : "♠️";
+  const emoji = GAME_LIST.find((g) => g.id === t.game)?.emoji ?? "♠️";
   const name = (side: Side) => (typeof side === "number" ? (t.entrants[side]?.name ?? "?") : side === "bye" ? "Bye" : "To be decided");
 
   return (
@@ -68,7 +74,7 @@ export function TournamentPage({ slug, id, onOpenTable, onBack }: Props) {
         </div>
         <h1>{t.name}</h1>
         <p>
-          {t.game === "palace" ? "Palace, one against one" : "Spades, teams of two"} · {t.rules}
+          {GAME_LIST.find((g) => g.id === t.game)?.name ?? "Spades"}, {teamGame(t.game) ? "teams of two" : "one against one"} · {t.rules}
         </p>
       </header>
 
@@ -173,7 +179,7 @@ function CallMatch({ a, b, onCall }: { a: string; b: string; onCall: (winner: 0 
 }
 
 function Signup({ t, house, canManage, act }: { t: Tournament; house: House; canManage: boolean; act: (action: string, body?: Record<string, unknown>) => Promise<void> }) {
-  const spades = t.game === "spades";
+  const spades = teamGame(t.game);
   const playing = new Set(t.entrants.flatMap((e) => e.players.flatMap((p) => (p.bot ? [] : [p.id]))));
   const free = house.members.filter((m) => !playing.has(m.id));
   const meIn = playing.has(house.me.id);
@@ -272,26 +278,27 @@ function Signup({ t, house, canManage, act }: { t: Tournament; house: House; can
 /** For the house page: start a tournament (owners and admins). */
 export function NewTournament(props: {
   house: House;
-  game: "spades" | "palace";
+  game: GameId;
   presetId: string;
   settings: import("@spades/rules").TableSettings;
   onMade: (id: string) => void;
   onClose: () => void;
 }) {
   const { house, game } = props;
-  const [name, setName] = useState(`${house.name} ${game === "palace" ? "Palace" : "Spades"} Cup`);
+  const gameName = GAME_LIST.find((g) => g.id === game)?.name ?? "Spades";
+  const [name, setName] = useState(`${house.name} ${gameName} Cup`);
   const [problem, setProblem] = useState<string | null>(null);
-  const rules = game === "palace" ? house.palacePresets : house.presets;
+  const rules: { id: string; name: string }[] = isKitGame(game) ? (house.kitRules[game]?.presets ?? []) : game === "palace" ? house.palacePresets : house.presets;
   const [presetId, setPresetId] = useState(props.presetId);
   return (
     <div className="sheet" role="dialog" aria-label="New tournament">
-      <h2>New {game === "palace" ? "Palace" : "spades"} tournament</h2>
+      <h2>New {gameName} tournament</h2>
       <label className="field-inline">
         <span>Name</span>
         <input value={name} maxLength={40} onChange={(e) => setName(e.target.value)} />
       </label>
       {rules.length > 1 && <Choice label="Rules" value={presetId} options={rules.map((p): [string, string] => [p.id, p.name])} onChange={setPresetId} />}
-      <p>{game === "palace" ? "Single elimination, one against one." : "Single elimination, fixed teams of two."} Everyone in the house gets a buzz to sign up.</p>
+      <p>{teamGame(game) ? "Single elimination, fixed teams of two." : "Single elimination, one against one."} Everyone in the house gets a buzz to sign up.</p>
       {problem && <p className="error">{problem}</p>}
       <div className="sheet-actions">
         <button

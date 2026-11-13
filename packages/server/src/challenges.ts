@@ -7,7 +7,9 @@
 //   challengeOf/<player>   server only: a player's code
 import { familyPalace, validatePalaceRules, type PalaceRules } from "@cardroom/palace";
 import { brokennilsTable, mulberry32, pickPersonas, validatePreset, type RulePreset } from "@spades/rules";
+import { isKitGame, kitGame, type KitGameId } from "@cardroom/games";
 import { GAMES, gameName, type GameId, type TableOptions } from "./games.js";
+import { kitOptions } from "./kit.js";
 import { palaceOptions, palaceRulesFrom } from "./palace.js";
 import { newPlayerId, playerCookie, playerOf } from "@spades/rooms/server";
 import type { Push } from "./push.js";
@@ -21,6 +23,8 @@ interface ChallengeDoc {
   rules: RulePreset;
   /** Palace rules. Missing on links from before there were other games: the family rules. */
   palaceRules?: PalaceRules;
+  /** Rules for the kit games (Hearts, Euchre…), by game. Missing: the game's first preset. */
+  kitRules?: Partial<Record<KitGameId, { id: string; name: string } & Record<string, unknown>>>;
   /** The games this link takes challenges for; the challenger picks one. Missing means spades. */
   games?: GameId[];
   /** Recent challenge times, for the rate limit. */
@@ -55,13 +59,15 @@ export function createChallenges(rooms: Rooms, push: Push, { mount = "/challenge
   async function get(code: string): Promise<ChallengeDoc | undefined> {
     const doc = (await docs).get("challenges", code) as unknown as ChallengeDoc | undefined;
     return doc?.player
-      ? structuredClone({ code: doc.code, player: doc.player, name: doc.name, enabled: doc.enabled, rules: doc.rules, palaceRules: palaceRulesFrom(doc.palaceRules ?? familyPalace), games: doc.games ?? ["spades"], recent: doc.recent ?? [] })
+      ? structuredClone({ code: doc.code, player: doc.player, name: doc.name, enabled: doc.enabled, rules: doc.rules, palaceRules: palaceRulesFrom(doc.palaceRules ?? familyPalace), kitRules: doc.kitRules ?? {}, games: doc.games ?? ["spades"], recent: doc.recent ?? [] })
       : undefined;
   }
   const save = (c: ChallengeDoc) => rooms.sync.write("challenges", c.code, { ...c });
   const codeOf = async (player: string) => (await docs).get("challengeOf", player)?.code as string | undefined;
 
-  const offered = (c: ChallengeDoc) => (c.games ?? ["spades"]).map((id) => ({ id, name: gameName(id), rules: id === "palace" ? (c.palaceRules ?? familyPalace).name : c.rules.name }));
+  const kitRulesFor = (c: ChallengeDoc, id: KitGameId) => kitGame(id)!.normalize(c.kitRules?.[id] ?? kitGame(id)!.presets[0]);
+  const offered = (c: ChallengeDoc) =>
+    (c.games ?? ["spades"]).map((id) => ({ id, name: gameName(id), rules: isKitGame(id) ? kitRulesFor(c, id).name : id === "palace" ? (c.palaceRules ?? familyPalace).name : c.rules.name }));
   const mine = (c: ChallengeDoc) => ({ code: c.code, name: c.name, enabled: c.enabled, rules: c.rules.name, games: offered(c), notifications: push.enabled });
   const known = new Set<string>(GAMES.map((g) => g.id));
 
@@ -87,6 +93,17 @@ export function createChallenges(rooms: Rooms, push: Push, { mount = "/challenge
       if (validatePreset(rules).length) return json({ error: validatePreset(rules).join(" ") }, 400);
       const palaceRules = input.palaceRules ? palaceRulesFrom(input.palaceRules) : (c?.palaceRules ?? familyPalace);
       if (validatePalaceRules(palaceRules).length) return json({ error: validatePalaceRules(palaceRules).join(" ") }, 400);
+      // Kit rules: each given set is checked by its game; anything else keeps what the link had.
+      const kitRules = { ...(c?.kitRules ?? {}) };
+      if (input.kitRules && typeof input.kitRules === "object") {
+        for (const [id, value] of Object.entries(input.kitRules as Record<string, unknown>)) {
+          if (!isKitGame(id)) continue;
+          const rules = kitGame(id)!.normalize(value);
+          const errors = kitGame(id)!.validate(rules);
+          if (errors.length) return json({ error: errors.join(" ") }, 400);
+          kitRules[id] = rules;
+        }
+      }
       const games = Array.isArray(input.games) ? (input.games.filter((g) => known.has(String(g))) as GameId[]) : (c?.games ?? (["spades", "palace"] as GameId[]));
       if (!games.length) return json({ error: "Pick at least one game to be challenged to." }, 400);
       if (c && input.newLink) {
@@ -94,7 +111,8 @@ export function createChallenges(rooms: Rooms, push: Push, { mount = "/challenge
         c = undefined;
       }
       const name = clean(input.name, 20) || c?.name || "Player";
-      c = c ?? { code: random(6), player: me, name, enabled: true, rules, palaceRules, games, recent: [] };
+      c = c ?? { code: random(6), player: me, name, enabled: true, rules, palaceRules, kitRules, games, recent: [] };
+      c.kitRules = kitRules;
       c.name = name;
       c.rules = rules;
       c.palaceRules = palaceRules;
@@ -138,16 +156,22 @@ export function createChallenges(rooms: Rooms, push: Push, { mount = "/challenge
       const challenger = player ?? newPlayerId();
       // Remember the sender under the cookie they'll have from now on, too.
       for (const k of [...known, `${code}/${challenger}`]) lastSent.set(k, now);
-      const id = await rooms.create(game === "palace" ? palaceOptions(c.palaceRules, 4) : c.rules);
+      const options: TableOptions = isKitGame(game)
+        ? kitOptions(kitGame(game)!, kitRulesFor(c, game), kitGame(game)!.seats.default)
+        : game === "palace"
+          ? palaceOptions(c.palaceRules, 4)
+          : c.rules;
+      const id = await rooms.create(options);
+      const seats = isKitGame(game) ? (options as { seats: number }).seats : 4;
       await rooms.seatPlayer(id, 0, c.player, c.name);
       await rooms.seatPlayer(id, 1, challenger, name);
-      const [p1, p2] = pickPersonas(2, mulberry32(now >>> 0));
-      await rooms.seatBot(id, 2, p1!.name);
-      await rooms.seatBot(id, 3, p2!.name);
+      // The rest of the seats get computer players (a partner each in a team game).
+      const bots = pickPersonas(seats - 2, mulberry32(now >>> 0));
+      for (let seat = 2; seat < seats; seat++) await rooms.seatBot(id, seat, bots[seat - 2]!.name);
       if (message) await rooms.say(id, 1, message);
 
       const delivered = await push.notify(c.player, {
-        title: `${name} challenged you to ${gameName(game)}! ${game === "palace" ? "🏰" : "♠️"}`,
+        title: `${name} challenged you to ${gameName(game)}! ${GAMES.find((g) => g.id === game)?.emoji ?? "🃏"}`,
         body: message ? `"${message}" · Tap to take your seat.` : "Tap to take your seat.",
         url: `/?table=${id}`,
         tag: `challenge-${id}`,

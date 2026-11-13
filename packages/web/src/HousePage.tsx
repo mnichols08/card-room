@@ -7,6 +7,9 @@ import { HouseError, houses, inviteLink, type House, type HouseTable, type Palac
 import { PalaceRulesFields, palaceSummary } from "./palace/PalaceRules";
 import { NotifyButton } from "./NotifyButton";
 import { NewTournament } from "./TournamentPage";
+import { isKitGame } from "@cardroom/games";
+import { GAME_LIST } from "./GamePicker";
+import { KitHouseRules, KitStartTable } from "./kit/KitHouse";
 import { describe, RulesFields } from "./RulesEditor";
 import { Choice } from "./RulesEditor";
 import { forgetHouse, loadGame, loadTableSettings, loadPalaceSeats, loadSavedName, rememberHouse, saveGame, saveName, savePalaceSeats, type GameId } from "./storage";
@@ -174,7 +177,9 @@ function MemberView(props: {
         }}
       />
 
-      {game === "palace" ? (
+      {isKitGame(game) ? (
+        <KitStartTable house={house} game={game} attempt={attempt} onOpenTable={props.onOpenTable} />
+      ) : game === "palace" ? (
         <section className="house-block" aria-label="Start a table">
           {house.palacePresets.length > 1 && (
             <label className="field-inline">
@@ -255,7 +260,7 @@ function MemberView(props: {
             <li key={t.id}>
               <div>
                 <strong>
-                  {t.game === "palace" ? "🏰" : "♠️"} {t.name}
+                  {GAME_LIST.find((g) => g.id === t.game)?.emoji ?? "♠️"} {t.name}
                 </strong>
                 <small>
                   {t.status === "signup"
@@ -273,12 +278,12 @@ function MemberView(props: {
         </ul>
         {canManage && (
           <button type="button" className="secondary" onClick={() => setMakingTournament(true)}>
-            Start a {game === "palace" ? "Palace" : "spades"} tournament
+            Start a {game === "spades" ? "spades" : (GAME_LIST.find((g) => g.id === game)?.name ?? "")} tournament
           </button>
         )}
       </section>
 
-      {game === "palace" ? <PalaceLeaderboardBlock house={house} /> : <LeaderboardBlock house={house} />}
+      {game === "spades" ? <LeaderboardBlock house={house} /> : <PalaceLeaderboardBlock house={house} game={game} />}
 
       <section className="house-block" aria-label="Family">
         <h2>Family</h2>
@@ -311,6 +316,8 @@ function MemberView(props: {
           </button>
         )}
       </section>
+
+      {isKitGame(game) && <KitHouseRules house={house} game={game} attempt={attempt} canManage={canManage} />}
 
       {game === "palace" && (
         <section className="house-block" aria-label="Palace house rules">
@@ -380,7 +387,7 @@ function MemberView(props: {
         <NewTournament
           house={house}
           game={game}
-          presetId={game === "palace" ? palaceId : presetId}
+          presetId={isKitGame(game) ? (house.kitRules[game]?.default ?? "") : game === "palace" ? palaceId : presetId}
           settings={loadTableSettings()}
           onClose={() => setMakingTournament(false)}
           onMade={(id) => {
@@ -523,6 +530,14 @@ function PalaceRulesEditor(props: {
 }
 
 function tableTitle(t: HouseTable): string {
+  if (isKitGame(t.game)) {
+    const emoji = GAME_LIST.find((g) => g.id === t.game)?.emoji ?? "🃏";
+    const s = t.summary as { over?: boolean; scoreLine?: string; hand?: number } | null;
+    if (s?.over) return `${emoji} Finished · ${s.scoreLine}`;
+    if (t.started) return `${emoji} Hand ${s?.hand ?? 1} · ${s?.scoreLine ?? ""}`;
+    const seated = t.seats.filter((x) => x.name).length;
+    return seated === 0 ? `${emoji} Waiting for players` : `${emoji} ${seated} of ${t.seats.length} seated`;
+  }
   if (t.game === "palace") {
     const s = t.summary;
     if (s?.phase === "finished") return `🏰 Finished · ${t.seats[s.finished?.[0] ?? 0]?.name ?? "Someone"} went out first`;
@@ -543,19 +558,20 @@ function tableTitle(t: HouseTable): string {
 }
 
 /** Palace standings: first out counts as a win, and being left holding the cards is remembered too. */
-function PalaceLeaderboardBlock({ house }: { house: House }) {
+function PalaceLeaderboardBlock({ house, game }: { house: House; game: GameId }) {
   const [board, setBoard] = useState<PalaceStandings | null>(null);
-  const finished = house.tables.filter((t) => t.game === "palace" && t.summary?.phase === "finished").length;
+  const name = GAME_LIST.find((g) => g.id === game)?.name ?? "Palace";
+  const finished = house.tables.filter((t) => t.game === game && (t.summary?.phase === "finished" || (t.summary as { over?: boolean } | null)?.over)).length;
   useEffect(() => {
-    houses.palaceLeaderboard(house.slug).then(setBoard, () => setBoard(null));
-  }, [house.slug, finished]);
+    houses.placesLeaderboard(house.slug, game).then(setBoard, () => setBoard(null));
+  }, [house.slug, finished, game]);
   if (!board) return null;
   const ranked = board.players.filter((p) => p.played > 0);
   return (
-    <section className="house-block" aria-label="Palace leaderboard">
-      <h2>Palace leaderboard</h2>
+    <section className="house-block" aria-label={`${name} leaderboard`}>
+      <h2>{name} leaderboard</h2>
       {board.games === 0 ? (
-        <p className="fine">Standings start after the first finished Palace game.</p>
+        <p className="fine">Standings start after the first finished {name} game.</p>
       ) : (
         <>
           <table className="standings">
@@ -564,7 +580,7 @@ function PalaceLeaderboardBlock({ house }: { house: House }) {
                 <th scope="col">#</th>
                 <th scope="col">Player</th>
                 <th scope="col">Won</th>
-                <th scope="col">Last</th>
+                {!board.teams && <th scope="col">Last</th>}
                 <th scope="col">Played</th>
                 <th scope="col">Avg place</th>
               </tr>
@@ -575,7 +591,7 @@ function PalaceLeaderboardBlock({ house }: { house: House }) {
                   <td>{i === 0 && p.won > 0 ? "👑" : i + 1}</td>
                   <th scope="row">{p.name}</th>
                   <td>{p.won}</td>
-                  <td>{p.last}</td>
+                  {!board.teams && <td>{p.last}</td>}
                   <td>{p.played}</td>
                   <td>{p.avgPlace}</td>
                 </tr>
@@ -583,7 +599,7 @@ function PalaceLeaderboardBlock({ house }: { house: House }) {
             </tbody>
           </table>
           <p className="fine">
-            {board.games} finished game{board.games === 1 ? "" : "s"}. Won is first out; Last is left holding the cards.
+            {board.games} finished game{board.games === 1 ? "" : "s"}. {game === "palace" ? "Won is first out; Last is left holding the cards." : board.teams ? "Won counts your team's wins." : "Won is first place; Last is last place."}
           </p>
         </>
       )}

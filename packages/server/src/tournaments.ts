@@ -9,7 +9,9 @@
 import type { PalaceRules } from "@cardroom/palace";
 import { cleanSettings, mulberry32, pickPersonas, type RulePreset, type TableSettings } from "@spades/rules";
 import type { RoomDoc } from "@spades/rooms/server";
-import { gameName, type GameId, type TableOptions } from "./games.js";
+import { isKitGame, kitGame, type KitSummary } from "@cardroom/games";
+import { gameEmoji, gameName, isGameId, type GameId, type TableOptions } from "./games.js";
+import { kitOptions } from "./kit.js";
 import { palaceOptions } from "./palace.js";
 import type { Push } from "./push.js";
 
@@ -42,7 +44,7 @@ export interface Tournament {
   house: string;
   name: string;
   game: GameId;
-  rules: RulePreset | PalaceRules;
+  rules: RulePreset | PalaceRules | ({ id: string; name: string } & Record<string, unknown>);
   settings: TableSettings;
   status: Status;
   entrants: Entrant[];
@@ -80,7 +82,10 @@ const LETTERS = "abcdefghjkmnpqrstuvwxyz23456789";
 const random = (n: number) => Array.from(crypto.getRandomValues(new Uint8Array(n)), (b) => LETTERS[b % LETTERS.length]).join("");
 
 /** How many players make one entrant. */
-export const teamSize = (game: GameId) => (game === "spades" ? 2 : 1);
+export const teamSize = (game: GameId) => (game === "spades" || (isKitGame(game) && kitGame(game)!.teams) ? 2 : 1);
+
+/** How many seats a match table has: partners need four; a one-on-one game needs as many as the game does at least. */
+export const matchSeats = (game: GameId) => (teamSize(game) === 2 ? 4 : isKitGame(game) ? Math.max(2, kitGame(game)!.seats.min) : 2);
 
 /**
  * The first round for these many entrants, shuffled with this random function: every entrant
@@ -145,6 +150,14 @@ export function settle(t: Tournament): Match[] {
 
 /** Which side won a finished table: spades by team (seats 0 and 2 are side a), Palace by first out. */
 export function sideThatWon(game: GameId, summary: unknown): 0 | 1 | null {
+  if (isKitGame(game)) {
+    // Whichever of the two sides (seat 0's or seat 1's) finished higher.
+    const k = summary as KitSummary | null;
+    if (!k?.over || !k.order) return null;
+    const a = k.order.indexOf(0);
+    const b = k.order.indexOf(1);
+    return a < 0 || b < 0 ? null : a < b ? 0 : 1;
+  }
   const s = summary as { phase?: string; winner?: number | null; finished?: number[] } | null;
   if (s?.phase !== "finished") return null;
   if (game === "palace") {
@@ -199,9 +212,16 @@ export function createTournaments(rooms: Rooms, { push, saveHouse }: { push?: Pu
     const a = t.entrants[m.a as number]!;
     const b = t.entrants[m.b as number]!;
     // Spades: partners sit across (seats 0 and 2 against 1 and 3). Palace: one against one.
-    const seats = t.game === "spades" ? [a.players[0]!, b.players[0]!, a.players[1]!, b.players[1]!] : [a.players[0]!, b.players[0]!];
+    // Partners sit across (seats 0 and 2 against 1 and 3). One-on-one: seats 0 and 1, and in a game
+    // that needs more players (Hearts), computer players fill the rest; they're only there to play.
+    const seats: Player[] =
+      teamSize(t.game) === 2 ? [a.players[0]!, b.players[0]!, a.players[1]!, b.players[1]!] : [a.players[0]!, b.players[0]!, ...computers(t, matchSeats(t.game) - 2)];
     const people = seats.filter((p): p is { member: string } => "member" in p);
-    const options = t.game === "palace" ? palaceOptions(t.rules as PalaceRules, 2) : (t.rules as RulePreset);
+    const options: TableOptions = isKitGame(t.game)
+      ? kitOptions(kitGame(t.game)!, t.rules, matchSeats(t.game))
+      : t.game === "palace"
+        ? palaceOptions(t.rules as PalaceRules, 2)
+        : (t.rules as RulePreset);
     // A match with nobody to watch it plays itself out quickly.
     const id = await rooms.create(options, people.length ? t.settings : { ...t.settings, pace: "fast" });
     for (const [i, p] of seats.entries()) {
@@ -219,7 +239,7 @@ export function createTournaments(rooms: Rooms, { push, saveHouse }: { push?: Pu
     await rooms.sync.write("tournamentOf", id, { tournament: t.id, house: house.slug });
     house.tables.push({ id, game: t.game, rules: label, created: Date.now(), tournament: t.id });
     if (!people.length) await rooms.start(id);
-    const emoji = t.game === "palace" ? "🏰" : "♠️";
+    const emoji = gameEmoji(t.game);
     for (const p of people) {
       const member = memberOf(house, p.member);
       if (!member) continue;
@@ -341,7 +361,7 @@ export function createTournaments(rooms: Rooms, { push, saveHouse }: { push?: Pu
     parts: string[],
     method: string,
     input: Record<string, unknown>,
-    rules: (game: GameId, id: unknown) => RulePreset | PalaceRules,
+    rules: (game: GameId, id: unknown) => Tournament["rules"],
   ): Promise<Reply> {
     const canManage = me.role === "owner" || me.role === "admin";
     const [id, action = ""] = parts;
@@ -350,7 +370,7 @@ export function createTournaments(rooms: Rooms, { push, saveHouse }: { push?: Pu
       if (method === "GET") return ok(await list(house));
       // POST /houses/:slug/tournaments { name, game, presetId, settings }
       if (!canManage) return no("Only the house owner or an admin can start a tournament.", 403);
-      const game: GameId = input.game === "palace" ? "palace" : "spades";
+      const game: GameId = isGameId(input.game) ? input.game : "spades";
       const chosen = rules(game, input.presetId);
       const t: Tournament = {
         id: random(8),
@@ -371,7 +391,7 @@ export function createTournaments(rooms: Rooms, { push, saveHouse }: { push?: Pu
       await saveHouse(house);
       for (const m of house.members)
         if (m.id !== me.id)
-          void push?.notify(m.player, { title: `Sign up for ${t.name} ${game === "palace" ? "🏰" : "♠️"}`, body: `A ${gameName(game)} tournament at ${house.name}. Tap to sign up.`, url: `/?house=${house.slug}&tournament=${t.id}`, tag: `tournament-${t.id}` });
+          void push?.notify(m.player, { title: `Sign up for ${t.name} ${gameEmoji(game)}`, body: `A ${gameName(game)} tournament at ${house.name}. Tap to sign up.`, url: `/?house=${house.slug}&tournament=${t.id}`, tag: `tournament-${t.id}` });
       return ok(await view(house, t, me.id), 201);
     }
 
@@ -469,6 +489,7 @@ export function roundName(t: Pick<Tournament, "rounds">, r: number): string {
 function scoreOf(game: GameId, summary: unknown): string | null {
   const s = summary as { phase?: string; hand?: number; scores?: { points: number }[]; left?: number[] } | null;
   if (!s) return null;
+  if (isKitGame(game)) return (s as unknown as KitSummary).scoreLine || null;
   if (game === "palace") return s.left ? `${s.left[0]} cards to ${s.left[1]}` : null;
   if (!s.scores) return null;
   return `${s.scores[0]?.points ?? 0} to ${s.scores[1]?.points ?? 0}`;

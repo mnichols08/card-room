@@ -165,10 +165,13 @@ describe("a house tournament", () => {
       }
       const final = t.rounds[1].matches[0];
       if (final.table && !final.playing && final.winner === null) {
+        // Both people may be in the final: play their seats at the same time, or each waits on the other.
+        const finalists = [];
         for (const send of [grammi, rick]) {
           const seat = await seatOf(send, final.table);
-          if (seat !== null) await playPalace(send, final.table, seat);
+          if (seat !== null) finalists.push(playPalace(send, final.table, seat));
         }
+        await Promise.all(finalists);
       }
       await sleep(10);
     }

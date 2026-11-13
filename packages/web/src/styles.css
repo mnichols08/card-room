@@ -652,3 +652,70 @@ html[data-motion="calm"] palace-seat .active strong::before { content: "▶ "; }
   .wide-only { display: none; }
   .felt-actions .primary, .felt-actions .secondary { padding: 10px 16px; font-size: 0.98rem; }
 }
+
+/* ---- The kit games' shared table (Hearts, Euchre, Gin…) ---------------------------------------- */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.kit-bar { grid-template-columns: auto 1fr auto; }
+.kit-scores { display: flex; justify-content: center; gap: clamp(8px, 3vw, 28px); min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.kit-score { display: flex; flex-direction: column; align-items: center; line-height: 1.1; min-width: 0; }
+.kit-score small { font-size: calc(var(--ui-s) * 0.9); color: #cfe2d6; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 9em; }
+.kit-score strong { font-family: Georgia, "Times New Roman", serif; font-size: calc(var(--score) * 0.8); color: var(--them); }
+.kit-score.us strong { color: var(--us); }
+
+.kit-seat {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 0.45em 0.8em; min-width: clamp(76px, 12vw, 160px); border-radius: 12px;
+  background: rgba(0, 0, 0, 0.28); color: var(--cream); font-size: var(--ui-s); line-height: 1.25;
+  border: 2px solid transparent; text-align: center;
+}
+.kit-seat strong { font-size: var(--ui-l); display: flex; align-items: center; gap: 6px; max-width: 10em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kit-seat.us strong { color: var(--us); }
+.kit-seat.them strong { color: var(--them); }
+.kit-seat small { color: #cfe2d6; font-size: calc(var(--ui-s) * 0.9); }
+.kit-seat em { font-style: normal; font-size: calc(var(--ui-s) * 0.85); color: var(--gold); font-weight: 700; }
+.kit-seat.row { flex-direction: row; gap: 10px; min-width: 0; }
+.kit-seat.out { opacity: 0.6; }
+.kit-seat .dealer { display: inline-grid; place-items: center; width: 1.3em; height: 1.3em; border-radius: 50%; background: var(--cream); color: var(--ink); font-size: 0.7em; font-weight: 800; }
+.kit-seat.active { border-color: var(--gold); box-shadow: 0 0 12px rgba(232, 196, 106, 0.5); }
+@media (prefers-reduced-motion: no-preference) { .kit-seat.active { animation: kit-pulse 1800ms ease-out infinite; } }
+@keyframes kit-pulse { from { box-shadow: 0 0 0 0 rgba(232, 196, 106, 0.55); } to { box-shadow: 0 0 0 10px rgba(232, 196, 106, 0); } }
+html[data-motion="off"] .kit-seat.active strong::before, html[data-motion="calm"] .kit-seat.active strong::before { content: "▶"; }
+@media (prefers-reduced-motion: reduce) { .kit-seat.active strong::before { content: "▶"; } }
+
+/* The trick: each card toward whoever played it. */
+.kit-trick { position: relative; width: calc(var(--trick-w) * 3.2); height: calc(var(--trick-h) * 2.3); }
+.kit-played {
+  position: absolute; left: 50%; top: 50%;
+  translate: calc(-50% + var(--x) * var(--trick-w) * 0.95) calc(-50% + var(--y) * var(--trick-h) * 0.55);
+  rotate: var(--tilt);
+}
+.kit-trick { margin-bottom: 1.6em; }
+.kit-trick .took { left: 50%; top: auto; bottom: -1.5em; }
+/* Phones: the players at your sides sit at the top of their side, clear of the trick. */
+@media (max-width: 599px) {
+  .kit-felt .opp-area.left, .kit-felt .opp-area.right { align-self: start; }
+  .kit-trick { width: calc(var(--trick-w) * 2.9); }
+}
+.kit-lead { position: absolute; top: 0; left: 50%; translate: -50% 0; font-size: var(--ui-s); color: #cfe2d6; }
+.kit-info { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.kit-info li { padding: 0.15em 0.7em; border-radius: 999px; background: rgba(0, 0, 0, 0.25); font-size: var(--ui-s); color: #e3efe7; }
+.kit-choices.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); max-width: 420px; }
+.kit-choices.grid p { grid-column: 1 / -1; }
+.kit-felt .center { min-width: 0; }
+.kit-felt .opp { gap: 4px; }
+
+/* Piles you can tap. */
+.pile-button { padding: 0; border: 0; background: none; cursor: pointer; border-radius: calc(var(--trick-w) * 0.1); outline-offset: 3px; }
+@media (prefers-reduced-motion: no-preference) { .pile-button { animation: nudge 2.4s ease-in-out infinite; } }
+
+/* Melds on the table: little fans of cards. */
+.kit-melds { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.kit-meld { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.kit-meld small { font-size: calc(var(--ui-s) * 0.85); color: #cfe2d6; }
+.kit-meld-cards { display: flex; }
+.kit-melds.mini .kit-meld-cards > * + * { margin-left: calc(var(--mini-w) * -0.55); }
+.kit-melds.table .kit-meld-cards > * + * { margin-left: calc(var(--trick-w) * -0.6); }
+.kit-team-melds { display: grid; gap: 6px; width: 100%; }
+.kit-team-melds h3 { margin: 0; font-size: var(--ui-s); color: var(--them); text-align: center; }
+.kit-team-melds .us h3 { color: var(--us); }
+.summary th.us { color: var(--felt); }

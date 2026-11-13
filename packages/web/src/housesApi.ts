@@ -25,7 +25,11 @@ export interface House {
   palaceDefault: string;
   tables: HouseTable[];
   tournaments: TournamentBrief[];
+  /** House rules for the kit games (Hearts, Euchre…), by game. */
+  kitRules: Record<string, { presets: KitRules[]; default: string }>;
 }
+
+export type KitRules = { id: string; name: string } & Record<string, unknown>;
 
 export type TournamentStatus = "signup" | "playing" | "finished";
 
@@ -71,7 +75,8 @@ export interface Standings {
 }
 
 export interface PalaceStandings {
-  game: "palace";
+  game: GameId;
+  teams?: boolean;
   games: number;
   players: { id: string; name: string; played: number; won: number; last: number; winPct: number | null; avgPlace: number | null }[];
 }
@@ -106,6 +111,11 @@ export const houses = {
   join: (slug: string, code: string, name: string) => call<House>(at(slug, "join"), { code, name }),
   leaderboard: (slug: string) => call<Standings>(at(slug, "leaderboard")),
   palaceLeaderboard: (slug: string) => call<PalaceStandings>(`${at(slug, "leaderboard")}?game=palace`),
+  /** Standings by finishing place, for Palace and the kit games. */
+  placesLeaderboard: (slug: string, game: GameId) => call<PalaceStandings>(`${at(slug, "leaderboard")}?game=${encodeURIComponent(game)}`),
+  saveKit: (slug: string, game: GameId, preset: KitRules, makeDefault = false) => call<House>(at(slug, "presets"), { game, preset, makeDefault }),
+  deleteKit: (slug: string, game: GameId, id: string) => call<House>(at(slug, "presets/delete"), { game, id }),
+  defaultKit: (slug: string, game: GameId, id: string) => call<House>(at(slug, "default"), { game, id }),
   openTable: (slug: string, presetId?: string, game: GameId = "spades", seats?: number, settings?: TableSettings) => call<{ id: string }>(at(slug, "tables"), { presetId, game, seats, settings }),
   rename: (slug: string, name: string) => call<House>(at(slug, "me"), { name }),
   savePreset: (slug: string, preset: RulePreset, makeDefault = false) => call<House>(at(slug, "presets"), { preset, makeDefault }),

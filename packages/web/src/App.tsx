@@ -11,6 +11,9 @@ import { RoomTable } from "./RoomTable";
 import { LocalPalace } from "./palace/LocalPalace";
 import { PalaceSetup } from "./palace/PalaceSetup";
 import { Setup } from "./Setup";
+import { isKitGame, type KitGameId } from "@cardroom/games";
+import { KitSetup } from "./kit/KitSetup";
+import { LocalKit } from "./kit/LocalKit";
 import { TournamentPage } from "./TournamentPage";
 import { loadGame, loadTableSettings, rememberHouse, saveGame, type GameId } from "./storage";
 
@@ -18,6 +21,7 @@ type Screen =
   | { kind: "setup" }
   | { kind: "local"; name: string; preset: RulePreset; seed: number }
   | { kind: "local-palace"; name: string; rules: PalaceRules; seats: number; seed: number }
+  | { kind: "local-kit"; game: KitGameId; name: string; rules: unknown; seats: number; seed: number }
   | { kind: "room"; id: string; house: string | null }
   | { kind: "house"; slug: string; code: string | null }
   | { kind: "tournament"; slug: string; id: string }
@@ -49,7 +53,7 @@ export function App() {
   const embedded = new URLSearchParams(location.search).get("embed") === "1";
   const [game, setGame] = useState<GameId>(() => {
     const asked = new URLSearchParams(location.search).get("game");
-    return asked === "palace" || asked === "spades" ? asked : loadGame();
+    return asked === "palace" || asked === "spades" || isKitGame(asked) ? (asked as GameId) : loadGame();
   });
   const pickGame = (g: GameId) => {
     saveGame(g);
@@ -87,13 +91,20 @@ export function App() {
         game={game}
         onPractice={(name, rules, seats) => {
           const seed = Math.floor(Math.random() * 2 ** 31);
-          setScreen(game === "palace" ? { kind: "local-palace", name, rules: rules as PalaceRules, seats, seed } : { kind: "local", name, preset: rules as RulePreset, seed });
+          setScreen(
+            isKitGame(game)
+              ? { kind: "local-kit", game, name, rules, seats, seed }
+              : game === "palace"
+                ? { kind: "local-palace", name, rules: rules as PalaceRules, seats, seed }
+                : { kind: "local", name, preset: rules as RulePreset, seed },
+          );
         }}
       />
     );
   }
   if (screen.kind === "local") return <LocalTable key={screen.seed} {...screen} onLeave={home} />;
   if (screen.kind === "local-palace") return <LocalPalace key={screen.seed} {...screen} onLeave={home} />;
+  if (screen.kind === "local-kit") return <LocalKit key={screen.seed} {...screen} onLeave={home} />;
   if (screen.kind === "room") {
     return <RoomTable key={screen.id} id={screen.id} onLeave={screen.house ? () => openHouse(screen.house!) : home} />;
   }
@@ -103,6 +114,18 @@ export function App() {
   }
   if (screen.kind === "tournament") {
     return <TournamentPage key={screen.id} slug={screen.slug} id={screen.id} onOpenTable={(id) => openTable(id, screen.slug)} onBack={() => openHouse(screen.slug)} />;
+  }
+  if (isKitGame(game)) {
+    return (
+      <KitSetup
+        key={game}
+        game={game}
+        onPickGame={pickGame}
+        onPractice={(name, rules, seats) => setScreen({ kind: "local-kit", game, name, rules, seats, seed: Math.floor(Math.random() * 2 ** 31) })}
+        onFamilyTable={async (rules, seats) => openTable(await createRoom({ game, rules, seats }, { settings: loadTableSettings() }), null)}
+        onOpenHouse={openHouse}
+      />
+    );
   }
   if (game === "palace") {
     return (
