@@ -38,10 +38,12 @@ export interface KitTableProps {
 
 /** Engines name seats as {0}, {1}…: put the players' names in. */
 export const named = (text: string, names: string[]) =>
-  text.replace(
-    /\{(\d+)\}/g,
-    (_, n) => names[Number(n)] ?? `Seat ${Number(n) + 1}`,
-  );
+  text.replace(/\{(\d+)\}/g, (_, n: string, at: number) => {
+    const name = names[Number(n)] ?? `Seat ${Number(n) + 1}`;
+    // "You" mid-sentence reads as "you": "two cards to you", "Vern asked you for aces".
+    const before = text.slice(0, at).trimEnd();
+    return name === "You" && before && !/[.!?:]$/.test(before) ? "you" : name;
+  });
 
 /** "Ann & Cy" for a side of the table. */
 const sideName = (seats: number[], names: string[]) =>
