@@ -102,7 +102,7 @@ packages/
 2. **Local table** — `web` plays a full game against simple bots, no server. Rules editor saves presets in the browser. ✅
 3. **Zubra components** — the table and setup screen rebuilt on `.zb` components inside React. ✅
 4. **Rooms kit + family tables** — `packages/rooms` over `@zubra/sync`: seats, server-checked moves, per-seat views, bots and a move log; invite links and a lobby in the app; one container to host it. ✅
-5. **Houses** — accounts, invite links, roles, preset editor, house default preset.
+5. **Houses** — a family's house with one invite link that keeps working, members and roles (owner, admin, member), house rules with a default, and its tables. ✅
 6. **Tournaments & leaderboard.**
 7. **open.blog embed** for Grammi's House.
 8. *(Later)* Public lobby.

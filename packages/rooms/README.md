@@ -18,7 +18,10 @@ const rooms = createRooms({
   view: (state, seat) => viewFor(state, seat),                       // what that seat may see
   summary: (state) => ({ scores: state.scores }),                    // what everyone may see
   bot: (state, seat) => botMove(state, seat),                        // or null when it isn't that seat's move
+  finished: (state) => state.phase === "finished",                   // optional: finished rooms leave memory
 }, { log: sqliteLog("rooms.db", { keep: "latest" }) });
+
+const id = await rooms.create(options);   // open a room from server code (a house opening a table)
 
 // Node: answers /rooms/* and /_zb/sync/*
 http.createServer(async (req, res) => { if (!(await rooms.handle(req, res))) serveApp(req, res); });
@@ -47,8 +50,9 @@ await room.act({ type: "bid", bid: { kind: "nil" } });
 | `moves/<id>` | every move, one field each | the server |
 
 - **Pages never write.** `authorize` refuses every page push. Moves go to `POST /rooms/<id>/act`, and the server writes the result.
-- **A seat is a cookie.** Sitting down sets an HttpOnly `rooms_player` cookie, and `authorize` lets a request read a seat's view only when its cookie holds that seat.
+- **A seat is a cookie.** Sitting down sets an HttpOnly `rooms_player` cookie, and `authorize` lets a request read a seat's view only when its cookie holds that seat. `newPlayerId()`, `playerCookie()` and `playerOf()` let the app use the same identity (spades uses it for house membership).
 - **Moves can't interleave.** The server decides a move and records it with no `await` in between.
+- **Finished games leave memory.** With `finished`, a room's state is dropped once the game ends; a later request replays it from the log.
 - **Restarts replay.** After a restart, a room's state is rebuilt by replaying `setup` and its move log, so `act` must be deterministic.
 
 ## Two things learned about Sync along the way

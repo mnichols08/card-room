@@ -15,7 +15,7 @@ See [docs/SPEC.md](docs/SPEC.md) for the plan.
 | [`packages/ui`](packages/ui) | Table components in Zubra, shared by the app and the blog embed |
 | [`packages/web`](packages/web) | React card table using the Zubra components: family tables, practice against bots, house rules |
 | [`packages/rooms`](packages/rooms) | Turn-based rooms over `@zubra/sync`: seats, server-decided moves, private views, bots |
-| [`packages/server`](packages/server) | The card room server: rooms, the sync log and the web app |
+| [`packages/server`](packages/server) | The card room server: houses, rooms, the sync log and the web app |
 | `packages/embed` | Planned |
 
 ## Development
@@ -26,7 +26,8 @@ npm test
 npm run dev        # the server on :8787 and the app on http://localhost:5173
 ```
 
-Family tables need the server. Practice against the computer works anywhere, including the
+Family tables and houses need the server. A **house** (Grammi's House) keeps a family's
+members, house rules and tables together, with one invite link that keeps working. Practice against the computer works anywhere, including the
 GitHub Pages build of the app.
 
 ## Hosting the card room

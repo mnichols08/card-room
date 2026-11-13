@@ -5,8 +5,7 @@ import { createReadStream, existsSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createRooms } from "@spades/rooms/server";
-import { spadesRoom } from "./spades.js";
+import { createCardRoom } from "./app.js";
 
 const port = Number(process.env.PORT ?? 8787);
 const web = resolve(process.env.SPADES_WEB ?? fileURLToPath(new URL("../../web/dist", import.meta.url)));
@@ -15,7 +14,7 @@ const web = resolve(process.env.SPADES_WEB ?? fileURLToPath(new URL("../../web/d
 const log = process.env.SPADES_DB
   ? await (await import("@zubra/sync/sqlite")).sqliteLog(process.env.SPADES_DB, { keep: "latest" })
   : undefined;
-const rooms = createRooms(spadesRoom, { log, botDelay: Number(process.env.SPADES_BOT_DELAY ?? 700) });
+const cardRoom = createCardRoom({ log, botDelay: Number(process.env.SPADES_BOT_DELAY ?? 700) });
 
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -31,7 +30,7 @@ createServer(async (req, res) => {
   try {
     // Railway (and any other host) checks this before sending traffic to a new deploy.
     if (req.url === "/healthz") return void res.writeHead(200, { "content-type": "text/plain" }).end("ok");
-    if (await rooms.handle(req, res)) return;
+    if (await cardRoom.handle(req, res)) return;
     const path = decodeURIComponent(new URL(req.url ?? "/", "http://x").pathname);
     let file = normalize(join(web, path));
     if (!file.startsWith(web)) return void res.writeHead(403).end();
