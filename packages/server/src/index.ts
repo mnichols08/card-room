@@ -75,4 +75,4 @@ createServer(async (req, res) => {
     if (!res.headersSent) res.writeHead(500);
     res.end();
   }
-}).listen(port, () => console.log(`spades on http://localhost:${port}`));
+}).listen(port, () => console.log(`Card Room on http://localhost:${port}`));

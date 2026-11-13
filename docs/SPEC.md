@@ -1,5 +1,9 @@
 # Spades — Spec
 
+> Written when this was a Spades site. It has since become Card Room, with fourteen games on the same
+> rooms, houses and tables; the [README](../README.md) describes what's built now. The plan below is
+> kept as it was.
+
 A place for families to play spades together online, run family tournaments,
 and (later) invite the rest of the world to the table. It stands on its own and
 also ships a small embed that drops into an [open.blog](https://github.com/journey-to-code-org/open.blog)

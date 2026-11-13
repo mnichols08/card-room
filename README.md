@@ -1,23 +1,52 @@
-# The card room
+# Card Room
 
-Family card games online: **Spades** and **Palace** (Castle), with house rules saved as presets,
-houses with their own tables and leaderboards, computer players with personalities, and a widget
-that puts a game on any site, including [open.blog](https://github.com/journey-to-code-org/open.blog) ones.
+Family card games online: fourteen games with house rules saved as presets, family **houses** with
+their own tables, leaderboards and tournaments, computer players with personalities, challenge
+links, and a widget that puts a game on any site, including [open.blog](https://github.com/journey-to-code-org/open.blog) ones.
 
-Built first for **brokennil** and Grammi's House.
+Built first for Grammi and Grammi's House. Everything runs in one small server you can host
+yourself (Docker or Railway), and practice games work anywhere, including the GitHub Pages build.
 
-See [docs/SPEC.md](docs/SPEC.md) for the plan.
+## The games
+
+Spades and Palace have tables of their own; the other twelve are built on a shared game kit
+(`packages/games`), so they all get the same table, setup screen, house rules editor, computer
+players, houses, challenges and tournaments.
+
+| Game | Players | |
+| --- | --- | --- |
+| Spades | 4, partners | Bid your tricks, spades are trump |
+| Palace (Castle) | 2 to 6 | Get rid of every card; don't be the last one holding them |
+| Hearts | 3 to 5 | Dodge the hearts and the queen |
+| Oh Hell | 3 to 7 | Bid exactly what you'll take |
+| Euchre | 4, partners | Partners, bowers and calling trump |
+| Whist | 4, partners | Spades' grandparent: partners and tricks |
+| Pinochle | 4, partners | Partners, bidding, meld and tricks |
+| Canasta | 4, partners | Partners, melds and canastas |
+| Gin Rummy | 2 | Two players, melds and knocking |
+| Crazy Eights | 2 to 6 | Match the card; eights are wild |
+| Golf | 2 to 6 | Swap your way to the lowest score |
+| Go Fish | 2 to 6 | Ask for cards, make books |
+| Old Maid | 2 to 6 | Pairs, and don't get stuck with her |
+| War | 2 to 4 | Flip, and the highest card takes all |
+
+More are on the way, a game at a time: Rummy 500 and President next, then solitaire (Klondike,
+FreeCell), Hand and Foot, Cribbage and poker (Five Card Draw, Texas Hold'em), for chips only.
 
 ## Packages
 
-| Package | Status |
+| Package | |
 | --- | --- |
-| [`packages/rules`](packages/rules) | Spades rules engine, bots and the personas who play every game |
+| [`packages/games`](packages/games) | The game kit (`kit.ts`: the `CardGame` contract, cards, decks, views) and the twelve games built on it |
+| [`packages/rules`](packages/rules) | Spades rules engine, bots, and the personas who play every game |
 | [`packages/palace`](packages/palace) | Palace rules engine: house-rule presets, seat views, bots and table talk |
-| [`packages/ui`](packages/ui) | Table components in Zubra, and the `<card-room>` embed (`packages/ui/embed`) |
-| [`packages/web`](packages/web) | React card table using the Zubra components: family tables, practice against bots, house rules |
 | [`packages/rooms`](packages/rooms) | Turn-based rooms over `@zubra/sync`: seats, server-decided moves, private views, bots |
-| [`packages/server`](packages/server) | The card room server: the games, houses, challenges, rooms, the sync log and the web app |
+| [`packages/server`](packages/server) | The server: every game's rooms, houses, challenges, tournaments, the sync log and the web app |
+| [`packages/web`](packages/web) | The app (React, with the game chooser in Vue): tables, setup screens, houses, practice |
+| [`packages/ui`](packages/ui) | Table components in Zubra (cards, seats, fields), and the `<card-room>` embed |
+
+The server decides every move. Each player's browser only ever receives its own view of a table
+(its own hand), never the whole game; moves the rules don't allow are refused on the server.
 
 ## Development
 
@@ -27,16 +56,31 @@ npm test
 npm run dev        # the server on :8787 and the app on http://localhost:5173
 ```
 
-Family tables and houses need the server. A **house** (Grammi's House) keeps a family's
-members, house rules and tables together, with one invite link that keeps working. Practice against the computer works anywhere, including the
-GitHub Pages build of the app.
+Family tables, houses, challenges and tournaments need the server. Practice against the computer
+works anywhere, including the GitHub Pages build of the app.
 
 ## Adding a game
 
-A game is a pure engine package (state, actions, a view per seat, bots), a room definition in
-[`packages/server/src/games.ts`](packages/server/src/games.ts) (which hands each table to its game,
-from the `game` in the room's options), and a table in the web app. Palace is the worked example:
-`packages/palace`, `packages/server/src/palace.ts` and `packages/web/src/palace/`.
+Most games belong on the kit, which gives them the table, the setup screen, house rules, computer
+players at the table, houses, challenges and tournaments for free:
+
+1. **The engine:** `packages/games/src/<game>.ts`, a `CardGame<Rules, State, Move>` (see
+   `packages/games/src/kit.ts`): presets and rule fields, `newGame` (a deterministic deal from a
+   seed), `apply` (throws a `GameError` for a move the rules don't allow), `view` (what one seat
+   may see and do), `bot`, `thinkingTime` and `summary`. Go Fish, Golf and Whist are short worked
+   examples.
+2. **Register it:** add its id to `KitGameId` in `kit.ts`, add it to `KIT_GAMES` in
+   `registry.ts`, and export it from `index.ts`.
+3. **Tests:** `packages/games/test/<game>.test.ts` for its rules. The shared kit tests
+   (`test/kit.test.ts`) play every registered game automatically: computer players finish whole
+   games at the smallest, usual and largest table with every preset, the same seed always deals
+   the same game, views match the state, and refused moves change nothing.
+4. **Its tile on the front page:** a fan of three cards in `packages/web/src/home/Home.tsx`.
+
+A game the kit can't express (Spades and Palace predate it) gets its own engine package, a room
+definition in [`packages/server/src/games.ts`](packages/server/src/games.ts) and a table in the
+web app; Palace is the worked example (`packages/palace`, `packages/server/src/palace.ts`,
+`packages/web/src/palace/`).
 
 ## Putting a game on a site
 
@@ -51,7 +95,7 @@ open.blog post, a WordPress HTML block, a Squarespace code block), with the card
 | Attribute | |
 | --- | --- |
 | `server` | The card room's address. Required. |
-| `game` | `palace`, `spades`, or leave it out to offer both. |
+| `game` | `palace`, `spades`, or leave it out to offer both. (The widget plays these two; the other games open in the card room.) |
 | `challenge` | Your challenge link's code (the end of `?challenge=…`), for a "Challenge Grammi" button. |
 | `who` | The name on that button. |
 
@@ -83,11 +127,26 @@ readers without JavaScript still see it and its link to the card room.
 One container runs everything; mount a volume so tables survive restarts:
 
 ```sh
-docker build -t spades .
-docker run -p 8787:8787 -v spades:/data spades
+docker build -t cardroom .
+docker run -p 8787:8787 -v spades:/data cardroom
 ```
 
-Without `SPADES_DB`, tables live in memory. `GET /healthz` answers `ok` for health checks.
+`GET /healthz` answers `ok` for health checks.
+
+### Settings
+
+| Variable | |
+| --- | --- |
+| `CARDROOM_DB` | The database file (the image uses `/data/spades.db`). Without one, tables live in memory. |
+| `CARDROOM_VAPID_PUBLIC_KEY` | Push notifications: the public key (see below) |
+| `CARDROOM_VAPID_PRIVATE_KEY` | Push notifications: the private key; keep it secret |
+| `CARDROOM_VAPID_SUBJECT` | Optional: a `mailto:` or `https:` address push services can reach you at |
+| `CARDROOM_BOT_DELAY` | Fixed thinking time for computer players, in milliseconds (handy for testing) |
+| `CARDROOM_WEB` | Where the built web app is, if not `packages/web/dist` |
+| `PORT` | The port to listen on (8787; Railway sets its own) |
+
+The older `SPADES_*` names for these still work; `CARDROOM_*` wins if both are set. Keep the
+database file's name (`spades.db`) as it is: renaming it leaves saved tables and houses behind.
 
 ### On Railway
 
@@ -99,13 +158,14 @@ a project of its own, because applying the file makes the whole project match it
 ```sh
 npm install -g @railway/cli   # once
 railway login
-railway init                  # a new, empty project named spades (or `railway link` to an empty one)
+railway init                  # a new, empty project (or `railway link` to an empty one)
 railway config plan           # shows what it will create
 railway config apply
 ```
 
 Then, in the dashboard, generate a domain for the service under **Networking**. Generated
-domains aren't part of the file. Every merge to `main` deploys.
+domains aren't part of the file. With the service connected to this repository (**Settings →
+Source**, auto-deploy on), every merge to `main` deploys; otherwise deploy from the dashboard.
 
 ### Notifications
 
@@ -117,45 +177,41 @@ stay off and the buttons for them don't show.
 npx web-push generate-vapid-keys
 ```
 
-Put the two keys in the service's variables (on Railway: the service → **Variables**):
-
-| Variable | |
-| --- | --- |
-| `SPADES_VAPID_PUBLIC_KEY` | the public key |
-| `SPADES_VAPID_PRIVATE_KEY` | the private key; keep it secret |
-| `SPADES_VAPID_SUBJECT` | optional: a `mailto:` or `https:` address push services can reach you at |
-
-Keep the same keys for good: new keys quietly cut off every phone that already said yes.
+Put the keys in the service's variables (on Railway: the service → **Variables**) as
+`CARDROOM_VAPID_PUBLIC_KEY` and `CARDROOM_VAPID_PRIVATE_KEY` (see **Settings** above). Keep the
+same keys for good: new keys quietly cut off every phone that already said yes.
 
 On an iPhone, notifications only work from the Home Screen app (iOS 16.4 or later): open the
-site in Safari, tap Share, **Add to Home Screen**, open Spades from there and turn them on. The
-app explains this when it's opened in Safari. Android phones can turn them on straight from
+site in Safari, tap Share, **Add to Home Screen**, open Card Room from there and turn them on.
+The app explains this when it's opened in Safari. Android phones can turn them on straight from
 the browser.
 
 #### Setting it up in the dashboard instead
 
-1. **New project → Deploy from GitHub repo → `mnichols08/spades`.** Railway sees the npm
-   workspaces and offers a service per package (`rules`, `rooms`, `ui`, `web`, `server`).
-   **Deploy only one.** The others are libraries and the front end, all built into the server.
-   Delete any that get created.
+1. **New project → Deploy from GitHub repo → `mnichols08/card-room`.** Railway sees the npm
+   workspaces and offers a service per package. **Deploy only one.** The others are libraries
+   and the front end, all built into the server. Delete any that get created.
 2. **Settings → Source:** root directory `/` (the repository root, not `packages/server`), and
    builder **Dockerfile**. Leave build and start commands empty.
 3. **Volume:** <kbd>Cmd</kbd>/<kbd>Ctrl</kbd>+<kbd>K</kbd> → "volume" (desktop browser; the mobile
    dashboard can't add one), attach it to the service, mount path `/data`.
-4. **Variables:** `SPADES_DB=/data/spades.db`. Without it, tables live in memory and every deploy
-   wipes them.
+4. **Variables:** none needed: the image keeps its database at `/data/spades.db`. Without the
+   volume, tables live in the container and every deploy wipes them.
 5. **Networking → Generate Domain.** The target port must be the one the server logs at start
-   (`spades on http://localhost:8080`). Railway sets `PORT` (usually 8080), which overrides the
-   Dockerfile's 8787. Or set `PORT=8787` yourself and use 8787.
+   (`Card Room on http://localhost:8080`). Railway sets `PORT` (usually 8080), which overrides
+   the Dockerfile's 8787. Or set `PORT=8787` yourself and use 8787.
 
 #### When it doesn't work
 
 | What you see | Why | Fix |
 | --- | --- | --- |
-| "Application failed to respond", but the deploy log says `spades on http://localhost:8080` | The domain points at another port | Set the domain's target port to the logged one |
+| "Application failed to respond", but the deploy log says `Card Room on http://localhost:8080` | The domain points at another port | Set the domain's target port to the logged one |
 | `/healthz` says `ok`, the page says "Build the web app first" | Built from `packages/server`, so the web app wasn't built | Root directory `/`, builder Dockerfile |
-| Tables disappear after a deploy | No volume, or `SPADES_DB` unset | Volume at `/data` and `SPADES_DB=/data/spades.db` |
+| Tables disappear after a deploy | No volume at `/data` | A volume mounted at `/data` |
 | Players at one table see different games | More than one replica | One replica |
+| A merge to `main` didn't change the site | The service isn't set to deploy on push | **Settings → Source**, auto-deploy on, or deploy from the dashboard |
 | A Node version error in the build | The builder picked an old Node | `.nvmrc` pins 24; or set `RAILPACK_NODE_VERSION=24` |
 
-Keep spades in a project of its own, so `railway config apply` can never touch another app.
+Keep the card room in a project of its own, so `railway config apply` can never touch another app.
+
+See [docs/SPEC.md](docs/SPEC.md) for the original plan.
