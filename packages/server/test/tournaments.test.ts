@@ -245,7 +245,9 @@ describe("a house tournament", () => {
     await grammi(`${at}/add`, { players: ["computer", "computer"] });
     const t = (await grammi(`${at}/start`, {})).body;
     expect(t.rounds).toHaveLength(1);
-    for (let i = 0; i < 600; i++) {
+    // A whole computer game: allow it time, not a count of checks (a busy machine is slower).
+    const deadline = Date.now() + 25_000;
+    while (Date.now() < deadline) {
       const now = (await grammi(at)).body;
       if (now.status === "finished") {
         expect(now.rounds[0].matches[0].how).toBe("played");

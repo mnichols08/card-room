@@ -255,7 +255,7 @@ export function KitTable({ view, names, act, onLeave, banner, chat, settings }: 
       {view.over && (
         <div className="sheet won-sheet">
           <h2>{view.over.winners.includes(me) ? (view.teams ? "You won! 🎉" : "You won! 🏆") : named(view.over.title, names)}</h2>
-          {view.result && <ResultTable result={view.result} names={names} me={me} />}
+          {view.result && <ResultTable result={view.result} names={names} me={me} untitled />}
           <button type="button" className="primary" onClick={onLeave}>
             Play again
           </button>
@@ -277,7 +277,7 @@ function KitSeat({ view, seat, name, row }: { view: KitView; seat: number; name:
         {name}
         {p.dealer && <span className="dealer" title="Dealer">D</span>}
       </strong>
-      <span>{named(p.line, [])}</span>
+      {p.line && <span>{named(p.line, [])}</span>}
       {!row && <small>{p.cards} card{p.cards === 1 ? "" : "s"}</small>}
       {p.badge && <em>{p.badge}</em>}
     </div>
@@ -392,10 +392,10 @@ function TeamMelds({ melds, view, names }: { melds: Meld[]; view: KitView; names
   );
 }
 
-function ResultTable({ result, names, me }: { result: NonNullable<KitView["result"]>; names: string[]; me: number }) {
+function ResultTable({ result, names, me, untitled }: { result: NonNullable<KitView["result"]>; names: string[]; me: number; untitled?: boolean }) {
   return (
     <>
-      <h2>{named(result.title, names)}</h2>
+      {!untitled && <h2>{named(result.title, names)}</h2>}
       <table className="summary">
         <thead>
           <tr>
