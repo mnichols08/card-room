@@ -6,6 +6,9 @@ import PlayingCard from "@spades/ui/playing-card.zb";
 import { useEffect, useRef, useState } from "react";
 import { Bubble, TableChat, useBubbles, type ChatProps } from "../Chat";
 import { loadFeedbackSettings, play, saveFeedbackSettings } from "../feedback/sounds";
+import { Confetti } from "../Confetti";
+import { motionScale, useCardFlip, useFlash } from "../motion";
+import { usePalaceFx } from "./PalaceFx";
 
 type PCard = Extract<Card, { kind: "pip" }>;
 const WORD: Record<number, [string, string]> = { 11: ["jack", "jacks"], 12: ["queen", "queens"], 13: ["king", "kings"], 14: ["ace", "aces"] };
@@ -59,6 +62,20 @@ export function PalaceTable({ view, seat: me, names, act, onLeave, banner, chat,
   const toChoose = can?.choose ?? 0;
   const others = Array.from({ length: view.seats - 1 }, (_, i) => (me + 1 + i) % view.seats);
   const top = view.pile[view.pile.length - 1] ?? null;
+  const root = useRef<HTMLElement>(null);
+  const scale = motionScale(settings?.value.pace);
+  const departed = useCardFlip(root, scale);
+  const fx = usePalaceFx(view, me, departed, scale, root);
+  const breathe = useFlash(myTurn, 700, false) && myTurn;
+  const last = view.last;
+  /** Where a card on the pile came from, if it was just played: someone's seat, or your own table. */
+  const pileFrom = (c: Card) => {
+    if (!last || !last.cards.some((x) => cardId(x as Card) === cardId(c))) return undefined;
+    if (last.seat === me) return last.kind === "flip" ? ".me .my-table" : undefined;
+    return `[data-seat="${last.seat}"]`;
+  };
+  /** New cards in your hand come from the deck, or from the pile when you picked it up. */
+  const handFrom = last?.pickedUp && last.seat === me ? ".pile" : ".deck";
 
   // Sounds and a buzz: cards landing, burns, pickups, your turn.
   const lastKey = JSON.stringify([view.last, view.phase]);
@@ -135,7 +152,7 @@ export function PalaceTable({ view, seat: me, names, act, onLeave, banner, chat,
   ) : view.phase === "swapping" ? (
     mine.ready ? "Waiting for everyone to lay down their cards…" : toChoose ? `Pick ${toChoose} cards to lay face-up` : view.rules.swap ? (swapFrom ? "Now tap a face-up card to swap it in" : "Swap any hand card with a face-up card, then tap Ready") : null
   ) : view.phase === "finished" ? null : myTurn ? (
-    can?.flip ? "Your turn: flip a face-down card" : can?.ranks.length ? "Your turn" : "Nothing plays. Pick up the pile."
+    <span className="mine">{can?.flip ? "Your turn: flip a face-down card" : can?.ranks.length ? "Your turn" : "Nothing plays. Pick up the pile."}</span>
   ) : (
     `${names[view.turn]} is thinking…`
   );
@@ -143,7 +160,7 @@ export function PalaceTable({ view, seat: me, names, act, onLeave, banner, chat,
   const order = [...view.finished, ...(view.loser !== null ? [view.loser] : [])];
 
   return (
-    <main className="table palace">
+    <main className="table palace" ref={root}>
       <header className="palace-bar">
         <button type="button" className="leave" aria-label="Leave game" onClick={() => (view.phase === "finished" || confirm("Leave this game?")) && onLeave()}>
           ←
@@ -165,6 +182,7 @@ export function PalaceTable({ view, seat: me, names, act, onLeave, banner, chat,
             return (
               <PalaceSeat
                 key={s}
+                data-seat={s}
                 name={names[s] ?? `Seat ${s + 1}`}
                 up={p.up}
                 down={p.down}
@@ -179,15 +197,15 @@ export function PalaceTable({ view, seat: me, names, act, onLeave, banner, chat,
 
         <div className="pile-area" aria-label="The pile">
           <div className="deck" aria-label={`${view.deck} cards left to draw`}>
-            {view.deck > 0 ? <PlayingCard back /> : <div className="empty-slot">No deck</div>}
+            {view.deck > 0 ? <PlayingCard back size="table" style={{ "--depth": Math.min(6, Math.ceil(view.deck / 8)) } as React.CSSProperties} /> : <div className="empty-slot">No deck</div>}
             <small>{view.deck} to draw</small>
           </div>
           <div className="pile">
             {view.pile.length ? (
               <div className="pile-stack">
                 {view.pile.slice(-3).map((c, i, list) => (
-                  <div key={`${cardId(c)}-${view.pileCount - list.length + i}`} className="pile-card" style={{ "--i": i } as React.CSSProperties}>
-                    <PlayingCard card={c} size="table" />
+                  <div key={`${cardId(c)}-${view.pileCount - list.length + i}`} className={`pile-card${last?.kind === "flip" && pileFrom(c) ? " flipped" : ""}`} style={{ "--i": i } as React.CSSProperties}>
+                    <PlayingCard card={c} size="table" data-flip={cardId(c)} data-from={pileFrom(c)} />
                   </div>
                 ))}
               </div>
@@ -206,6 +224,53 @@ export function PalaceTable({ view, seat: me, names, act, onLeave, banner, chat,
         <div className="status" role="status">
           {status}
         </div>
+        {view.phase === "swapping" && !mine.ready && toChoose > 0 && (
+          <div className="felt-actions">
+            <button
+              type="button"
+              className="primary"
+              disabled={faceUp.length !== toChoose}
+              onClick={() => {
+                void send({ type: "choose", cards: faceUp });
+                setFaceUp([]);
+              }}
+            >
+              {faceUp.length === toChoose ? "Lay these face-up" : `Pick ${toChoose - faceUp.length} more`}
+            </button>
+          </div>
+        )}
+        {view.phase === "swapping" && !mine.ready && !toChoose && (
+          <div className="felt-actions">
+            <button type="button" className="primary" onClick={() => void send({ type: "ready" })}>
+              Ready to play
+            </button>
+          </div>
+        )}
+
+        {myTurn && can?.pickUp && !choosing && (
+          <div className="felt-actions">
+            <button type="button" className={can.ranks.length ? "secondary" : "primary"} onClick={() => void send({ type: "pickup" })}>
+              {can.ranks.length ? `Pick up the pile instead (${view.pileCount})` : `Pick up the pile (${view.pileCount})`}
+            </button>
+          </div>
+        )}
+
+        {choosing && (
+          <div className="felt-actions">
+            <p>You have {cardsInWords(choosing.rank, choosing.ids.length)}.</p>
+            <div className="row-actions">
+              <button type="button" className="primary" onClick={() => void send({ type: "play", cards: choosing.ids })}>
+                Play all {choosing.ids.length}
+              </button>
+              <button type="button" className="secondary" onClick={() => void send({ type: "play", cards: choosing.ids.slice(0, 1) })}>
+                Just one
+              </button>
+              <button type="button" className="link" onClick={() => setChoosing(null)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <section className="me">
@@ -231,6 +296,7 @@ export function PalaceTable({ view, seat: me, names, act, onLeave, banner, chat,
                   <div className="up-card">
                     <PlayingCard
                       card={up}
+                      data-flip={cardId(up)}
                       playable={(view.phase === "swapping" && !!swapFrom) || (myTurn && can?.source === "up")}
                       dim={myTurn && can?.source === "up" && !can.ranks.includes(up.rank)}
                       onPick={() => tap(up, "up")}
@@ -241,10 +307,18 @@ export function PalaceTable({ view, seat: me, names, act, onLeave, banner, chat,
             );
           })}
         </div>
-        <div className="hand" role="group" aria-label="Your hand" style={{ "--overlap": view.hand.length > 7 ? "-30px" : "-14px" } as React.CSSProperties}>
+        <div
+          className={`hand ${breathe ? "breathe" : ""}`}
+          role="group"
+          aria-label="Your hand"
+          style={{ "--n": view.hand.length, ...(view.hand.length <= 6 ? { "--strip-max": "calc(var(--card-w) + 8px)" } : {}) } as React.CSSProperties}
+        >
           {view.hand.map((card, i) => (
             <PlayingCard
               key={`${cardId(card)}-${i}`}
+              data-flip={cardId(card)}
+              data-from={handFrom}
+              style={{ "--i": i } as React.CSSProperties}
               card={card}
               playable={(view.phase === "swapping" && (view.rules.swap || toChoose > 0) && !mine.ready) || (myTurn && can?.source === "hand")}
               dim={myTurn && can?.source === "hand" && !can.ranks.includes(card.rank)}
@@ -262,56 +336,10 @@ export function PalaceTable({ view, seat: me, names, act, onLeave, banner, chat,
         ))}
       </div>
 
-      {view.phase === "swapping" && !mine.ready && toChoose > 0 && (
-        <div className="sheet compact">
-          <button
-            type="button"
-            className="primary"
-            disabled={faceUp.length !== toChoose}
-            onClick={() => {
-              void send({ type: "choose", cards: faceUp });
-              setFaceUp([]);
-            }}
-          >
-            {faceUp.length === toChoose ? "Lay these face-up" : `Pick ${toChoose - faceUp.length} more`}
-          </button>
-        </div>
-      )}
-      {view.phase === "swapping" && !mine.ready && !toChoose && (
-        <div className="sheet compact">
-          <button type="button" className="primary" onClick={() => void send({ type: "ready" })}>
-            Ready to play
-          </button>
-        </div>
-      )}
-
-      {myTurn && can?.pickUp && !choosing && (
-        <div className="sheet compact">
-          <button type="button" className={can.ranks.length ? "secondary" : "primary"} onClick={() => void send({ type: "pickup" })}>
-            {can.ranks.length ? `Pick up the pile instead (${view.pileCount})` : `Pick up the pile (${view.pileCount})`}
-          </button>
-        </div>
-      )}
-
-      {choosing && (
-        <div className="sheet compact">
-          <p>You have {cardsInWords(choosing.rank, choosing.ids.length)}.</p>
-          <div className="row-actions">
-            <button type="button" className="primary" onClick={() => void send({ type: "play", cards: choosing.ids })}>
-              Play all {choosing.ids.length}
-            </button>
-            <button type="button" className="secondary" onClick={() => void send({ type: "play", cards: choosing.ids.slice(0, 1) })}>
-              Just one
-            </button>
-            <button type="button" className="link" onClick={() => setChoosing(null)}>
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
+      {fx}
+      {view.phase === "finished" && view.finished[0] === me && <Confetti />}
       {view.phase === "finished" && (
-        <div className="sheet">
+        <div className="sheet won-sheet">
           <h2>{view.finished[0] === me ? "You won! 👑" : view.loser === me ? "Left holding the cards 😅" : `${names[view.finished[0]!]} won 👑`}</h2>
           <ol className="placings">
             {order.map((s, i) => (

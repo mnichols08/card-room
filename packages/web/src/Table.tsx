@@ -4,11 +4,13 @@ import HandSummary from "@spades/ui/hand-summary.zb";
 import PlayingCard from "@spades/ui/playing-card.zb";
 import ScoreBoard from "@spades/ui/score-board.zb";
 import SeatBadge from "@spades/ui/seat-badge.zb";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Confetti } from "./Confetti";
+import { collect, motionScale, rectOf, useCardFlip, useFlash } from "./motion";
 import { loadFeedbackSettings, play, saveFeedbackSettings } from "./feedback/sounds";
 import { useTableSounds } from "./feedback/useTableSounds";
 import { Bubble, TableChat, useBubbles, type ChatProps } from "./Chat";
-import type { TableState } from "./useTable";
+import { TRICK_HOLD_MS, type TableState } from "./useTable";
 import { TableSettingsButton } from "./TableSettings";
 
 interface Props {
@@ -38,6 +40,9 @@ export function Table({ table: t, names, onLeave, banner, chat, settings }: Prop
   const [soundOn, setSoundOn] = useState(() => loadFeedbackSettings().sound);
   useTableSounds(t);
   const bubbles = useBubbles(chat?.messages ?? []);
+  const root = useRef<HTMLElement>(null);
+  const scale = motionScale(settings?.value.pace);
+  useCardFlip(root, scale);
 
   function toggleSound() {
     const next = { ...loadFeedbackSettings(), sound: !soundOn };
@@ -50,6 +55,26 @@ export function Table({ table: t, names, onLeave, banner, chat, settings }: Prop
   const myTurnToPlay = view.phase === "playing" && view.turn === me && !t.paused;
   const iPass = view.phase === "passing" && passingSeats(view as unknown as GameState).includes(me) && !view.myPass;
   const passCount = preset.blindNil.passCards;
+
+  // A new hand deals in; a hand looked at after a blind-nil chance turns over instead.
+  const blindHand = useRef<number | null>(null);
+  if (t.hand === null) blindHand.current = view.handNumber;
+  const dealing = useFlash(`${view.handNumber}-${t.hand === null}`, 1100);
+  const handMotion = dealing ? (blindHand.current === view.handNumber && t.hand !== null ? "reveal" : `dealing${settings?.value.pace === "instant" ? " quick" : ""}`) : "";
+  const breathe = useFlash(myTurnToPlay, 700, false) && myTurnToPlay;
+
+  // A won trick: the winning card pops, then the cards sweep to the winner just before they go.
+  useEffect(() => {
+    if (t.trickWinner === null) return;
+    const winner = t.trickWinner;
+    const timer = setTimeout(() => {
+      const cards = [...(root.current?.querySelectorAll<HTMLElement>(".trick [data-flip]") ?? [])];
+      const first = cards[0]?.getBoundingClientRect();
+      const to = first && rectOf(`[data-seat="${winner}"]`, first, 0.4);
+      if (to) collect(cards, to, scale);
+    }, TRICK_HOLD_MS - 380);
+    return () => clearTimeout(timer);
+  }, [t.trickWinner]);
 
   function pick(card: Card) {
     if (iPass) {
@@ -72,6 +97,7 @@ export function Table({ table: t, names, onLeave, banner, chat, settings }: Prop
 
   const seat = (s: Seat, layout: "row" | "column" = "column") => (
     <SeatBadge
+      data-seat={s}
       name={names[s]}
       bid={bidLabel(view.bids[s] ?? null)}
       tricks={view.tricksWon[s]}
@@ -82,7 +108,7 @@ export function Table({ table: t, names, onLeave, banner, chat, settings }: Prop
   );
 
   return (
-    <main className="table">
+    <main className="table" ref={root}>
       <ScoreBoard
         us={{ name: `${names[me]} & ${names[partner]}`, ...view.scores[myTeam] }}
         them={{ name: `${names[left]} & ${names[right]}`, ...view.scores[(1 - myTeam) as Team] }}
@@ -106,7 +132,7 @@ export function Table({ table: t, names, onLeave, banner, chat, settings }: Prop
         <div className="trick" aria-label="Cards on the table">
           {t.trickOnTable.map((play) => (
             <div key={cardId(play.card)} className={`played ${side(play.seat)}`}>
-              <PlayingCard card={play.card} size="table" won={t.trickWinner === play.seat} />
+              <PlayingCard card={play.card} size="table" won={t.trickWinner === play.seat} data-flip={cardId(play.card)} data-from={`[data-seat="${play.seat}"]`} />
             </div>
           ))}
           {t.trickWinner !== null && <div className="took">{names[t.trickWinner]} takes it</div>}
@@ -116,9 +142,9 @@ export function Table({ table: t, names, onLeave, banner, chat, settings }: Prop
           {t.error ? (
             <span className="error">{t.error}</span>
           ) : myTurnToPlay ? (
-            "Your play"
+            <span className="mine">Your play</span>
           ) : myTurnToBid ? (
-            "Your bid"
+            <span className="mine">Your bid</span>
           ) : iPass ? (
             `Pick ${passCount} card${passCount === 1 ? "" : "s"} to pass to ${names[partner]}`
           ) : view.phase === "passing" ? (
@@ -132,12 +158,19 @@ export function Table({ table: t, names, onLeave, banner, chat, settings }: Prop
       <section className="me">
         {chat && <TableChat {...chat} />}
         <div className="me-badge">{seat(me, "row")}</div>
-        <div className="hand" role="group" aria-label="Your hand">
+        <div
+          className={`hand ${handMotion} ${breathe && !dealing ? "breathe" : ""}`}
+          role="group"
+          aria-label="Your hand"
+          style={{ "--n": t.hand?.length ?? view.handCounts[me] ?? 13 } as React.CSSProperties}
+        >
           {t.hand === null
-            ? Array.from({ length: view.handCounts[me] ?? 13 }, (_, i) => <PlayingCard key={i} back />)
-            : t.hand.map((card) => (
+            ? Array.from({ length: view.handCounts[me] ?? 13 }, (_, i) => <PlayingCard key={i} back style={{ "--i": i } as React.CSSProperties} />)
+            : t.hand.map((card, i) => (
                 <PlayingCard
                   key={cardId(card)}
+                  data-flip={cardId(card)}
+                  style={{ "--i": i } as React.CSSProperties}
                   card={card}
                   playable={myTurnToPlay || iPass}
                   dim={myTurnToPlay && !view.legal.some((c) => sameCard(c, card))}
@@ -198,8 +231,9 @@ export function Table({ table: t, names, onLeave, banner, chat, settings }: Prop
         </div>
       )}
 
+      {view.phase === "finished" && view.winner === myTeam && <Confetti />}
       {view.phase === "finished" && (
-        <div className="sheet">
+        <div className="sheet won-sheet">
           <h2>{view.winner === myTeam ? "You won!" : `${names[left]} & ${names[right]} won`}</h2>
           <p className="final">
             {view.scores[myTeam].points} – {view.scores[(1 - myTeam) as Team].points} after {view.history.length} hands

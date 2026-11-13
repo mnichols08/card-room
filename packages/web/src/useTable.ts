@@ -12,7 +12,7 @@ export interface TableSource {
   act: (move: Move) => Promise<string | null>;
 }
 
-const TRICK_HOLD_MS = 1200;
+export const TRICK_HOLD_MS = 1200;
 
 /** Whether this seat could still bid blind nil (the view has the scores and the rules it needs). */
 export const blindNilAllowed = (view: SeatView, seat: Seat) => canBidBlindNil(view as unknown as GameState, seat);
