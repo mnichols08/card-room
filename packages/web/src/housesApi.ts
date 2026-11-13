@@ -20,6 +20,16 @@ export interface House {
   tables: HouseTable[];
 }
 
+export interface Standings {
+  games: number;
+  players: { id: string; name: string; played: number; won: number; winPct: number | null; nil: { bid: number; made: number }; blindNil: { bid: number; made: number } }[];
+  partners: { ids: [string, string]; names: [string, string]; played: number; won: number }[];
+  highlights: {
+    biggestComeback: { names: string[]; behindBy: number; final: [number, number]; game: string } | null;
+    mostNils: { name: string; made: number } | null;
+  };
+}
+
 export class HouseError extends Error {
   constructor(message: string, readonly status: number) {
     super(message);
@@ -48,6 +58,7 @@ export const houses = {
   /** Someone holding the invite link: the house's name, before they join. */
   preview: (slug: string, code: string) => call<{ slug: string; name: string; member: false }>(`${at(slug)}?code=${encodeURIComponent(code)}`),
   join: (slug: string, code: string, name: string) => call<House>(at(slug, "join"), { code, name }),
+  leaderboard: (slug: string) => call<Standings>(at(slug, "leaderboard")),
   openTable: (slug: string, presetId?: string) => call<{ id: string }>(at(slug, "tables"), { presetId }),
   rename: (slug: string, name: string) => call<House>(at(slug, "me"), { name }),
   savePreset: (slug: string, preset: RulePreset, makeDefault = false) => call<House>(at(slug, "presets"), { preset, makeDefault }),

@@ -1,7 +1,7 @@
 import { validatePreset, type RulePreset } from "@spades/rules";
 import TextField from "@spades/ui/zubra-ui/text-field.zb";
 import { useCallback, useEffect, useState } from "react";
-import { HouseError, houses, inviteLink, type House, type HouseTable } from "./housesApi";
+import { HouseError, houses, inviteLink, type House, type HouseTable, type Standings } from "./housesApi";
 import { describe, RulesFields } from "./RulesEditor";
 import { forgetHouse, loadSavedName, rememberHouse, saveName } from "./storage";
 
@@ -192,6 +192,8 @@ function MemberView(props: {
         </ul>
       </section>
 
+      <LeaderboardBlock house={house} />
+
       <section className="house-block" aria-label="Family">
         <h2>Family</h2>
         <ul className="house-list">
@@ -336,4 +338,93 @@ function tableTitle(t: HouseTable): string {
   }
   const seated = t.seats.filter((s) => s.name).length;
   return seated === 0 ? "Waiting for players" : `${seated} of 4 seated`;
+}
+
+/** Standings from the house's finished games. Refreshes when a game finishes. */
+function LeaderboardBlock({ house }: { house: House }) {
+  const [board, setBoard] = useState<Standings | null>(null);
+  const finished = house.tables.filter((t) => t.summary?.phase === "finished").length;
+  useEffect(() => {
+    houses.leaderboard(house.slug).then(setBoard, () => setBoard(null));
+  }, [house.slug, finished]);
+  if (!board) return null;
+  const ranked = board.players.filter((p) => p.played > 0);
+  const me = house.me.id;
+
+  return (
+    <section className="house-block" aria-label="Leaderboard">
+      <h2>Leaderboard</h2>
+      {board.games === 0 ? (
+        <p className="fine">Standings start after the first finished game.</p>
+      ) : (
+        <>
+          <table className="standings">
+            <thead>
+              <tr>
+                <th scope="col">#</th>
+                <th scope="col">Player</th>
+                <th scope="col">Won</th>
+                <th scope="col">Played</th>
+                <th scope="col">Win %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ranked.map((p) => {
+                // Ties share a place: one more than the number of players strictly ahead.
+                const place = 1 + ranked.filter((q) => q.won > p.won || (q.won === p.won && (q.winPct ?? 0) > (p.winPct ?? 0))).length;
+                return (
+                <tr key={p.id} className={p.id === me ? "me" : ""}>
+                  <td>{place === 1 && p.won > 0 ? "♠" : place}</td>
+                  <th scope="row">{p.name}</th>
+                  <td>{p.won}</td>
+                  <td>{p.played}</td>
+                  <td>{p.winPct}%</td>
+                </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <p className="fine">
+            {board.games} finished game{board.games === 1 ? "" : "s"}. Games with bots count; bots don't rank.
+          </p>
+
+          {board.partners.length > 0 && (
+            <>
+              <h3>Best partners</h3>
+              <ul className="house-list">
+                {board.partners.slice(0, 3).map((p) => (
+                  <li key={p.ids.join("+")}>
+                    <div>
+                      <strong>
+                        {p.names[0]} &amp; {p.names[1]}
+                      </strong>
+                      <small>
+                        {p.won}–{p.played - p.won} together
+                      </small>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {(board.highlights.biggestComeback || board.highlights.mostNils) && (
+            <ul className="highlights">
+              {board.highlights.biggestComeback && (
+                <li>
+                  <strong>Biggest comeback:</strong> {board.highlights.biggestComeback.names.join(" & ")} came back from {board.highlights.biggestComeback.behindBy} behind to win{" "}
+                  {board.highlights.biggestComeback.final[0]}–{board.highlights.biggestComeback.final[1]}.
+                </li>
+              )}
+              {board.highlights.mostNils && (
+                <li>
+                  <strong>Nil queen or king:</strong> {board.highlights.mostNils.name}, with {board.highlights.mostNils.made} made.
+                </li>
+              )}
+            </ul>
+          )}
+        </>
+      )}
+    </section>
+  );
 }
