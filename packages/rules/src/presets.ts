@@ -29,15 +29,21 @@ export const quick250: RulePreset = {
   loseAt: -150,
 };
 
-/** Grammi's starting preset: Classic with blind nil on. She can tune it from there. */
-export const brokennilsTable: RulePreset = {
+/** The starting rules: Classic with blind nil on. A house can tune them from there. */
+export const familyTable: RulePreset = {
   ...classic,
+  // The id predates the name: saved rules and tables refer to it, so it stays.
   id: "brokennils-table",
-  name: "brokennil's Table",
+  name: "Family Table",
   blindNil: { enabled: true, value: 200, onlyWhenDownBy: null, passCards: 0 },
 };
 
 export const builtInPresets: readonly RulePreset[] = [classic, jokersAndDeuces, quick250];
+
+/** What the family rules were called before; copies saved under that name show the new one. */
+const OLD_FAMILY_NAME = "brokennil's Table";
+/** Saved rules, with the family rules' old default name updated (a name someone chose stays). */
+export const renamedPreset = <T extends { id: string; name: string }>(p: T): T => (p.id === familyTable.id && p.name === OLD_FAMILY_NAME ? { ...p, name: familyTable.name } : p);
 
 /** Make a house-owned copy of a preset with overrides. */
 export function derivePreset(

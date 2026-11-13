@@ -6,7 +6,7 @@ import { createTournaments } from "./tournaments.js";
 // it through these endpoints, which show members only what members may see. A member is the same
 // player cookie that holds a seat at a table.
 import { familyPalace, normalizePalaceRules, validatePalaceRules, type PalaceRules } from "@cardroom/palace";
-import { brokennilsTable, validatePreset, type RulePreset } from "@spades/rules";
+import { familyTable, renamedPreset, validatePreset, type RulePreset } from "@spades/rules";
 import { newPlayerId, playerCookie, playerOf, type RoomDoc } from "@spades/rooms/server";
 import { leaderboard, palaceLeaderboard, placesLeaderboard, type FinishedGame, type FinishedPalace } from "./leaderboard.js";
 import { KIT_GAMES, isKitGame, kitGame, type KitGameId, type KitSummary } from "@cardroom/games";
@@ -128,7 +128,7 @@ function cleanPalace(value: unknown): PalaceRules | string {
 /** House rules from a page: checked, and given an id of their own if they're new. */
 function cleanPreset(value: unknown): RulePreset | string {
   if (!value || typeof value !== "object") return "Those rules are missing.";
-  const preset = { ...brokennilsTable, ...(value as RulePreset) };
+  const preset = { ...familyTable, ...(value as RulePreset) };
   preset.name = cleanName(preset.name, "House rules");
   const given = (value as { id?: unknown }).id;
   preset.id = typeof given === "string" && /^[\w-]{1,60}$/.test(given) ? given : `house-${random(8)}`;
@@ -143,7 +143,7 @@ export function createHouses(rooms: Rooms, { mount = "/houses", push }: { mount?
     if (!doc) return undefined;
     // Keep only the house's own fields (the view may carry sync bookkeeping such as $clocks).
     const { slug: s, name, code, members, presets, defaultPreset, palacePresets, palaceDefault, tables, tournaments, kitRules } = doc as unknown as HouseDoc;
-    return structuredClone({ slug: s, name, code, members, presets, defaultPreset, palacePresets: (palacePresets ?? [familyPalace]).map((p) => normalizePalaceRules(p)), palaceDefault: palaceDefault ?? palacePresets?.[0]?.id ?? familyPalace.id, tables, tournaments: tournaments ?? [], kitRules: kitRules ?? {} }) as HouseDoc;
+    return structuredClone({ slug: s, name, code, members, presets: presets.map(renamedPreset), defaultPreset, palacePresets: (palacePresets ?? [familyPalace]).map((p) => normalizePalaceRules(p)), palaceDefault: palaceDefault ?? palacePresets?.[0]?.id ?? familyPalace.id, tables, tournaments: tournaments ?? [], kitRules: kitRules ?? {} }) as HouseDoc;
   };
   const save = (house: HouseDoc) => rooms.sync.write("houses", house.slug, { ...house });
   const tournaments = createTournaments(rooms, { push, saveHouse: (h) => save(h as HouseDoc) });
@@ -259,7 +259,7 @@ export function createHouses(rooms: Rooms, { mount = "/houses", push }: { mount?
       const name = cleanName(input.name, "Our House");
       let slug = slugify(name);
       while (await get(slug)) slug = `${slugify(name)}-${random(3)}`;
-      const rules = input.rules ? cleanPreset(input.rules) : brokennilsTable;
+      const rules = input.rules ? cleanPreset(input.rules) : familyTable;
       if (typeof rules === "string") return json({ error: rules }, 400);
       const player = cookiePlayer ?? newPlayerId();
       const owner: Member = { id: random(8), player, name: cleanName(input.you, "Host"), role: "owner", joined: Date.now() };
@@ -298,7 +298,7 @@ export function createHouses(rooms: Rooms, { mount = "/houses", push }: { mount?
           ? (kitRulesOf(house, game).presets.find((p) => p.id === (id ?? kitRulesOf(house, game).default)) ?? kitRulesOf(house, game).presets[0]!)
           : game === "palace"
           ? (house.palacePresets!.find((p) => p.id === (id ?? house.palaceDefault)) ?? house.palacePresets![0] ?? familyPalace)
-          : (house.presets.find((p) => p.id === (id ?? house.defaultPreset)) ?? house.presets[0] ?? brokennilsTable);
+          : (house.presets.find((p) => p.id === (id ?? house.defaultPreset)) ?? house.presets[0] ?? familyTable);
       const reply = await tournaments.handle(house, me, parts.slice(2), method, input, rulesFor);
       return json(reply.body, reply.status);
     }
@@ -334,7 +334,7 @@ export function createHouses(rooms: Rooms, { mount = "/houses", push }: { mount?
         id = await rooms.create(palaceOptions(rules, input.seats), input.settings);
         rulesName = rules.name;
       } else {
-        const preset = house.presets.find((p) => p.id === (input.presetId ?? house.defaultPreset)) ?? house.presets[0] ?? brokennilsTable;
+        const preset = house.presets.find((p) => p.id === (input.presetId ?? house.defaultPreset)) ?? house.presets[0] ?? familyTable;
         id = await rooms.create(preset, input.settings);
         rulesName = preset.name;
       }

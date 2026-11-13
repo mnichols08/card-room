@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { brokennilsTable, classic, derivePreset } from "../src/presets.js";
+import { familyTable, classic, derivePreset } from "../src/presets.js";
 import { gameWinner, scoreTeamHand } from "../src/scoring.js";
 import type { Bid } from "../src/types.js";
 
@@ -58,9 +58,9 @@ describe("scoreTeamHand", () => {
   });
 
   it("blind nil uses the blind nil value", () => {
-    const made = scoreTeamHand(0, [blind, t(1), t(5), t(1)], [0, 4, 5, 4], zero, brokennilsTable);
+    const made = scoreTeamHand(0, [blind, t(1), t(5), t(1)], [0, 4, 5, 4], zero, familyTable);
     expect(made.nilPoints).toBe(200);
-    const missed = scoreTeamHand(0, [blind, t(1), t(5), t(1)], [1, 4, 4, 4], zero, brokennilsTable);
+    const missed = scoreTeamHand(0, [blind, t(1), t(5), t(1)], [1, 4, 4, 4], zero, familyTable);
     expect(missed.nilPoints).toBe(-200);
   });
 });

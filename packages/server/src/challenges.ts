@@ -6,7 +6,7 @@
 //   challenges/<code>      server only: the link's owner, their name, rules, on or off
 //   challengeOf/<player>   server only: a player's code
 import { type PalaceRules, familyPalace, normalizePalaceRules, validatePalaceRules } from "@cardroom/palace";
-import { brokennilsTable, mulberry32, pickPersonas, validatePreset, type RulePreset } from "@spades/rules";
+import { familyTable, mulberry32, pickPersonas, validatePreset, type RulePreset, renamedPreset } from "@spades/rules";
 import { isKitGame, kitGame, type KitGameId } from "@cardroom/games";
 import { GAMES, gameName, type GameId, type TableOptions } from "./games.js";
 import { kitOptions } from "./kit.js";
@@ -59,7 +59,7 @@ export function createChallenges(rooms: Rooms, push: Push, { mount = "/challenge
   async function get(code: string): Promise<ChallengeDoc | undefined> {
     const doc = (await docs).get("challenges", code) as unknown as ChallengeDoc | undefined;
     return doc?.player
-      ? structuredClone({ code: doc.code, player: doc.player, name: doc.name, enabled: doc.enabled, rules: doc.rules, palaceRules: normalizePalaceRules(doc.palaceRules ?? familyPalace), kitRules: doc.kitRules ?? {}, games: doc.games ?? ["spades"], recent: doc.recent ?? [] })
+      ? structuredClone({ code: doc.code, player: doc.player, name: doc.name, enabled: doc.enabled, rules: renamedPreset(doc.rules), palaceRules: normalizePalaceRules(doc.palaceRules ?? familyPalace), kitRules: doc.kitRules ?? {}, games: doc.games ?? ["spades"], recent: doc.recent ?? [] })
       : undefined;
   }
   const save = (c: ChallengeDoc) => rooms.sync.write("challenges", c.code, { ...c });
@@ -89,7 +89,7 @@ export function createChallenges(rooms: Rooms, push: Push, { mount = "/challenge
       const me = player ?? newPlayerId();
       const existing = await codeOf(me);
       let c = existing ? await get(existing) : undefined;
-      const rules = input.rules ? { ...brokennilsTable, ...(input.rules as RulePreset) } : (c?.rules ?? brokennilsTable);
+      const rules = input.rules ? { ...familyTable, ...(input.rules as RulePreset) } : (c?.rules ?? familyTable);
       if (validatePreset(rules).length) return json({ error: validatePreset(rules).join(" ") }, 400);
       const palaceRules = input.palaceRules ? palaceRulesFrom(input.palaceRules) : (c?.palaceRules ?? familyPalace);
       if (validatePalaceRules(palaceRules).length) return json({ error: validatePalaceRules(palaceRules).join(" ") }, 400);

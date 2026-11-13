@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { pip } from "../src/cards.js";
 import { botAction, chooseCard, estimateTricks } from "../src/bot.js";
 import { applyAction, newGame, type GameState } from "../src/game.js";
-import { brokennilsTable, classic, derivePreset, jokersAndDeuces } from "../src/presets.js";
+import { familyTable, classic, derivePreset, jokersAndDeuces } from "../src/presets.js";
 import type { Seat } from "../src/types.js";
 
 function botGame(state: GameState, maxSteps = 5000): GameState {
@@ -15,7 +15,7 @@ function botGame(state: GameState, maxSteps = 5000): GameState {
 }
 
 describe("bots", () => {
-  for (const preset of [classic, jokersAndDeuces, brokennilsTable]) {
+  for (const preset of [classic, jokersAndDeuces, familyTable]) {
     it(`four bots finish a whole game legally (${preset.name})`, () => {
       for (const seed of [1, 2, 3]) {
         const s = botGame(newGame(preset, seed));
@@ -26,8 +26,8 @@ describe("bots", () => {
   }
 
   it("handles the blind nil pass phase", () => {
-    const passTwo = derivePreset(brokennilsTable, "p", "Pass 2", {
-      blindNil: { ...brokennilsTable.blindNil, passCards: 2 },
+    const passTwo = derivePreset(familyTable, "p", "Pass 2", {
+      blindNil: { ...familyTable.blindNil, passCards: 2 },
     });
     let s = newGame(passTwo, 4);
     s = applyAction(s, { type: "bid", seat: 1, bid: { kind: "blind-nil" } });
