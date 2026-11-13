@@ -3,5 +3,6 @@ export * from "./tricks.js";
 export * from "./hearts.js";
 export * from "./ohhell.js";
 export * from "./euchre.js";
+export * from "./crazy8.js";
 export * from "./registry.js";
 export * from "./talk.js";
