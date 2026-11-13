@@ -12,7 +12,7 @@ export interface TableSource {
   act: (move: Move) => Promise<string | null>;
 }
 
-const TRICK_HOLD_MS = 1200;
+export const TRICK_HOLD_MS = 1200;
 
 /** Whether this seat could still bid blind nil (the view has the scores and the rules it needs). */
 export const blindNilAllowed = (view: SeatView, seat: Seat) => canBidBlindNil(view as unknown as GameState, seat);
@@ -68,10 +68,12 @@ export function useTable(source: TableSource) {
     summary,
     dismissSummary: () => setSummary(null),
     error,
-    act: async (move: Move) => {
-      if (paused) return;
+    /** Resolves to the reason when the move is refused (it's shown as the error too), else null. */
+    act: async (move: Move): Promise<string | null> => {
+      if (paused) return "Wait a moment.";
       const refused = await source.act(move);
       if (refused) setError(refused);
+      return refused;
     },
   };
 }
