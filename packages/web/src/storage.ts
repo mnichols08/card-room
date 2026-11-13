@@ -1,5 +1,6 @@
 import { brokennilsTable, builtInPresets, cleanSettings, DEFAULT_SETTINGS, type RulePreset, type TableSettings } from "@spades/rules";
 import { familyPalace, normalizePalaceRules, type PalaceRules } from "@cardroom/palace";
+import { isKitGame, kitGame, type KitGameId } from "@cardroom/games";
 
 const NAME_KEY = "spades:name";
 const PRESETS_KEY = "spades:presets";
@@ -54,9 +55,12 @@ export function forgetHouse(slug: string) {
 
 // ---- More than one game ----------------------------------------------------------------------
 
-export type GameId = "spades" | "palace";
+export type GameId = "spades" | "palace" | KitGameId;
 const GAME_KEY = "cardroom:game";
-export const loadGame = () => read<GameId>(GAME_KEY, "spades");
+export const loadGame = (): GameId => {
+  const g = read<string>(GAME_KEY, "spades");
+  return g === "palace" || isKitGame(g) ? g : "spades";
+};
 export const saveGame = (game: GameId) => write(GAME_KEY, game);
 
 const PALACE_LAST_KEY = "cardroom:palace:last";
@@ -78,3 +82,22 @@ export function deletePalacePreset(id: string) {
 const SETTINGS_KEY = "cardroom:tableSettings";
 export const loadTableSettings = () => cleanSettings(read<unknown>(SETTINGS_KEY, DEFAULT_SETTINGS));
 export const saveTableSettings = (settings: TableSettings) => write(SETTINGS_KEY, settings);
+
+// ---- The kit games: the last rules, saved rules and table size, per game ------------------------
+
+type KitRules = { id: string; name: string } & Record<string, unknown>;
+export const loadKitRules = (game: KitGameId): KitRules => kitGame(game)!.normalize(read<unknown>(`cardroom:${game}:last`, kitGame(game)!.presets[0]));
+export const saveKitRules = (game: KitGameId, rules: KitRules) => write(`cardroom:${game}:last`, rules);
+export const loadSavedKit = (game: KitGameId): KitRules[] => read<unknown[]>(`cardroom:${game}:presets`, []).map((r) => kitGame(game)!.normalize(r));
+export function saveKitPreset(game: KitGameId, rules: KitRules) {
+  write(`cardroom:${game}:presets`, [...loadSavedKit(game).filter((p) => p.id !== rules.id), rules]);
+}
+export function deleteKitPreset(game: KitGameId, id: string) {
+  write(`cardroom:${game}:presets`, loadSavedKit(game).filter((p) => p.id !== id));
+}
+export const loadKitSeats = (game: KitGameId): number => {
+  const g = kitGame(game)!;
+  const n = read<number>(`cardroom:${game}:seats`, g.seats.default);
+  return n >= g.seats.min && n <= g.seats.max ? n : g.seats.default;
+};
+export const saveKitSeats = (game: KitGameId, n: number) => write(`cardroom:${game}:seats`, n);

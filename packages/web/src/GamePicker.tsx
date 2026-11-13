@@ -1,8 +1,10 @@
+import { KIT_GAMES } from "@cardroom/games";
 import type { GameId } from "./storage";
 
 export const GAME_LIST: { id: GameId; name: string; emoji: string; blurb: string }[] = [
   { id: "spades", name: "Spades", emoji: "♠\uFE0E", blurb: "Partners, bids and nils" },
   { id: "palace", name: "Palace", emoji: "🏰", blurb: "First to shed every card wins" },
+  ...KIT_GAMES.map((g) => ({ id: g.id, name: g.name, emoji: g.emoji, blurb: g.blurb })),
 ];
 
 /** Which game: a row of big, plain buttons. */

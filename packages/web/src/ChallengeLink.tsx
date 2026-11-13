@@ -6,7 +6,7 @@ import { challenges, challengeUrl, type MyLink } from "./challengesApi";
 import { NotifyButton } from "./NotifyButton";
 
 /** Your challenge link: put it on your blog, send it around; anyone with it can challenge you. */
-export function ChallengeLink({ name, rules, palaceRules }: { name: string; rules?: RulePreset; palaceRules?: PalaceRules }) {
+export function ChallengeLink({ name, rules, palaceRules, kitRules }: { name: string; rules?: RulePreset; palaceRules?: PalaceRules; kitRules?: Record<string, unknown> }) {
   const [link, setLink] = useState<MyLink | null>(null);
   const [noServer, setNoServer] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -30,7 +30,7 @@ export function ChallengeLink({ name, rules, palaceRules }: { name: string; rule
   };
   const who = name.trim() || "you";
   // The rules on the screen this card sits on: spades rules from the spades screen, Palace from Palace.
-  const these = { ...(rules ? { rules } : {}), ...(palaceRules ? { palaceRules } : {}) };
+  const these = { ...(rules ? { rules } : {}), ...(palaceRules ? { palaceRules } : {}), ...(kitRules ? { kitRules } : {}) };
 
   if (!link.code) {
     return (

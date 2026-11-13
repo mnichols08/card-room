@@ -31,7 +31,7 @@ async function call<T>(path: string, body?: unknown): Promise<T> {
 
 export const challenges = {
   mine: () => call<MyLink>("/challenges/mine"),
-  update: (change: { name?: string; rules?: RulePreset; palaceRules?: PalaceRules; games?: GameId[]; enabled?: boolean; newLink?: boolean }) => call<MyLink>("/challenges/mine", change),
+  update: (change: { name?: string; rules?: RulePreset; palaceRules?: PalaceRules; kitRules?: Record<string, unknown>; games?: GameId[]; enabled?: boolean; newLink?: boolean }) => call<MyLink>("/challenges/mine", change),
   get: (code: string) => call<{ name: string; enabled: boolean; rules: string; games?: OfferedGame[] }>(`/challenges/${encodeURIComponent(code)}`),
   send: (code: string, name: string, message: string, game?: GameId) => call<{ id: string; game?: GameId; notified: boolean }>(`/challenges/${encodeURIComponent(code)}`, { name, message, game }),
 };

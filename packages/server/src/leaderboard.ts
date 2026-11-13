@@ -143,6 +143,15 @@ export interface PalaceBoard {
 
 /** Palace standings for a house's members: most wins first, then fewest last places. */
 export function palaceLeaderboard(games: FinishedPalace[], members: { id: string; name: string }[]): PalaceBoard {
+  return { ...placesLeaderboard(games, members), game: "palace" };
+}
+
+/**
+ * Standings for any game that finishes in an order (Palace, Hearts, Gin…): wins, last places and
+ * average place. `winners` names every winning seat (both partners in a team game); without it the
+ * first seat out wins. In team games nobody is "last".
+ */
+export function placesLeaderboard(games: (FinishedPalace & { winners?: number[]; teams?: boolean })[], members: { id: string; name: string }[]) {
   const lines = new Map(members.map((m) => [m.id, { id: m.id, name: m.name, played: 0, won: 0, last: 0, places: 0 }]));
   for (const g of games) {
     g.order.forEach((seat, i) => {
@@ -151,13 +160,13 @@ export function palaceLeaderboard(games: FinishedPalace[], members: { id: string
       const line = lines.get(who.id);
       if (!line) return;
       line.played += 1;
-      line.places += i + 1;
-      if (i === 0) line.won += 1;
-      if (i === g.order.length - 1) line.last += 1;
+      line.places += g.teams ? (g.winners?.includes(seat) ? 1 : 2) : i + 1;
+      if (g.winners ? g.winners.includes(seat) : i === 0) line.won += 1;
+      if (!g.teams && i === g.order.length - 1 && !g.winners?.includes(seat)) line.last += 1;
     });
   }
   const players = [...lines.values()]
     .map(({ places, ...l }) => ({ ...l, winPct: l.played ? Math.round((100 * l.won) / l.played) : null, avgPlace: l.played ? Math.round((10 * places) / l.played) / 10 : null }))
     .sort((a, b) => b.won - a.won || a.last - b.last || b.played - a.played || a.name.localeCompare(b.name));
-  return { game: "palace", games: games.length, players };
+  return { games: games.length, players };
 }

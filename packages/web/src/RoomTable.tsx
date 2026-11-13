@@ -9,14 +9,21 @@ import { Table } from "./Table";
 import { useTable, type Move } from "./useTable";
 import type { PalaceMove, PalaceView } from "@cardroom/palace";
 import { PalaceTable } from "./palace/PalaceTable";
+import { isKitGame, kitGame, type KitView } from "@cardroom/games";
+import { GAME_LIST } from "./GamePicker";
+import { KitTable } from "./kit/KitTable";
 import { TableSettingsFields } from "./TableSettings";
 
 type Summary = { game?: string; rules: string; scores?: { points: number }[]; hand?: number; finished?: number[] };
 type AnyRoom = Room<unknown, unknown, Summary>;
 type SpadesRoom = Room<SeatView, Move, Summary>;
-type Info = { game?: "spades" | "palace"; rules?: string } | null;
-const gameOf = (doc: RoomDoc<Summary>) => ((doc as { info?: Info }).info?.game === "palace" || doc.summary?.game === "palace" ? "palace" : "spades");
-const seatLabel = (game: string, i: number) => (game === "palace" ? `Seat ${i + 1}` : SEAT_LABELS[i]!);
+type Info = { game?: string; rules?: string } | null;
+const gameOf = (doc: RoomDoc<Summary>): string => {
+  const g = (doc as { info?: Info }).info?.game ?? doc.summary?.game;
+  return g === "palace" || isKitGame(g) ? g! : "spades";
+};
+/** Seats by compass point in spades and other four-seat partnership games; numbered otherwise. */
+const seatLabel = (game: string, i: number) => (game === "spades" ? SEAT_LABELS[i]! : `Seat ${i + 1}`);
 
 const SEAT_LABELS = ["South", "West", "North", "East"];
 
@@ -87,6 +94,19 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
   };
 
   if (doc.started && mySeat !== null && view) {
+    if (isKitGame(game)) {
+      return (
+        <KitTable
+          view={view as KitView}
+          names={doc.seats.map((s, i) => s.name ?? seatLabel(game, i))}
+          act={(move) => room.act(move).then(() => null, (e: Error) => e.message)}
+          onLeave={onLeave}
+          banner={<div className="banner">{(doc as { label?: string }).label ?? `Table ${id}`}</div>}
+          chat={chat}
+          settings={tableSettings}
+        />
+      );
+    }
     if (game === "palace") {
       return (
         <PalaceTable
@@ -151,6 +171,8 @@ function Lobby(props: {
 }) {
   const { room, doc, mySeat } = props;
   const game = gameOf(doc);
+  const about = GAME_LIST.find((g) => g.id === game) ?? GAME_LIST[0]!;
+  const partners = game === "spades" || (isKitGame(game) && kitGame(game)!.teams);
   const info = (doc as { info?: Info }).info;
   const [name, setName] = useState(loadSavedName);
   const [copied, setCopied] = useState(false);
@@ -163,9 +185,9 @@ function Lobby(props: {
   };
 
   async function share() {
-    const text = game === "palace" ? "Pull up a chair: join my Palace table 🏰" : "Pull up a chair: join my spades table.";
+    const text = `Pull up a chair: join my ${about.name} table ${about.emoji}`;
     try {
-      if (navigator.share) await navigator.share({ title: game === "palace" ? "Palace" : "Spades", text, url: link });
+      if (navigator.share) await navigator.share({ title: about.name, text, url: link });
       else {
         await navigator.clipboard.writeText(link);
         setCopied(true);
@@ -181,17 +203,17 @@ function Lobby(props: {
       <TableChat {...props.chat} />
       <header className="setup-head">
         <div className="suits" aria-hidden>
-          {game === "palace" ? "🏰" : "♠ ♥ ♣ ♦"}
+          {game === "spades" ? "♠ ♥ ♣ ♦" : about.emoji}
         </div>
-        <h1>{doc.label ?? `${game === "palace" ? "Palace" : "Spades"} · Table ${room.id}`}</h1>
+        <h1>{doc.label ?? `${about.name} · Table ${room.id}`}</h1>
         <p>
-          {doc.started ? "This game has started." : doc.locked ? (mySeat !== null ? "Your tournament match. Deal when you're ready; the game waits for whoever's turn it is." : "A tournament match. The seats are set.") : game === "palace" ? "First one out wins. Fill empty seats with bots." : "Partners sit across from each other."}
+          {doc.started ? "This game has started." : doc.locked ? (mySeat !== null ? "Your tournament match. Deal when you're ready; the game waits for whoever's turn it is." : "A tournament match. The seats are set.") : game === "palace" ? "First one out wins. Fill empty seats with bots." : partners ? "Partners sit across from each other." : `${about.blurb}. Fill empty seats with bots.`}
           {info?.rules ? ` ${info.rules}.` : ""}
         </p>
       </header>
 
       {mySeat === null && !doc.started && (
-        <TextField label={game === "palace" ? "Your name" : "Your spades name"} required value={name} maxlength={20} autocomplete="nickname" onValueChange={(e: CustomEvent<string>) => setName(e.detail)} />
+        <TextField label={game === "spades" ? "Your spades name" : "Your name"} required value={name} maxlength={20} autocomplete="nickname" onValueChange={(e: CustomEvent<string>) => setName(e.detail)} />
       )}
 
       <ol className="seats" aria-label="Seats">
@@ -199,7 +221,7 @@ function Lobby(props: {
           const mine = mySeat === i;
           const empty = !s.bot && !s.name;
           return (
-            <li key={i} className={`seat-row ${game === "palace" ? "" : `team-${i % 2 === 0 ? "a" : "b"}`} ${mine ? "mine" : ""}`}>
+            <li key={i} className={`seat-row ${partners ? `team-${i % 2 === 0 ? "a" : "b"}` : ""} ${mine ? "mine" : ""}`}>
               <span className="where">{seatLabel(game, i)}</span>
               <strong>
                 {s.bot ? `${s.name} (bot)` : (s.name ?? "Empty")}
