@@ -1,6 +1,6 @@
 import {
   applyAction,
-  botAction,
+  smartAction,
   brokennilsTable,
   newGame,
   validatePreset,
@@ -51,7 +51,8 @@ export const spadesRoom: RoomDefinition<GameState, Move, SeatView, RulePreset, S
   }),
   finished: (state) => state.phase === "finished",
   bot(state, seat) {
-    const action = botAction(state, seat as Seat);
+    // The thinking bot: it reads the table, guesses the hidden hands and plays like a partner.
+    const action = smartAction(state, seat as Seat);
     if (!action) return null;
     const { seat: _seat, ...move } = action;
     return move as Move;

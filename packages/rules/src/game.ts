@@ -31,6 +31,8 @@ export interface GameState {
   turn: Seat;
   trick: Play[];
   lastTrick: { plays: Play[]; winner: Seat } | null;
+  /** Every card played this hand, in order: completed tricks, then the trick in progress. Public. */
+  played: Play[];
   tricksWon: number[];
   spadesBroken: boolean;
   scores: [TeamScore, TeamScore];
@@ -58,6 +60,7 @@ export function newGame(preset: RulePreset, seed: number, dealer: Seat = 0): Gam
     turn: next(dealer),
     trick: [],
     lastTrick: null,
+    played: [],
     tricksWon: [0, 0, 0, 0],
     spadesBroken: false,
     scores: [
@@ -80,6 +83,7 @@ function startHand(s: GameState): GameState {
     turn: next(s.dealer),
     trick: [],
     lastTrick: null,
+    played: [],
     tricksWon: [0, 0, 0, 0],
     spadesBroken: false,
   };
@@ -185,9 +189,10 @@ export function applyAction(s: GameState, action: Action): GameState {
       const hands = [...s.hands];
       hands[action.seat] = removeCards(hand, [action.card]);
       const trick = [...s.trick, { seat: action.seat, card: action.card }];
+      const played = [...(s.played ?? []), { seat: action.seat, card: action.card }];
       const spadesBroken = s.spadesBroken || isTrump(action.card, s.preset);
 
-      if (trick.length < 4) return { ...s, hands, trick, spadesBroken, turn: next(action.seat) };
+      if (trick.length < 4) return { ...s, hands, trick, played, spadesBroken, turn: next(action.seat) };
 
       const winner = trickWinner(trick, s.preset);
       const tricksWon = [...s.tricksWon];
@@ -197,6 +202,7 @@ export function applyAction(s: GameState, action: Action): GameState {
         hands,
         trick: [],
         lastTrick: { plays: trick, winner },
+        played,
         tricksWon,
         spadesBroken,
         turn: winner,
