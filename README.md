@@ -11,9 +11,9 @@ See [docs/SPEC.md](docs/SPEC.md) for the plan.
 
 | Package | Status |
 | --- | --- |
-| [`packages/rules`](packages/rules) | Rules engine (in progress) |
+| [`packages/rules`](packages/rules) | Rules engine and bots |
 | `packages/server` | Planned |
-| `packages/web` | Planned |
+| [`packages/web`](packages/web) | Card table: play against bots, set and save house rules |
 | `packages/embed` | Planned |
 
 ## Development
@@ -21,4 +21,7 @@ See [docs/SPEC.md](docs/SPEC.md) for the plan.
 ```sh
 npm install
 npm test
+npm run dev -w @spades/web   # open the table at http://localhost:5173
 ```
+
+The table deploys to GitHub Pages on every push to `main`.

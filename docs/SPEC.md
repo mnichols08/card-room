@@ -92,8 +92,8 @@ packages/
 
 ## Milestones
 
-1. **Rules engine** — presets, deck, legal plays, tricks, bidding, scoring, game reducer, tests. ← *in progress*
-2. **Hot-seat table** — `web` plays a full local game against the engine (with simple bots), no server.
+1. **Rules engine** — presets, deck, legal plays, tricks, bidding, scoring, game reducer, tests. ✅
+2. **Local table** — `web` plays a full game against simple bots, no server. Rules editor saves presets in the browser. ✅
 3. **Realtime server** — tables, seats, reconnects, per-seat views, game log persistence.
 4. **Houses** — accounts, invite links, roles, preset editor, house default preset.
 5. **Tournaments & leaderboard.**
