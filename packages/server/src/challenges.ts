@@ -5,7 +5,7 @@
 //
 //   challenges/<code>      server only: the link's owner, their name, rules, on or off
 //   challengeOf/<player>   server only: a player's code
-import { familyPalace, validatePalaceRules, type PalaceRules } from "@cardroom/palace";
+import { type PalaceRules, familyPalace, normalizePalaceRules, validatePalaceRules } from "@cardroom/palace";
 import { brokennilsTable, mulberry32, pickPersonas, validatePreset, type RulePreset } from "@spades/rules";
 import { isKitGame, kitGame, type KitGameId } from "@cardroom/games";
 import { GAMES, gameName, type GameId, type TableOptions } from "./games.js";
@@ -59,7 +59,7 @@ export function createChallenges(rooms: Rooms, push: Push, { mount = "/challenge
   async function get(code: string): Promise<ChallengeDoc | undefined> {
     const doc = (await docs).get("challenges", code) as unknown as ChallengeDoc | undefined;
     return doc?.player
-      ? structuredClone({ code: doc.code, player: doc.player, name: doc.name, enabled: doc.enabled, rules: doc.rules, palaceRules: palaceRulesFrom(doc.palaceRules ?? familyPalace), kitRules: doc.kitRules ?? {}, games: doc.games ?? ["spades"], recent: doc.recent ?? [] })
+      ? structuredClone({ code: doc.code, player: doc.player, name: doc.name, enabled: doc.enabled, rules: doc.rules, palaceRules: normalizePalaceRules(doc.palaceRules ?? familyPalace), kitRules: doc.kitRules ?? {}, games: doc.games ?? ["spades"], recent: doc.recent ?? [] })
       : undefined;
   }
   const save = (c: ChallengeDoc) => rooms.sync.write("challenges", c.code, { ...c });

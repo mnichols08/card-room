@@ -46,7 +46,9 @@ export function palaceBot(s: PalaceState, seat: number, style: PlayStyle = {}): 
   const opts = options(s, seat);
   if (!opts.length) return canPickUp(s, seat) ? { type: "pickup", seat } : null;
   const cards = p[from!];
-  const play = (rank: number) => ({ type: "play" as const, seat, cards: cards.filter((c: PCard) => c.rank === rank).map(cardId) });
+  // Face-up cards one at a time, when that's the house rule.
+  const oneAtATime = from === "up" && s.rules.upOneAtATime;
+  const play = (rank: number) => ({ type: "play" as const, seat, cards: cards.filter((c: PCard) => c.rank === rank).slice(0, oneAtATime ? 1 : undefined).map(cardId) });
 
   // A careless or green player plays whatever comes to hand.
   const skill = style.skill ?? 1;

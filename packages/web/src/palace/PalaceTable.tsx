@@ -44,6 +44,7 @@ function narrate(view: PalaceView, names: string[]): string | null {
   const what = card ? cardsInWords(card.rank, m.cards.length) : "";
   const blind = m.kind === "flip" ? " blind" : "";
   if (m.burned) return `${who} played ${what}${blind} and burned it 🔥`;
+  if (m.again) return `${who} played ${what}${blind}: go again!`;
   return `${who} played ${what}${blind}`;
 }
 
@@ -184,7 +185,8 @@ export function PalaceTable({ view, seat: me, names, act, onLeave, banner, chat,
     }
     const pool = from === "hand" ? view.hand : mine.up;
     const same = pool.filter((c) => c.rank === card.rank).map(cardId);
-    if (same.length === 1) void send({ type: "play", cards: same });
+    // Face-up cards go down one at a time under that house rule: no "how many?" question.
+    if (same.length === 1 || (from === "up" && view.rules.upOneAtATime)) void send({ type: "play", cards: same.slice(0, 1) });
     else setChoosing({ rank: card.rank, ids: same });
   }
 

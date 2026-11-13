@@ -176,3 +176,17 @@ describe("table settings", () => {
     expect((await grammi(`/rooms/${old}`)).body.settings).toEqual({ skill: "mixed", pace: "natural" });
   });
 });
+
+describe("Palace rules saved before the 2s and face-up settings", () => {
+  it("a table's saved rules keep the old meaning; a house's copy of the family rules gets the new ones", async () => {
+    const { palaceRulesFrom } = await import("../src/palace.js");
+    const { familyPalace, normalizePalaceRules } = await import("@cardroom/palace");
+    const { twoAgain, upOneAtATime, ...savedYesterday } = familyPalace;
+    void twoAgain;
+    void upOneAtATime;
+    // A table's options are replayed move by move: 2s must work as they did when it was dealt.
+    expect(palaceRulesFrom(savedYesterday)).toMatchObject({ choose: true, twoAgain: false, upOneAtATime: false });
+    // A house's saved family rules are a preference: they follow the family rules as they are now.
+    expect(normalizePalaceRules(savedYesterday)).toMatchObject({ twoAgain: true, upOneAtATime: true });
+  });
+});

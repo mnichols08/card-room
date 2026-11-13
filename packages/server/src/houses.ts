@@ -5,7 +5,7 @@ import { createTournaments } from "./tournaments.js";
 // Everything is one server-only document per house (`houses/<slug>` in the sync log); pages read
 // it through these endpoints, which show members only what members may see. A member is the same
 // player cookie that holds a seat at a table.
-import { familyPalace, validatePalaceRules, type PalaceRules } from "@cardroom/palace";
+import { familyPalace, normalizePalaceRules, validatePalaceRules, type PalaceRules } from "@cardroom/palace";
 import { brokennilsTable, validatePreset, type RulePreset } from "@spades/rules";
 import { newPlayerId, playerCookie, playerOf, type RoomDoc } from "@spades/rooms/server";
 import { leaderboard, palaceLeaderboard, placesLeaderboard, type FinishedGame, type FinishedPalace } from "./leaderboard.js";
@@ -143,7 +143,7 @@ export function createHouses(rooms: Rooms, { mount = "/houses", push }: { mount?
     if (!doc) return undefined;
     // Keep only the house's own fields (the view may carry sync bookkeeping such as $clocks).
     const { slug: s, name, code, members, presets, defaultPreset, palacePresets, palaceDefault, tables, tournaments, kitRules } = doc as unknown as HouseDoc;
-    return structuredClone({ slug: s, name, code, members, presets, defaultPreset, palacePresets: (palacePresets ?? [familyPalace]).map(palaceRulesFrom), palaceDefault: palaceDefault ?? palacePresets?.[0]?.id ?? familyPalace.id, tables, tournaments: tournaments ?? [], kitRules: kitRules ?? {} }) as HouseDoc;
+    return structuredClone({ slug: s, name, code, members, presets, defaultPreset, palacePresets: (palacePresets ?? [familyPalace]).map((p) => normalizePalaceRules(p)), palaceDefault: palaceDefault ?? palacePresets?.[0]?.id ?? familyPalace.id, tables, tournaments: tournaments ?? [], kitRules: kitRules ?? {} }) as HouseDoc;
   };
   const save = (house: HouseDoc) => rooms.sync.write("houses", house.slug, { ...house });
   const tournaments = createTournaments(rooms, { push, saveHouse: (h) => save(h as HouseDoc) });

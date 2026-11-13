@@ -209,7 +209,9 @@ function settle(s: PalaceState, seat: number, move: PalaceLast) {
       return;
     }
   }
-  move.again = move.burned && p.place === null;
+  // A burn means you go again; so does a 2, under that house rule (unless it burned the pile).
+  const two = s.rules.twoResets && s.rules.twoAgain && move.cards.at(-1)?.rank === 2;
+  move.again = (move.burned || two) && p.place === null;
   s.turn = move.again ? seat : nextSeat(s, seat);
   s.last = move;
 }
@@ -292,6 +294,7 @@ export function applyPalace(state: PalaceState, action: PalaceAction): PalaceSta
   if (!cards) throw new PalaceError(from === "up" ? "Play from your face-up cards now." : "You don't have those cards.");
   const rank = cards[0]!.rank;
   if (cards.some((c) => c.rank !== rank)) throw new PalaceError("Play cards of one rank at a time.");
+  if (from === "up" && cards.length > 1 && s.rules.upOneAtATime) throw new PalaceError("Face-up cards go down one at a time.");
   if (!canPlayOn(rank, s.pile, s.rules)) throw new PalaceError(s.rules.sevenLower && s.pile.at(-1)?.rank === 7 ? "After a 7, play 7 or lower." : "That's lower than the pile.");
   s.pile.push(...cards);
   settle(s, seat, { seat, kind: "play", cards, from, burned: false, pickedUp: 0, again: false });
