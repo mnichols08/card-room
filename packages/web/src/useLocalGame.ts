@@ -1,4 +1,4 @@
-import { applyAction, botAction, newGame, RuleError, viewFor, type GameState, type RulePreset, type Seat } from "@spades/rules";
+import { applyAction, botAction, newGame, RuleError, smartAction, viewFor, type GameState, type RulePreset, type Seat } from "@spades/rules";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Move, TableSource } from "./useTable";
 
@@ -29,7 +29,8 @@ export function useLocalGame(preset: RulePreset, seed: number, paused: boolean):
     if (seat === undefined) return;
     const t = setTimeout(() => {
       setGame((prev) => {
-        const action = botAction(prev, seat);
+        // Thinking bots; fewer deals than on the server, since phones are slower.
+        const action = smartAction(prev, seat, { deals: 24 });
         return action ? applyAction(prev, action) : prev;
       });
     }, BOT_DELAY_MS);
