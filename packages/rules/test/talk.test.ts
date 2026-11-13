@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { pip } from "../src/cards.js";
 import { applyAction, newGame, type GameState, type HandRecord } from "../src/game.js";
 import { classic } from "../src/presets.js";
-import { PERSONAS, greet, reactToMove, replyTo, thinkingTime } from "../src/talk.js";
+import { PERSONAS, greet, pickPersonas, reactToMove, replyTo, thinkingTime } from "../src/talk.js";
+import { thinkBid, thinkCard } from "../src/smart.js";
 import type { Bid, Seat } from "../src/types.js";
 
 const always = () => 0; // dice that always say yes, and pick the first line
@@ -105,5 +106,48 @@ describe("thinking time", () => {
   it("follows the persona's tempo", () => {
     const s = { ...newGame(classic, 1), turn: 1 as Seat };
     expect(thinkingTime(s, 1, "Hank", () => 0.5)).toBeLessThan(thinkingTime(s, 1, "Bea", () => 0.5));
+  });
+});
+
+describe("the roster", () => {
+  const roster = Object.values(PERSONAS);
+
+  it("has fourteen partners, each with a blurb and something to say at every big moment", () => {
+    expect(roster).toHaveLength(14);
+    for (const p of roster) {
+      expect(p.blurb.length, p.name).toBeGreaterThan(5);
+      for (const event of ["hello", "weWon", "theyWon", "replyLaugh", "replyLuck"] as const) expect(p.lines[event]?.length, `${p.name} ${event}`).toBeGreaterThan(0);
+    }
+  });
+
+  it("picks different partners for empty seats, skipping ones already seated", () => {
+    const three = pickPersonas(3, () => 0.5, ["Dot"]);
+    expect(new Set(three.map((p) => p.name)).size).toBe(3);
+    expect(three.map((p) => p.name)).not.toContain("Dot");
+  });
+});
+
+describe("play styles", () => {
+  const hands = Array.from({ length: 120 }, (_, i) => newGame(classic, 500 + i));
+  const bidsOf = (name: string) => hands.map((s) => thinkBid({ ...s, turn: 1 }, 1, PERSONAS[name]!.style));
+  const total = (bids: Bid[]) => bids.reduce((n, b) => n + (b.kind === "tricks" ? b.count : 0), 0);
+  const nils = (bids: Bid[]) => bids.filter((b) => b.kind !== "tricks").length;
+
+  it("Duke bids bigger than Earl on the same hands", () => {
+    expect(total(bidsOf("Duke"))).toBeGreaterThan(total(bidsOf("Earl")) + 60);
+  });
+
+  it("Tammy goes nil far more often than Earl", () => {
+    expect(nils(bidsOf("Tammy"))).toBeGreaterThan(nils(bidsOf("Earl")) + 5);
+  });
+
+  it("a careless moment is still a legal card", () => {
+    let s = newGame(classic, 9);
+    for (let i = 0; i < 4; i++) s = applyAction(s, { type: "bid", seat: s.turn, bid: t(3) });
+    for (let i = 0; i < 20; i++) {
+      const card = thinkCard(s, s.turn, { style: { sloppy: 1 } }).card;
+      s = applyAction(s, { type: "play", seat: s.turn, card }); // throws if it weren't legal
+    }
+    expect(s.played.length).toBe(20);
   });
 });

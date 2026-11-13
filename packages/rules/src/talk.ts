@@ -6,16 +6,20 @@
 import { cardPower, isTrump, mulberry32 } from "./cards.js";
 import type { GameState } from "./game.js";
 import { partnerOf, teamOf } from "./scoring.js";
-import { thinkCard } from "./smart.js";
+import { thinkCard, type PlayStyle } from "./smart.js";
 import { legalPlays } from "./tricks.js";
 import type { Seat, Team } from "./types.js";
 
 export interface Persona {
   name: string;
+  /** One line about them, for the lobby. */
+  blurb: string;
   /** How often they speak up (0–1), scaled per event. */
   chatty: number;
   /** How quickly they play: 1 is average, below 1 is quicker. */
   pace: number;
+  /** How they play: some are sharp, some careless, some bold, some nil-crazy. */
+  style: PlayStyle;
   lines: Partial<Record<TalkEvent, string[]>>;
 }
 
@@ -40,115 +44,198 @@ export type TalkEvent =
   | "replyHeart"
   | "replyOops";
 
-export const PERSONAS: Record<string, Persona> = {
-  Dot: {
-    name: "Dot",
-    chatty: 0.75,
-    pace: 1.1,
-    lines: {
-      hello: ["Hi everybody! 👋", "Good luck, all! 🍀", "Let's have fun ❤️"],
-      partnerNilMade: ["That's my partner! 🎉", "Beautiful nil 👏", "You did it!! 🎉"],
-      ourNilMade: ["Nil made 😊", "Whew, nil made! 😅"],
-      theirNilSet: ["Sorry, not sorry 😇", "Got that nil 😬"],
-      ourNilSet: ["Oh no, my nil 😭", "So close 😅"],
-      weGotSet: ["We'll get 'em next hand 💪", "That's okay, partner ❤️"],
-      weSetThem: ["Teamwork! 🙌", "We got 'em 😊"],
-      bigTrick: ["👏", "Nice one! 👏"],
-      gotTrumped: ["Oh my 😮", "Well then 😅"],
-      goingNil: ["Going nil 🤞", "Nil for me, cover me partner! 🙏"],
-      goingBlindNil: ["Blind nil! Wish me luck 🙈"],
-      weWon: ["We won!! 🎉🎉", "What a game, partner! ❤️🏆"],
-      theyWon: ["Good game, everybody 🙂", "Well played! 👏"],
-      replyLaugh: ["😂", "😄", "Hehe 😆"],
-      replyLuck: ["You too! 🍀", "Good luck! 😊"],
-      replyThanks: ["Aw, thank you! 😊", "❤️"],
-      replyHeart: ["❤️", "🥰"],
-      replyOops: ["It happens! ❤️", "No worries 😊"],
-    },
+type Lines = Partial<Record<TalkEvent, string[]>>;
+type Rand = () => number;
+
+/** Shared voices. A persona takes one and adds lines of its own. */
+const VOICES: Record<"warm" | "dry" | "goofy" | "sharp" | "quiet" | "nervous" | "dramatic", Lines> = {
+  warm: {
+    hello: ["Hi everybody! 👋", "Good luck, all! 🍀", "Let's have fun ❤️"],
+    partnerNilMade: ["That's my partner! 🎉", "Beautiful nil 👏", "You did it!! 🎉"],
+    ourNilMade: ["Nil made 😊", "Whew, nil made! 😅"],
+    theirNilSet: ["Sorry, not sorry 😇", "Got that nil 😬"],
+    ourNilSet: ["Oh no, my nil 😭", "So close 😅"],
+    weGotSet: ["We'll get 'em next hand 💪", "That's okay, partner ❤️"],
+    weSetThem: ["Teamwork! 🙌", "We got 'em 😊"],
+    bigTrick: ["👏", "Nice one! 👏"],
+    gotTrumped: ["Oh my 😮", "Well then 😅"],
+    goingNil: ["Going nil 🤞", "Nil for me, cover me partner! 🙏"],
+    goingBlindNil: ["Blind nil! Wish me luck 🙈"],
+    weWon: ["We won!! 🎉🎉", "What a game, partner! ❤️🏆"],
+    theyWon: ["Good game, everybody 🙂", "Well played! 👏"],
+    replyLaugh: ["😂", "😄", "Hehe 😆"],
+    replyLuck: ["You too! 🍀", "Good luck! 😊"],
+    replyThanks: ["Aw, thank you! 😊", "❤️"],
+    replyHeart: ["❤️", "🥰"],
+    replyOops: ["It happens! ❤️", "No worries 😊"],
   },
-  Hank: {
-    name: "Hank",
-    chatty: 0.45,
-    pace: 0.8,
-    lines: {
-      hello: ["Deal 'em.", "Let's go."],
-      partnerNilMade: ["Nice nil. 👍", "Well I'll be. 👍"],
-      ourNilMade: ["Told ya. 😎"],
-      theirNilSet: ["Not today. 😏", "Nope. 😏"],
-      ourNilSet: ["Figures. 🙄", "Ugh."],
-      weGotSet: ["Ugh. 😤", "Shoulda bid less.", "😤"],
-      weSetThem: ["That's how it's done. 😎", "Set. 😏"],
-      bigTrick: ["😎"],
-      gotTrumped: ["Really? 🙄", "Come on. 😤", "🙄"],
-      spadesBroken: ["Here we go. 😑"],
-      goingNil: ["Nil. Don't make it weird."],
-      goingBlindNil: ["Blind nil. Yeah, I said it. 😤"],
-      weWon: ["Good game. 😎", "Never in doubt."],
-      theyWon: ["Good game. Rematch. 😤", "Lucky cards. 🙄 GG."],
-      replyLaugh: ["Heh.", "😏"],
-      replyLuck: ["Don't need it. 😎", "You too."],
-      replyThanks: ["Yep. 👍"],
-      replyHeart: ["👍"],
-      replyOops: ["Happens. 🤷"],
-    },
+  dry: {
+    hello: ["Deal 'em.", "Let's go."],
+    partnerNilMade: ["Nice nil. 👍", "Well I'll be. 👍"],
+    ourNilMade: ["Told ya. 😎"],
+    theirNilSet: ["Not today. 😏", "Nope. 😏"],
+    ourNilSet: ["Figures. 🙄", "Ugh."],
+    weGotSet: ["Ugh. 😤", "Shoulda bid less.", "😤"],
+    weSetThem: ["That's how it's done. 😎", "Set. 😏"],
+    bigTrick: ["😎"],
+    gotTrumped: ["Really? 🙄", "Come on. 😤", "🙄"],
+    spadesBroken: ["Here we go. 😑"],
+    goingNil: ["Nil. Don't make it weird."],
+    goingBlindNil: ["Blind nil. Yeah, I said it. 😤"],
+    weWon: ["Good game. 😎", "Never in doubt."],
+    theyWon: ["Good game. Rematch. 😤", "Lucky cards. 🙄 GG."],
+    replyLaugh: ["Heh.", "😏"],
+    replyLuck: ["Don't need it. 😎", "You too."],
+    replyThanks: ["Yep. 👍"],
+    replyHeart: ["👍"],
+    replyOops: ["Happens. 🤷"],
   },
-  Lou: {
-    name: "Lou",
-    chatty: 0.7,
-    pace: 0.95,
-    lines: {
-      hello: ["Who brought snacks? 🍿", "Cards, cards, cards! 🃏"],
-      partnerNilMade: ["NIL BOSS 👑", "Big nil energy 🔥"],
-      ourNilMade: ["Nothing to see here 😇", "Zero tricks, zero problems 😎"],
-      theirNilSet: ["Oopsie 🤭", "Was that your nil? 😇"],
-      ourNilSet: ["I meant to do that 🤡", "That trick jumped at me 😭"],
-      weGotSet: ["Math is hard 😭", "We'll call that a warm-up 🤡"],
-      weSetThem: ["Set! Set! Set! 🥳", "Spicy 🌶️"],
-      bigTrick: ["🔥🔥", "Ooh 🔥"],
-      gotTrumped: ["Rude 😤😂", "My poor ace 😭"],
-      spadesBroken: ["Spades are out! 🎺", "♠️👀"],
-      goingNil: ["Nil time 🙃", "I'll take none, thanks 😇"],
-      goingBlindNil: ["Blind nil, YOLO 🙈"],
-      weWon: ["Champions!! 🏆🥳", "Victory dance 💃"],
-      theyWon: ["GG! I demand a rematch 😂", "Well played, you sharks 🦈"],
-      replyLaugh: ["😂😂", "🤣", "LOL"],
-      replyLuck: ["Luck is my middle name 🍀", "You'll need it 😜"],
-      replyThanks: ["I'll be here all week 🎤", "😎"],
-      replyHeart: ["❤️", "🫶"],
-      replyOops: ["We've all been there 😂", "Classic 🤡"],
-    },
+  goofy: {
+    hello: ["Who brought snacks? 🍿", "Cards, cards, cards! 🃏"],
+    partnerNilMade: ["NIL BOSS 👑", "Big nil energy 🔥"],
+    ourNilMade: ["Nothing to see here 😇", "Zero tricks, zero problems 😎"],
+    theirNilSet: ["Oopsie 🤭", "Was that your nil? 😇"],
+    ourNilSet: ["I meant to do that 🤡", "That trick jumped at me 😭"],
+    weGotSet: ["Math is hard 😭", "We'll call that a warm-up 🤡"],
+    weSetThem: ["Set! Set! Set! 🥳", "Spicy 🌶️"],
+    bigTrick: ["🔥🔥", "Ooh 🔥"],
+    gotTrumped: ["Rude 😤😂", "My poor ace 😭"],
+    spadesBroken: ["Spades are out! 🎺", "♠️👀"],
+    goingNil: ["Nil time 🙃", "I'll take none, thanks 😇"],
+    goingBlindNil: ["Blind nil, YOLO 🙈"],
+    weWon: ["Champions!! 🏆🥳", "Victory dance 💃"],
+    theyWon: ["GG! I demand a rematch 😂", "Well played, you sharks 🦈"],
+    replyLaugh: ["😂😂", "🤣", "LOL"],
+    replyLuck: ["Luck is my middle name 🍀", "You'll need it 😜"],
+    replyThanks: ["I'll be here all week 🎤", "😎"],
+    replyHeart: ["❤️", "🫶"],
+    replyOops: ["We've all been there 😂", "Classic 🤡"],
   },
-  Bea: {
-    name: "Bea",
-    chatty: 0.55,
-    pace: 1.2,
-    lines: {
-      hello: ["Good luck. You'll need it 😏", "Let's play."],
-      partnerNilMade: ["Yes! Great nil 👏", "Clutch 🔥"],
-      ourNilMade: ["Nil made. ✅"],
-      theirNilSet: ["Got it. 😈", "Nil denied. 😈"],
-      ourNilSet: ["Argh. 😤", "That one hurt 😣"],
-      weGotSet: ["Hmph. Next hand. 😤", "We'll make it up."],
-      weSetThem: ["Set! 😈", "Exactly as planned 😏"],
-      bigTrick: ["💪", "Mine 😏"],
-      gotTrumped: ["Bold. 😒", "Noted. 😒"],
-      spadesBroken: ["Finally. ♠️"],
-      goingNil: ["Nil. Cover me. 🤞"],
-      goingBlindNil: ["Blind nil. Let's go. 😤"],
-      weWon: ["Yes! 🏆", "Good game. We earned that. 😎"],
-      theyWon: ["Good game. Well played. 👏", "GG. Next time. 😤"],
-      replyLaugh: ["😄", "Ha 😏"],
-      replyLuck: ["Thanks, you too 🍀", "Luck has nothing to do with it 😏"],
-      replyThanks: ["Thanks 😊"],
-      replyHeart: ["😊"],
-      replyOops: ["Shake it off 👍"],
-    },
+  sharp: {
+    hello: ["Good luck. You'll need it 😏", "Let's play."],
+    partnerNilMade: ["Yes! Great nil 👏", "Clutch 🔥"],
+    ourNilMade: ["Nil made. ✅"],
+    theirNilSet: ["Got it. 😈", "Nil denied. 😈"],
+    ourNilSet: ["Argh. 😤", "That one hurt 😣"],
+    weGotSet: ["Hmph. Next hand. 😤", "We'll make it up."],
+    weSetThem: ["Set! 😈", "Exactly as planned 😏"],
+    bigTrick: ["💪", "Mine 😏"],
+    gotTrumped: ["Bold. 😒", "Noted. 😒"],
+    spadesBroken: ["Finally. ♠️"],
+    goingNil: ["Nil. Cover me. 🤞"],
+    goingBlindNil: ["Blind nil. Let's go. 😤"],
+    weWon: ["Yes! 🏆", "Good game. We earned that. 😎"],
+    theyWon: ["Good game. Well played. 👏", "GG. Next time. 😤"],
+    replyLaugh: ["😄", "Ha 😏"],
+    replyLuck: ["Thanks, you too 🍀", "Luck has nothing to do with it 😏"],
+    replyThanks: ["Thanks 😊"],
+    replyHeart: ["😊"],
+    replyOops: ["Shake it off 👍"],
+  },
+  quiet: {
+    hello: ["👋"],
+    partnerNilMade: ["👏"],
+    ourNilMade: ["😌"],
+    theirNilSet: ["🙂"],
+    ourNilSet: ["😑"],
+    weGotSet: ["Hm."],
+    weSetThem: ["👍"],
+    weWon: ["Good game. 🙂"],
+    theyWon: ["Good game."],
+    replyLaugh: ["🙂"],
+    replyLuck: ["You too."],
+    replyThanks: ["🙂"],
+    replyHeart: ["🙂"],
+    replyOops: ["👍"],
+  },
+  nervous: {
+    hello: ["Hi! Go easy on me 😅", "I'm still learning, be nice 🙈"],
+    partnerNilMade: ["Wow!! You're so good 🤩", "Teach me that 🤩"],
+    ourNilMade: ["Wait, it worked?! 😲", "I did it?! 🥹"],
+    theirNilSet: ["Oh! Sorry! 😬", "Was that me? 😬"],
+    ourNilSet: ["Sorry partner 😭", "I panicked 😰"],
+    weGotSet: ["That was my fault, sorry 😣", "Oops, sorry partner 🙈"],
+    weSetThem: ["Did we do that? 😲", "Yay?? 🥹"],
+    bigTrick: ["Oh! I won one 😲"],
+    gotTrumped: ["Ah! 😰", "I didn't see that coming 😵"],
+    goingNil: ["Trying a nil... 😬", "Nil? Is that right? 😅"],
+    goingBlindNil: ["Blind nil?! Why did I do that 😱"],
+    weWon: ["WE WON?! 🥹🎉", "Best partner ever 🥹"],
+    theyWon: ["Good game! I learned a lot 😅", "GG! Sorry partner 🙈"],
+    replyLaugh: ["😅", "Hehe 😅"],
+    replyLuck: ["I'll need it 😅", "Thanks!! 🍀"],
+    replyThanks: ["Really?! Thank you 🥹", "🥹"],
+    replyHeart: ["🥹❤️"],
+    replyOops: ["Phew, it's not just me 😅", "We're even 😅"],
+  },
+  dramatic: {
+    hello: ["Darlings, let's play 💅", "The queen of cards has arrived 👑"],
+    partnerNilMade: ["ICONIC 💅✨", "A masterpiece 😭✨"],
+    ourNilMade: ["Flawless. 💅", "As if there was doubt ✨"],
+    theirNilSet: ["Tragic for you 💅", "Oh honey 😘"],
+    ourNilSet: ["Betrayed by the cards 😩", "I'll never recover 😭"],
+    weGotSet: ["The DRAMA 😩", "I need a moment 😭"],
+    weSetThem: ["Delicious 😈", "As foretold 🔮"],
+    bigTrick: ["✨", "Gorgeous ✨"],
+    gotTrumped: ["How DARE you 😱", "The audacity 😤"],
+    spadesBroken: ["Chaos has begun 😈", "Here comes trouble ♠️"],
+    goingNil: ["Nil. Watch and learn 💅"],
+    goingBlindNil: ["BLIND NIL. Gasp all you want 😱"],
+    weWon: ["We're legends 👑✨", "Bow down 💅🏆"],
+    theyWon: ["I'm devastated. Good game 😭", "This isn't over 😤 GG"],
+    replyLaugh: ["😂💅", "Stop it 😂"],
+    replyLuck: ["Luck is for amateurs 💅", "Thank you, darling 😘"],
+    replyThanks: ["I know 💅", "Thank you, darling 😘"],
+    replyHeart: ["😘", "💖"],
+    replyOops: ["It's giving chaos 😂", "Forgiven, darling 😘"],
   },
 };
 
+const persona = (
+  name: string,
+  blurb: string,
+  voice: keyof typeof VOICES,
+  chatty: number,
+  pace: number,
+  style: PlayStyle,
+  extra: Lines = {},
+): Persona => {
+  const lines: Lines = { ...VOICES[voice] };
+  for (const [event, more] of Object.entries(extra) as [TalkEvent, string[]][]) lines[event] = [...more, ...(lines[event] ?? [])];
+  return { name, blurb, chatty, pace, style, lines };
+};
+
+/** Everyone who can take a seat. Some are sharp, some are careless; all are good company. */
+export const PERSONAS: Record<string, Persona> = Object.fromEntries(
+  [
+    persona("Dot", "Warm and steady; she'll cover your nil", "warm", 0.75, 1.1, { skill: 0.9 }),
+    persona("Hank", "Grumbles, plays fast, plays well", "dry", 0.45, 0.8, { skill: 1, bold: -0.2 }),
+    persona("Lou", "Jokes around and overbids a little", "goofy", 0.7, 0.95, { skill: 0.7, bold: 0.3, sloppy: 0.05 }),
+    persona("Bea", "Competitive; thinks every card through", "sharp", 0.55, 1.2, { skill: 1 }),
+    persona("Maggie", "Counts every card. Says little.", "sharp", 0.35, 1.15, { skill: 1, bold: -0.1 }, { hello: ["I'm counting. 🧮"] }),
+    persona("Earl", "Old school; bids low and hates nil", "dry", 0.4, 1.3, { skill: 0.75, bold: -0.8, nilLove: 0.1 }, { weGotSet: ["Told you to bid low."], hello: ["Bid what you've got. That's all."] }),
+    persona("Tammy", "Never met a nil she didn't like", "warm", 0.8, 1.0, { skill: 0.6, nilLove: 0.9 }, { goingNil: ["Nil again! You know me 😜"], hello: ["Who's ready for some nils? 😜"] }),
+    persona("Junior", "Still learning; makes mistakes, means well", "nervous", 0.7, 1.35, { skill: 0.2, sloppy: 0.45, bold: 0.2 }),
+    persona("Pearl", "Sweet as pie and sharp as a tack", "warm", 0.5, 1.25, { skill: 0.85 }, { hello: ["Hello, dears 🥰"], weWon: ["Well isn't that nice 🥰"] }),
+    persona("Duke", "Bids big, goes blind, lives loud", "goofy", 0.75, 0.85, { skill: 0.45, bold: 1, nilLove: 0.85, sloppy: 0.15 }, { hello: ["Go big or go home 🤠"], weGotSet: ["Worth it 🤠"] }),
+    persona("Ruthie", "Hates bags; plays tight and tidy", "sharp", 0.45, 1.1, { skill: 0.85, bold: -0.3 }, { weSetThem: ["No bags, no mercy 😏"], hello: ["No bags today, please."] }),
+    persona("Skeeter", "Goofball; plays fast and loose", "goofy", 0.85, 0.75, { skill: 0.3, sloppy: 0.3, bold: 0.5 }, { hello: ["Skeeter's here! 🦟"], gotTrumped: ["Ow! 🦟"] }),
+    persona("Vern", "Quiet. Very good. Very quiet.", "quiet", 0.15, 1.0, { skill: 1 }),
+    persona("Gigi", "Dramatic; plays by feel", "dramatic", 0.8, 1.05, { skill: 0.5, sloppy: 0.12, nilLove: 0.6 }),
+  ].map((p) => [p.name, p]),
+);
+
+/** Pick `n` different personas at random, for empty seats. */
+export function pickPersonas(n: number, rand: Rand = Math.random, exclude: string[] = []): Persona[] {
+  const pool = Object.values(PERSONAS).filter((p) => !exclude.includes(p.name));
+  const chosen: Persona[] = [];
+  while (chosen.length < n && pool.length) chosen.push(pool.splice(Math.floor(rand() * pool.length), 1)[0]!);
+  return chosen;
+}
+
 /** The persona for a bot's name, or a pleasant default for any other name. */
 export function personaFor(name: string): Persona {
-  return PERSONAS[name] ?? { ...PERSONAS.Dot!, name, chatty: 0.5 };
+  return PERSONAS[name] ?? { ...PERSONAS.Dot!, name, blurb: "", chatty: 0.5 };
 }
 
 export interface Remark {
@@ -158,7 +245,6 @@ export interface Remark {
   delay: number;
 }
 
-type Rand = () => number;
 const pick = <T>(list: T[], rand: Rand): T => list[Math.floor(rand() * list.length)]!;
 
 /** One bot says something about an event, if their mood (and the dice) say so. */

@@ -118,9 +118,26 @@ function rollout(start: GameState, team: Team): number {
   return ours.delta - theirs.delta - (ours.bagPenalty - theirs.bagPenalty) * 0.25;
 }
 
+/**
+ * How a bot plays, as a person would: not every partner is a card shark.
+ * All fields are optional; the defaults are the full-strength thinking bot.
+ */
+export interface PlayStyle {
+  /** 0–1: how hard it thinks (how many hands it imagines). 1 is full strength. */
+  skill?: number;
+  /** 0–1: chance of a careless card instead of a thought-out one. */
+  sloppy?: number;
+  /** -1 to 1: underbids (negative) or overbids (positive), by up to about a trick. */
+  bold?: number;
+  /** 0–1: how readily it goes nil (0.5 is the default judgment). Above 0.8 it'll try blind nil. */
+  nilLove?: number;
+}
+
 export interface ThinkOptions {
   /** Deals to try. More is stronger and slower. Default 40. */
   deals?: number;
+  /** How this bot plays. */
+  style?: PlayStyle;
   /** Seed for the deals, so a decision can be replayed. Default: from the game. */
   seed?: number;
 }
@@ -134,9 +151,17 @@ export function thinkCard(s: GameState, seat: Seat, opts: ThinkOptions = {}): { 
 
   const seed = opts.seed ?? (s.seed ^ (s.handNumber * 7919) ^ ((s.played?.length ?? 0) * 104729) ^ (seat * 15485863)) >>> 0;
   const rand = mulberry32(seed);
+  const style = opts.style ?? {};
+  // A careless moment: the first thing that comes to mind, or just any legal card.
+  if (style.sloppy && rand() < style.sloppy) {
+    const card = rand() < 0.5 ? rolloutCard(s, seat) : legal[Math.floor(rand() * legal.length)]!;
+    return { card, scores: [] };
+  }
   const k = knowledge(s, seat);
   const team = teamOf(seat);
-  const wanted = opts.deals ?? 40;
+  const skill = style.skill ?? 1;
+  // Imagining fewer hands is thinking less: a skill of 0 still imagines a couple.
+  const wanted = opts.deals ?? Math.max(2, Math.round(2 + 38 * skill * skill));
 
   // The same deals for every option, so differences come from the choice, not the luck.
   const deals: { hands: Card[][]; w: number }[] = [];
@@ -162,8 +187,10 @@ export function thinkCard(s: GameState, seat: Seat, opts: ThinkOptions = {}): { 
 }
 
 /** A bid from the hand, the partner's bid, what's left to bid, and the score. */
-export function thinkBid(s: GameState, seat: Seat): Bid {
+export function thinkBid(s: GameState, seat: Seat, style: PlayStyle = {}): Bid {
   const p = s.preset;
+  const nilLove = style.nilLove ?? 0.5;
+  const dice = mulberry32((s.seed ^ (s.handNumber * 2654435761) ^ (seat * 97)) >>> 0);
   const partner = partnerOf(seat);
   const partnerBid = s.bids[partner];
   const myTeam = teamOf(seat);
@@ -171,10 +198,10 @@ export function thinkBid(s: GameState, seat: Seat): Bid {
 
   // Blind nil is decided before looking, so it rests on the score alone: a long way behind,
   // with a partner who hasn't gone nil, it's worth the swing.
-  if (canBidBlindNil(s, seat) && behind >= 200 && partnerBid?.kind !== "nil" && partnerBid?.kind !== "blind-nil") {
-    const coin = mulberry32((s.seed ^ (s.handNumber * 31337) ^ seat) >>> 0)();
-    if (coin < 0.4) return { kind: "blind-nil" };
-  }
+  const partnerNil = partnerBid?.kind === "nil" || partnerBid?.kind === "blind-nil";
+  if (canBidBlindNil(s, seat) && behind >= 200 && !partnerNil && dice() < 0.4 * (nilLove / 0.5)) return { kind: "blind-nil" };
+  // Daredevils go blind nil just for the thrill when they're behind at all.
+  if (canBidBlindNil(s, seat) && nilLove > 0.8 && behind > 0 && !partnerNil && dice() < 0.12) return { kind: "blind-nil" };
 
   const hand = s.hands[seat]!;
   const spades = hand.filter((c) => isTrump(c, p));
@@ -183,10 +210,15 @@ export function thinkBid(s: GameState, seat: Seat): Bid {
   const partnerIsNil = partnerBid?.kind === "nil" || partnerBid?.kind === "blind-nil";
 
   // Nil: few and low spades, almost no high cards, and a partner who can carry the bid.
-  const lowSpades = spades.every((c) => cardPower(c, p) <= 9) && spades.length <= 3;
-  if (p.nil.enabled && !partnerIsNil && lowSpades && high.length <= 1 && estimate < 1.3) return { kind: "nil" };
+  // Nil lovers stretch for it; nil haters need a hopeless hand.
+  const spadeCap = nilLove > 0.7 ? 10 : nilLove < 0.3 ? 7 : 9;
+  const lowSpades = spades.every((c) => cardPower(c, p) <= spadeCap) && spades.length <= (nilLove > 0.7 ? 4 : 3);
+  const estimateCap = 0.6 + 1.4 * nilLove;
+  if (p.nil.enabled && !partnerIsNil && lowSpades && high.length <= (nilLove > 0.7 ? 2 : 1) && estimate < estimateCap) return { kind: "nil" };
 
-  let count = Math.round(estimate);
+  // Boldness shades the bid by up to about a trick, rounding by chance.
+  const shaded = estimate + (style.bold ?? 0) * 1.1;
+  let count = Math.floor(shaded) + (dice() < shaded - Math.floor(shaded) ? 1 : 0);
   if (partnerIsNil) count += 1; // covering for a nil takes tricks of its own
   // Don't push the table past 13 when the others have spoken: someone is overbidding.
   const others = SEATS.filter((x) => x !== seat).reduce<number>((n, x) => n + (s.bids[x]?.kind === "tricks" ? (s.bids[x] as { count: number }).count : 0), 0);
@@ -200,7 +232,7 @@ export function thinkBid(s: GameState, seat: Seat): Bid {
 
 /** The next action for a thinking bot in `seat`, or null if it isn't the bot's move. */
 export function smartAction(s: GameState, seat: Seat, opts: ThinkOptions = {}): Action | null {
-  if (s.phase === "bidding" && s.turn === seat) return { type: "bid", seat, bid: thinkBid(s, seat) };
+  if (s.phase === "bidding" && s.turn === seat) return { type: "bid", seat, bid: thinkBid(s, seat, opts.style) };
   if (s.phase === "passing" && passingSeats(s).includes(seat) && !s.passes[seat]) return { type: "pass", seat, cards: choosePass(s, seat) };
   if (s.phase === "playing" && s.turn === seat) return { type: "play", seat, card: thinkCard(s, seat, opts).card };
   return null;

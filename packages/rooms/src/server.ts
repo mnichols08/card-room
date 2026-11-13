@@ -23,8 +23,8 @@ export interface RoomDefinition<State, Move, View, Options, Summary = unknown> {
   view(state: State, seat: number): View;
   /** What everyone may see (lobby, scoreboards, a blog embed). */
   summary?(state: State): Summary;
-  /** A bot's move for a seat, or null when it isn't that seat's move. */
-  bot?(state: State, seat: number): Move | null;
+  /** A bot's move for a seat, or null when it isn't that seat's move. `name` is the bot's name in that seat. */
+  bot?(state: State, seat: number, name: string): Move | null;
   /** Whether the game is over. Finished rooms are dropped from memory (the log keeps them). */
   finished?(state: State): boolean;
   /** How long (ms) a bot takes over its move, so bots feel like people. Default 700. */
@@ -271,11 +271,12 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     const seats = (await room(id))?.seats ?? [];
     for (let seat = 0; seat < def.seats; seat++) {
       if (!seats[seat]?.bot) continue;
-      if (def.bot(entry.state, seat) === null) continue;
-      const delay = fixedDelay ?? def.botDelay?.(entry.state, seat, seats[seat]!.name ?? "") ?? 700;
+      const botName = seats[seat]!.name ?? "";
+      if (def.bot(entry.state, seat, botName) === null) continue;
+      const delay = fixedDelay ?? def.botDelay?.(entry.state, seat, botName) ?? 700;
       entry.timer = setTimeout(async () => {
         entry.timer = null;
-        const move = entry.state === null ? null : def.bot!(entry.state, seat);
+        const move = entry.state === null ? null : def.bot!(entry.state, seat, botName);
         if (move === null) return;
         let before: State;
         try {
