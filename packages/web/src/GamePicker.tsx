@@ -1,7 +1,7 @@
 import type { GameId } from "./storage";
 
 export const GAME_LIST: { id: GameId; name: string; emoji: string; blurb: string }[] = [
-  { id: "spades", name: "Spades", emoji: "♠️", blurb: "Partners, bids and nils" },
+  { id: "spades", name: "Spades", emoji: "♠\uFE0E", blurb: "Partners, bids and nils" },
   { id: "palace", name: "Palace", emoji: "🏰", blurb: "First to shed every card wins" },
 ];
 

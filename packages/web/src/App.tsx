@@ -3,6 +3,7 @@ import type { PalaceRules } from "@cardroom/palace";
 import type { RulePreset } from "@spades/rules";
 import { useEffect, useState } from "react";
 import { ChallengePage } from "./ChallengePage";
+import { EmbedHome } from "./EmbedHome";
 import { HousePage } from "./HousePage";
 import { houses } from "./housesApi";
 import { LocalTable } from "./LocalTable";
@@ -41,6 +42,7 @@ function go(params: Record<string, string | null>) {
 
 export function App() {
   const [screen, setScreen] = useState<Screen>(fromUrl);
+  const embedded = new URLSearchParams(location.search).get("embed") === "1";
   const [game, setGame] = useState<GameId>(() => {
     const asked = new URLSearchParams(location.search).get("game");
     return asked === "palace" || asked === "spades" ? asked : loadGame();
@@ -58,7 +60,7 @@ export function App() {
   }, []);
 
   const home = () => {
-    go({});
+    go(embedded ? { embed: "1", game } : {});
     setScreen({ kind: "setup" });
   };
   const openHouse = (slug: string) => {
@@ -70,6 +72,18 @@ export function App() {
     setScreen({ kind: "room", id, house });
   };
 
+  // Inside the <card-room> embed on someone's page: practice only.
+  if (embedded && screen.kind === "setup") {
+    return (
+      <EmbedHome
+        game={game}
+        onPractice={(name, rules, seats) => {
+          const seed = Math.floor(Math.random() * 2 ** 31);
+          setScreen(game === "palace" ? { kind: "local-palace", name, rules: rules as PalaceRules, seats, seed } : { kind: "local", name, preset: rules as RulePreset, seed });
+        }}
+      />
+    );
+  }
   if (screen.kind === "local") return <LocalTable key={screen.seed} {...screen} onLeave={home} />;
   if (screen.kind === "local-palace") return <LocalPalace key={screen.seed} {...screen} onLeave={home} />;
   if (screen.kind === "room") {

@@ -410,3 +410,7 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; }
 @media (prefers-reduced-motion: reduce) { .table-slot .flip { animation: none; } }
 .placings { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 1.05rem; }
 .placings li.mine { color: var(--gold); font-weight: 700; }
+
+/* Inside another site's page: no big header, a little tighter. */
+.setup.embedded { padding-top: 16px; gap: 12px; }
+.setup.embedded a { color: var(--gold); }
