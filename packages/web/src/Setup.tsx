@@ -1,4 +1,7 @@
 import { validatePreset, type RulePreset } from "@spades/rules";
+import SelectField from "@spades/ui/zubra-ui/select-field.zb";
+import TextField from "@spades/ui/zubra-ui/text-field.zb";
+import ToggleSwitch from "@spades/ui/zubra-ui/toggle-switch.zb";
 import { useMemo, useState } from "react";
 import {
   deleteSavedPreset,
@@ -25,6 +28,7 @@ export function Setup({ onStart }: Props) {
   const isSaved = saved.some((p) => p.id === rules.id);
   const isStarter = starterPresets.some((p) => p.id === rules.id);
   const matchesStored = JSON.stringify(all.find((p) => p.id === rules.id)) === JSON.stringify(rules);
+  const presetOptions = all.some((p) => p.id === rules.id) ? all : [rules, ...all];
 
   const set = (patch: Partial<RulePreset>) => setRules((r) => ({ ...r, ...patch }));
 
@@ -48,27 +52,24 @@ export function Setup({ onStart }: Props) {
   return (
     <main className="setup">
       <header className="setup-head">
-        <div className="suits" aria-hidden>♠ ♥ ♣ ♦</div>
+        <div className="suits" aria-hidden>
+          ♠ ♥ ♣ ♦
+        </div>
         <h1>Spades</h1>
         <p>Pull up a chair.</p>
       </header>
 
-      <label className="field">
-        <span>Your spades name</span>
-        <input value={name} onChange={(e) => setName(e.target.value)} maxLength={20} autoComplete="nickname" />
-      </label>
+      <TextField label="Your spades name" value={name} maxlength={20} autocomplete="nickname" onValueChange={(e: CustomEvent<string>) => setName(e.detail)} />
 
-      <label className="field">
-        <span>House rules</span>
-        <select value={rules.id} onChange={(e) => setRules(all.find((p) => p.id === e.target.value)!)}>
-          {!all.some((p) => p.id === rules.id) && <option value={rules.id}>{rules.name}</option>}
-          {all.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
-      </label>
+      <SelectField
+        label="House rules"
+        value={rules.id}
+        options={presetOptions.map((p) => ({ value: p.id, label: p.name }))}
+        onValueChange={(e: CustomEvent<string>) => {
+          const next = all.find((p) => p.id === e.detail);
+          if (next) setRules(next);
+        }}
+      />
 
       <p className="rules-summary">{describe(rules)}</p>
 
@@ -78,20 +79,28 @@ export function Setup({ onStart }: Props) {
 
       {showRules && (
         <section className="rules" aria-label="Rules">
-          <Row label="Trump">
-            <select value={rules.trump} onChange={(e) => set({ trump: e.target.value as RulePreset["trump"] })}>
-              <option value="ace-high">Spades, ace high</option>
-              <option value="jokers-and-deuces">Jokers &amp; deuces</option>
-            </select>
-          </Row>
-          <Toggle label="Spades must be broken before they're led" checked={rules.spadesMustBeBroken} onChange={(v) => set({ spadesMustBeBroken: v })} />
+          <Choice
+            label="Trump"
+            value={rules.trump}
+            options={[
+              ["ace-high", "Spades, ace high"],
+              ["jokers-and-deuces", "Jokers & deuces"],
+            ]}
+            onChange={(v) => set({ trump: v as RulePreset["trump"] })}
+          />
+          <Toggle label="Spades must be broken" description="Nobody leads a spade until one has been played." checked={rules.spadesMustBeBroken} onChange={(v) => set({ spadesMustBeBroken: v })} />
 
           <h3>Nil</h3>
           <Toggle label="Allow nil" checked={rules.nil.enabled} onChange={(v) => set({ nil: { ...rules.nil, enabled: v } })} />
           {rules.nil.enabled && (
             <>
-              <NumberRow label="Nil is worth" value={rules.nil.value} step={50} onChange={(v) => set({ nil: { ...rules.nil, value: v } })} />
-              <Toggle label="Nil bidder's tricks count toward partner's bid" checked={rules.nilTricksCountTowardBid} onChange={(v) => set({ nilTricksCountTowardBid: v })} />
+              <Choice label="Nil is worth" value={rules.nil.value} options={points([50, 100, 150, 200], rules.nil.value)} onChange={(v) => set({ nil: { ...rules.nil, value: Number(v) } })} />
+              <Toggle
+                label="Nil tricks help partner"
+                description="Tricks the nil bidder takes count toward the partner's bid instead of as bags."
+                checked={rules.nilTricksCountTowardBid}
+                onChange={(v) => set({ nilTricksCountTowardBid: v })}
+              />
             </>
           )}
 
@@ -99,25 +108,28 @@ export function Setup({ onStart }: Props) {
           <Toggle label="Allow blind nil" checked={rules.blindNil.enabled} onChange={(v) => set({ blindNil: { ...rules.blindNil, enabled: v } })} />
           {rules.blindNil.enabled && (
             <>
-              <NumberRow label="Blind nil is worth" value={rules.blindNil.value} step={50} onChange={(v) => set({ blindNil: { ...rules.blindNil, value: v } })} />
-              <Row label="Only when behind by">
-                <select
-                  value={rules.blindNil.onlyWhenDownBy ?? "any"}
-                  onChange={(e) => set({ blindNil: { ...rules.blindNil, onlyWhenDownBy: e.target.value === "any" ? null : Number(e.target.value) } })}
-                >
-                  <option value="any">Any time</option>
-                  <option value="100">100 or more</option>
-                  <option value="200">200 or more</option>
-                </select>
-              </Row>
-              <Row label="Swap with partner">
-                <select value={rules.blindNil.passCards} onChange={(e) => set({ blindNil: { ...rules.blindNil, passCards: Number(e.target.value) } })}>
-                  <option value={0}>No swap</option>
-                  <option value={1}>1 card</option>
-                  <option value={2}>2 cards</option>
-                  <option value={3}>3 cards</option>
-                </select>
-              </Row>
+              <Choice label="Blind nil is worth" value={rules.blindNil.value} options={points([100, 200, 300, 400], rules.blindNil.value)} onChange={(v) => set({ blindNil: { ...rules.blindNil, value: Number(v) } })} />
+              <Choice
+                label="Only when behind by"
+                value={rules.blindNil.onlyWhenDownBy ?? "any"}
+                options={[
+                  ["any", "Any time"],
+                  ["100", "100 or more"],
+                  ["200", "200 or more"],
+                ]}
+                onChange={(v) => set({ blindNil: { ...rules.blindNil, onlyWhenDownBy: v === "any" ? null : Number(v) } })}
+              />
+              <Choice
+                label="Swap with partner"
+                value={rules.blindNil.passCards}
+                options={[
+                  ["0", "No swap"],
+                  ["1", "1 card"],
+                  ["2", "2 cards"],
+                  ["3", "3 cards"],
+                ]}
+                onChange={(v) => set({ blindNil: { ...rules.blindNil, passCards: Number(v) } })}
+              />
             </>
           )}
 
@@ -125,32 +137,25 @@ export function Setup({ onStart }: Props) {
           <Toggle label="Bag penalty" checked={rules.bags !== null} onChange={(v) => set({ bags: v ? { limit: 10, penalty: 100 } : null })} />
           {rules.bags && (
             <>
-              <NumberRow label="Every this many bags" value={rules.bags.limit} step={1} onChange={(v) => set({ bags: { ...rules.bags!, limit: v } })} />
-              <NumberRow label="costs" value={rules.bags.penalty} step={50} onChange={(v) => set({ bags: { ...rules.bags!, penalty: v } })} />
+              <Choice label="Every this many bags" value={rules.bags.limit} options={points([5, 8, 10, 15], rules.bags.limit)} onChange={(v) => set({ bags: { ...rules.bags!, limit: Number(v) } })} />
+              <Choice label="costs" value={rules.bags.penalty} options={points([50, 100, 150, 200], rules.bags.penalty)} onChange={(v) => set({ bags: { ...rules.bags!, penalty: Number(v) } })} />
             </>
           )}
 
           <h3>Game</h3>
-          <NumberRow label="Play to" value={rules.playTo} step={50} onChange={(v) => set({ playTo: v })} />
-          <Row label="Lose at">
-            <select value={rules.loseAt ?? "none"} onChange={(e) => set({ loseAt: e.target.value === "none" ? null : Number(e.target.value) })}>
-              <option value="none">No floor</option>
-              <option value="-100">-100</option>
-              <option value="-150">-150</option>
-              <option value="-200">-200</option>
-              <option value="-300">-300</option>
-            </select>
-          </Row>
-          <Row label="Team must bid at least">
-            <select value={rules.minTeamBid ?? "none"} onChange={(e) => set({ minTeamBid: e.target.value === "none" ? null : Number(e.target.value) })}>
-              <option value="none">No minimum</option>
-              {[2, 3, 4, 5].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
-          </Row>
+          <Choice label="Play to" value={rules.playTo} options={points([200, 250, 300, 400, 500, 600], rules.playTo)} onChange={(v) => set({ playTo: Number(v) })} />
+          <Choice
+            label="Lose at"
+            value={rules.loseAt ?? "none"}
+            options={[["none", "No floor"], ...points([-100, -150, -200, -300], rules.loseAt ?? -200)]}
+            onChange={(v) => set({ loseAt: v === "none" ? null : Number(v) })}
+          />
+          <Choice
+            label="Team must bid at least"
+            value={rules.minTeamBid ?? "none"}
+            options={[["none", "No minimum"], ...points([2, 3, 4, 5], rules.minTeamBid ?? 4)]}
+            onChange={(v) => set({ minTeamBid: v === "none" ? null : Number(v) })}
+          />
 
           <div className="rule-actions">
             <button type="button" className="secondary" onClick={saveAs} disabled={errors.length > 0}>
@@ -183,38 +188,39 @@ export function Setup({ onStart }: Props) {
 }
 
 function describe(r: RulePreset): string {
-  const parts = [
+  return [
     r.trump === "jokers-and-deuces" ? "Jokers & deuces" : "Spades ace-high",
     r.nil.enabled ? `nil ${r.nil.value}` : "no nil",
     r.blindNil.enabled ? `blind nil ${r.blindNil.value}` : "no blind nil",
     r.bags ? `${r.bags.limit} bags = −${r.bags.penalty}` : "no bag penalty",
     `play to ${r.playTo}`,
-  ];
-  return parts.join(" · ");
+  ].join(" · ");
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+/** Number choices as select options, keeping the current value even if it isn't one of them. */
+function points(choices: number[], current: number): [string, string][] {
+  const all = choices.includes(current) ? choices : [...choices, current].sort((a, b) => a - b);
+  return all.map((n) => [String(n), String(n)]);
+}
+
+function Toggle(props: { label: string; description?: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label className="row">
-      <span>{label}</span>
-      {children}
-    </label>
+    <ToggleSwitch
+      label={props.label}
+      description={props.description ?? ""}
+      checked={props.checked}
+      onCheckedChange={(e: CustomEvent<boolean>) => props.onChange(e.detail)}
+    />
   );
 }
 
-function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+function Choice(props: { label: string; value: string | number; options: [string, string][]; onChange: (v: string) => void }) {
   return (
-    <label className="row toggle">
-      <span>{label}</span>
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-    </label>
-  );
-}
-
-function NumberRow({ label, value, step, onChange }: { label: string; value: number; step: number; onChange: (v: number) => void }) {
-  return (
-    <Row label={label}>
-      <input type="number" inputMode="numeric" value={value} step={step} onChange={(e) => onChange(Number(e.target.value))} />
-    </Row>
+    <SelectField
+      label={props.label}
+      value={String(props.value)}
+      options={props.options.map(([value, label]) => ({ value, label }))}
+      onValueChange={(e: CustomEvent<string>) => props.onChange(e.detail)}
+    />
   );
 }

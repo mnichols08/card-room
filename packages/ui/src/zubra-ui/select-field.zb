@@ -1,0 +1,44 @@
+<!-- Copied from zubra-ui (0d2fdd0) components/select-field.zb: https://github.com/journey-to-code-org/zubra-ui. Ours to edit. -->
+<!--
+  A labelled dropdown on a native <select>: the platform's own picker on every device, keyboard
+  typeahead, autofill, and form submission under `name`. `options` is `[{ value, label }]`, or
+  groups `[{ label, options: [...] }]`. `placeholder` adds an empty first choice, and with
+  `required` the form won't submit until one is chosen. `value` is two-way.
+  @fires valuechange - The choice changed; `detail` is the chosen value.
+-->
+<script>
+  import { id } from '@zubra/runtime'
+
+  const selectId = id()
+  const helpId = id()
+</script>
+<style>
+  :host { display: block; }
+  .select-field { display: grid; gap: 0.4rem; }
+  label { font-weight: 600; font-size: 0.925rem; }
+  .select-help { margin: 0; font-size: 0.85rem; color: color-mix(in oklab, var(--muted-foreground, #71717a) 75%, var(--foreground, #18181b)); }
+  .select-box { position: relative; }
+  .select-box::after { content: ""; position: absolute; right: 0.85rem; top: 50%; width: 0.45rem; height: 0.45rem; border: solid currentColor; border-width: 0 2px 2px 0; transform: translateY(-70%) rotate(45deg); pointer-events: none; }
+  select { appearance: none; width: 100%; padding: 0.55rem 2.25rem 0.55rem 0.75rem; border: 1px solid var(--input, #e4e4e7); border-radius: calc(var(--radius, 0.625rem) - 2px); background: var(--background, #fff); color: var(--foreground, #18181b); font: inherit; cursor: pointer; }
+  select:focus-visible { outline: none; border-color: var(--ring, #a1a1aa); box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring, #a1a1aa) 40%, transparent); }
+  select:disabled { opacity: 0.55; cursor: not-allowed; }
+</style>
+<select-field value:model="" options={[]} label="" description="" name="" placeholder="" required={false} disabled={false} autocomplete="">
+  <div class="select-field">
+    <label for={selectId}>{label}</label>
+    <p zb-if={description} class="select-help" id={helpId}>{description}</p>
+    <div class="select-box">
+      <select id={selectId} name={name || null} required={required} disabled={disabled} autocomplete={autocomplete || null} aria-describedby={description ? helpId : null} value={value} onchange={(event) => (value = event.target.value)}>
+        <option zb-if={placeholder} value="">{placeholder}</option>
+        <zb-each items={options} as="option" index="i" key={option.value ?? `group-${i}`}>
+          <optgroup zb-if={option.options} label={option.label}>
+            <zb-each items={option.options} as="choice" key={choice.value}>
+              <option value={choice.value}>{choice.label}</option>
+            </zb-each>
+          </optgroup>
+          <option zb-else value={option.value}>{option.label}</option>
+        </zb-each>
+      </select>
+    </div>
+  </div>
+</select-field>

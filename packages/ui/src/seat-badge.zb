@@ -1,0 +1,31 @@
+<!--
+  A player at the table: their name, their bid and the tricks they've taken.
+  `team` is "us" or "them" and colours the name. `active` highlights whose turn it is.
+-->
+<style>
+  :host { display: block; }
+  .seat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.28);
+    color: var(--table-ink, #fbf6ec);
+    font-size: 0.8rem;
+    line-height: 1.3;
+    border: 2px solid transparent;
+    transition: border-color var(--duration-normal, 200ms);
+  }
+  .seat.row { flex-direction: row; gap: 8px; }
+  strong { font-size: 0.95rem; }
+  .us strong { color: var(--team-us, #e8c46a); }
+  .them strong { color: var(--team-them, #a9c7ff); }
+  .active { border-color: var(--primary, #e8c46a); box-shadow: 0 0 12px color-mix(in oklab, var(--primary, #e8c46a) 50%, transparent); }
+</style>
+<seat-badge name bid="—" tricks={0} team="us" active={false} layout="column">
+  <div class="seat {team}" class:active={active} class:row={layout === "row"} aria-current={active ? "true" : null}>
+    <strong>{name}</strong>
+    <span>Bid {bid} · Took {tricks}</span>
+  </div>
+</seat-badge>

@@ -1,0 +1,45 @@
+<!--
+  Choosing a bid. With `blind`, the player hasn't looked at their cards: it offers blind nil or a
+  look. Otherwise 1–13, and nil when `nil` allows it.
+  @fires bid - A bid was chosen; `detail` is a number of tricks, "nil" or "blind-nil".
+  @fires look - The player chose to look at their cards.
+-->
+<script>
+  import { emit } from '@zubra/runtime'
+
+  const counts = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+</script>
+<style>
+  :host { display: block; }
+  section { display: flex; flex-direction: column; gap: 12px; }
+  h2 { margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: 1.4rem; }
+  p { margin: 0; color: var(--muted-foreground, #6c6357); }
+  .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+  .grid button { padding: 12px 0; border-radius: 10px; border: 0; background: var(--felt, #1f4d3a); color: #fbf6ec; font: inherit; font-weight: 700; font-size: 1.1rem; cursor: pointer; }
+  .grid .nil { grid-column: span 2; background: var(--destructive, #b3261e); }
+  .actions { display: flex; flex-direction: column; gap: 10px; }
+  .actions button { border-radius: 999px; padding: 14px 22px; font: inherit; font-weight: 600; font-size: 1.05rem; cursor: pointer; }
+  .primary { border: 0; background: var(--primary, #e8c46a); color: var(--primary-foreground, #1d1a16); }
+  .secondary { background: transparent; color: var(--felt, #1f4d3a); border: 2px solid currentColor; }
+</style>
+<bid-pad blind={false} nil={true} sofar="">
+  <section aria-label="Your bid">
+    <h2>Your bid</h2>
+    <zb-if test={blind}>
+      <p>You haven't looked at your cards. You can bid blind nil now, or look first.</p>
+      <div class="actions">
+        <button type="button" class="primary" onclick={() => emit('bid', 'blind-nil')}>Blind nil</button>
+        <button type="button" class="secondary" onclick={() => emit('look')}>Look at my cards</button>
+      </div>
+      <zb-else>
+        <p zb-if={sofar}>So far: {sofar}</p>
+        <div class="grid">
+          <zb-each items={counts} as="n" key={n}>
+            <button type="button" onclick={() => emit('bid', n)}>{n}</button>
+          </zb-each>
+          <button zb-if={nil} type="button" class="nil" onclick={() => emit('bid', 'nil')}>Nil</button>
+        </div>
+      </zb-else>
+    </zb-if>
+  </section>
+</bid-pad>

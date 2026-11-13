@@ -13,7 +13,8 @@ See [docs/SPEC.md](docs/SPEC.md) for the plan.
 | --- | --- |
 | [`packages/rules`](packages/rules) | Rules engine and bots |
 | `packages/server` | Planned |
-| [`packages/web`](packages/web) | Card table: play against bots, set and save house rules |
+| [`packages/ui`](packages/ui) | Table components in Zubra, shared by the app and the blog embed |
+| [`packages/web`](packages/web) | React card table using the Zubra components: play against bots, set and save house rules |
 | `packages/embed` | Planned |
 
 ## Development

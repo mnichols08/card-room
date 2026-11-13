@@ -1,0 +1,68 @@
+<!--
+  One playing card: a pip card, a joker, or the back of a card. Tap a playable card to pick it.
+  `card` is `{ kind: "pip", suit, rank }` (rank 2–14) or `{ kind: "joker", size: "big" | "little" }`.
+  @fires pick - A playable card was tapped.
+-->
+<script>
+  import { emit } from '@zubra/runtime'
+
+  const SYMBOLS = { spades: "♠", hearts: "♥", diamonds: "♦", clubs: "♣" }
+  const RANKS = { 11: "J", 12: "Q", 13: "K", 14: "A" }
+
+  const joker = card.kind === "joker"
+  const red = joker ? card.size === "big" : card.suit === "hearts" || card.suit === "diamonds"
+  const rank = joker ? "★" : RANKS[card.rank] ?? String(card.rank)
+  const symbol = joker ? "" : SYMBOLS[card.suit]
+  const name = joker ? (card.size === "big" ? "Big Joker" : "Little Joker") : `${rank} of ${card.suit}`
+</script>
+<style>
+  :host { display: inline-block; flex: none; }
+  .card {
+    position: relative;
+    width: var(--card-w, 56px);
+    height: var(--card-h, 80px);
+    padding: 0;
+    border-radius: 7px;
+    border: 1px solid #d9d2c3;
+    background: #fffdf8;
+    color: #1d1a16;
+    font: inherit;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+    transition: transform var(--duration-fast, 150ms), opacity var(--duration-fast, 150ms);
+  }
+  .card.red { color: #b3261e; }
+  .corner { position: absolute; top: 4px; left: 5px; font-size: 0.85rem; font-weight: 700; line-height: 1; text-align: center; }
+  .pip { position: absolute; right: 6px; bottom: 4px; font-size: 1.6rem; line-height: 1; }
+  .joker-name { position: absolute; right: 5px; bottom: 5px; font-size: 0.55rem; font-weight: 800; text-align: right; letter-spacing: 0.05em; }
+  .card[data-size=table] { width: 52px; height: 74px; }
+  .card[data-size=table] .pip { right: 50%; bottom: 50%; transform: translate(50%, 50%); font-size: 1.8rem; }
+  .card.playable { cursor: pointer; }
+  .card.playable:not(.dim):hover, .card.playable:not(.dim):focus-visible { transform: translateY(-10px); }
+  .card.dim { opacity: 0.45; filter: grayscale(0.4); cursor: default; }
+  .card.selected { transform: translateY(-14px); box-shadow: 0 0 0 3px var(--primary, #e8c46a), 0 4px 10px rgba(0, 0, 0, 0.4); }
+  .card.won { box-shadow: 0 0 0 3px var(--primary, #e8c46a), 0 4px 10px rgba(0, 0, 0, 0.4); }
+  .back { background: repeating-linear-gradient(45deg, #7a1f2b 0 6px, #8e2a36 6px 12px); border: 3px solid #fffdf8; }
+  @media (prefers-reduced-motion: reduce) { .card { transition: none; } }
+</style>
+<playing-card card={{ kind: "pip", suit: "spades", rank: 14 }} size="hand" back={false} playable={false} dim={false} selected={false} won={false}>
+  <div zb-if={back} class="card back" data-size={size} aria-hidden="true"></div>
+  <button
+    zb-else
+    type="button"
+    class="card"
+    data-size={size}
+    class:red={red}
+    class:playable={playable}
+    class:dim={dim}
+    class:selected={selected}
+    class:won={won}
+    disabled={!playable || dim}
+    aria-label={name}
+    aria-pressed={selected ? "true" : null}
+    onclick={() => emit('pick')}
+  >
+    <span class="corner">{rank}<br />{symbol}</span>
+    <span zb-if={joker} class="joker-name">{card.size === "big" ? "BIG" : "LIL"}<br />JOKER</span>
+    <span zb-else class="pip">{symbol}</span>
+  </button>
+</playing-card>

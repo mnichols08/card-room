@@ -1,6 +1,10 @@
 import { cardId, passingSeats, sameCard, type Bid, type Card, type HandRecord, type RulePreset, type Seat } from "@spades/rules";
+import BidPad from "@spades/ui/bid-pad.zb";
+import HandSummary from "@spades/ui/hand-summary.zb";
+import PlayingCard from "@spades/ui/playing-card.zb";
+import ScoreBoard from "@spades/ui/score-board.zb";
+import SeatBadge from "@spades/ui/seat-badge.zb";
 import { useState } from "react";
-import { CardBack, CardView } from "./CardView";
 import { HUMAN, useLocalGame } from "./useLocalGame";
 
 interface Props {
@@ -9,6 +13,8 @@ interface Props {
   seed: number;
   onLeave: () => void;
 }
+
+type Game = ReturnType<typeof useLocalGame>["game"];
 
 const POSITION: Record<Seat, "bottom" | "left" | "top" | "right"> = { 0: "bottom", 1: "left", 2: "top", 3: "right" };
 
@@ -23,7 +29,7 @@ export function Table({ name, preset, seed, onLeave }: Props) {
   const iPass = game.phase === "passing" && passingSeats(game).includes(HUMAN) && !game.passes[HUMAN];
   const passCount = preset.blindNil.passCards;
 
-  function tapCard(card: Card) {
+  function pick(card: Card) {
     if (iPass) {
       setSelected((sel) =>
         sel.some((c) => sameCard(c, card))
@@ -37,25 +43,49 @@ export function Table({ name, preset, seed, onLeave }: Props) {
     if (myTurnToPlay) g.act({ type: "play", seat: HUMAN, card });
   }
 
+  function bid(detail: number | "nil" | "blind-nil") {
+    const choice: Bid = typeof detail === "number" ? { kind: "tricks", count: detail } : { kind: detail };
+    g.act({ type: "bid", seat: HUMAN, bid: choice });
+  }
+
+  const seat = (s: Seat, layout: "row" | "column" = "column") => (
+    <SeatBadge
+      name={names[s]}
+      bid={bidLabel(game.bids[s] ?? null)}
+      tricks={game.tricksWon[s]}
+      team={s % 2 === 0 ? "us" : "them"}
+      active={game.phase !== "finished" && (s === HUMAN ? myTurnToBid || myTurnToPlay : game.turn === s)}
+      layout={layout}
+    />
+  );
+
   return (
     <main className="table">
-      <Scoreboard game={game} names={names} onLeave={onLeave} />
+      <ScoreBoard
+        us={{ name: `${names[0]} & ${names[2]}`, ...game.scores[0] }}
+        them={{ name: `${names[1]} & ${names[3]}`, ...game.scores[1] }}
+        hand={game.handNumber + 1}
+        playTo={game.preset.playTo}
+        onLeave={() => confirm("Leave this game?") && onLeave()}
+      />
 
       <div className="felt">
-        {([1, 2, 3] as Seat[]).map((seat) => (
-          <SeatBadge key={seat} seat={seat} name={names[seat]} bid={game.bids[seat] ?? null} tricks={game.tricksWon[seat]!} active={game.turn === seat && game.phase !== "finished"} cards={view.handCounts[seat]!} />
+        {([1, 2, 3] as Seat[]).map((s) => (
+          <div key={s} className={`seat-slot ${POSITION[s]}`}>
+            {seat(s)}
+          </div>
         ))}
 
         <div className="trick" aria-label="Cards on the table">
           {g.trickOnTable.map((play) => (
-            <div key={cardId(play.card)} className={`played ${POSITION[play.seat]} ${g.trickWinner === play.seat ? "won" : ""}`}>
-              <CardView card={play.card} size="table" />
+            <div key={cardId(play.card)} className={`played ${POSITION[play.seat]}`}>
+              <PlayingCard card={play.card} size="table" won={g.trickWinner === play.seat} />
             </div>
           ))}
           {g.trickWinner !== null && <div className="took">{names[g.trickWinner]} takes it</div>}
         </div>
 
-        <div className="status">
+        <div className="status" role="status">
           {g.error ? (
             <span className="error">{g.error}</span>
           ) : myTurnToPlay ? (
@@ -73,33 +103,33 @@ export function Table({ name, preset, seed, onLeave }: Props) {
       </div>
 
       <section className="me">
-        <SeatBadge seat={HUMAN} name={names[HUMAN]} bid={game.bids[HUMAN] ?? null} tricks={game.tricksWon[HUMAN]!} active={myTurnToBid || myTurnToPlay} />
+        <div className="me-badge">{seat(HUMAN, "row")}</div>
         <div className="hand" role="group" aria-label="Your hand">
           {view.hand === null
-            ? Array.from({ length: 13 }, (_, i) => <CardBack key={i} />)
-            : view.hand.map((card) => {
-                const legal = !myTurnToPlay || view.legal.some((c) => sameCard(c, card));
-                return (
-                  <CardView
-                    key={cardId(card)}
-                    card={card}
-                    disabled={myTurnToPlay && !legal}
-                    selected={selected.some((c) => sameCard(c, card))}
-                    onClick={myTurnToPlay || iPass ? () => tapCard(card) : undefined}
-                  />
-                );
-              })}
+            ? Array.from({ length: 13 }, (_, i) => <PlayingCard key={i} back />)
+            : view.hand.map((card) => (
+                <PlayingCard
+                  key={cardId(card)}
+                  card={card}
+                  playable={myTurnToPlay || iPass}
+                  dim={myTurnToPlay && !view.legal.some((c) => sameCard(c, card))}
+                  selected={selected.some((c) => sameCard(c, card))}
+                  onPick={() => pick(card)}
+                />
+              ))}
         </div>
       </section>
 
       {myTurnToBid && (
-        <BidPanel
-          hidden={view.hand === null}
-          preset={preset}
-          bidsSoFar={([1, 2, 3] as Seat[]).flatMap((seat) => (game.bids[seat] ? [`${names[seat]} ${bidLabel(game.bids[seat]!)}`] : []))}
-          onLook={g.look}
-          onBid={(bid) => g.act({ type: "bid", seat: HUMAN, bid })}
-        />
+        <div className="sheet">
+          <BidPad
+            blind={view.hand === null}
+            nil={preset.nil.enabled}
+            sofar={([1, 2, 3] as Seat[]).flatMap((s) => (game.bids[s] ? [`${names[s]} ${bidLabel(game.bids[s]!)}`] : [])).join(" · ")}
+            onBid={(event: CustomEvent<number | "nil" | "blind-nil">) => bid(event.detail)}
+            onLook={g.look}
+          />
+        </div>
       )}
 
       {view.hand === null && game.phase === "bidding" && !myTurnToBid && !g.paused && (
@@ -127,8 +157,23 @@ export function Table({ name, preset, seed, onLeave }: Props) {
         </div>
       )}
 
-      {g.summary && game.phase !== "finished" && <HandSummary record={g.summary} game={game} onNext={g.dismissSummary} />}
-      {game.phase === "finished" && <GameOver game={game} names={names} onAgain={onLeave} />}
+      {g.summary && game.phase !== "finished" && (
+        <div className="sheet">
+          <HandSummary heading={`Hand ${g.summary.handNumber + 1}`} rows={summaryRows(g.summary, game)} action="Deal the next hand" onNext={g.dismissSummary} />
+        </div>
+      )}
+
+      {game.phase === "finished" && (
+        <div className="sheet">
+          <h2>{game.winner === 0 ? "You won!" : `${names[1]} & ${names[3]} won`}</h2>
+          <p className="final">
+            {game.scores[0].points} – {game.scores[1].points} after {game.history.length} hands
+          </p>
+          <button type="button" className="primary" onClick={onLeave}>
+            Play again
+          </button>
+        </div>
+      )}
     </main>
   );
 }
@@ -140,161 +185,16 @@ function bidLabel(bid: Bid | null) {
   return String(bid.count);
 }
 
-function SeatBadge(props: { seat: Seat; name: string; bid: Bid | null; tricks: number; active: boolean; cards?: number }) {
-  return (
-    <div className={`seat ${POSITION[props.seat]} ${props.active ? "active" : ""} ${props.seat % 2 === 0 ? "us" : "them"}`}>
-      <strong>{props.name}</strong>
-      <span>
-        Bid {bidLabel(props.bid)} · Took {props.tricks}
-      </span>
-    </div>
-  );
-}
+const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : "0");
 
-function Scoreboard({ game, names, onLeave }: { game: ReturnType<typeof useLocalGame>["game"]; names: Record<Seat, string>; onLeave: () => void }) {
-  return (
-    <header className="scoreboard">
-      <button type="button" className="link leave" onClick={() => confirm("Leave this game?") && onLeave()} aria-label="Leave game">
-        ←
-      </button>
-      <div className="team us">
-        <span>
-          {names[0]} &amp; {names[2]}
-        </span>
-        <strong>{game.scores[0].points}</strong>
-        <small>{bags(game.scores[0].bags)}</small>
-      </div>
-      <div className="target">
-        <small>Hand {game.handNumber + 1}</small>
-        <small>to {game.preset.playTo}</small>
-      </div>
-      <div className="team them">
-        <span>
-          {names[1]} &amp; {names[3]}
-        </span>
-        <strong>{game.scores[1].points}</strong>
-        <small>{bags(game.scores[1].bags)}</small>
-      </div>
-    </header>
-  );
+function summaryRows(record: HandRecord, game: Game) {
+  const [us, them] = record.results;
+  const both = (f: (r: typeof us) => string) => ({ us: f(us), them: f(them) });
+  return [
+    { label: "Bid / took", ...both((r) => `${r.bid} / ${r.tricks}`) },
+    { label: "Nil", ...both((r) => (r.nilPoints === 0 ? "—" : signed(r.nilPoints))) },
+    { label: "Bags", ...both((r) => `+${r.bagsTaken}${r.bagPenalty > 0 ? ` (−${r.bagPenalty})` : ""}`) },
+    { label: "This hand", tone: "score", ...both((r) => signed(r.delta)) },
+    { label: "Score", tone: "total", us: String(game.scores[0].points), them: String(game.scores[1].points) },
+  ];
 }
-
-function BidPanel(props: {
-  hidden: boolean;
-  preset: RulePreset;
-  bidsSoFar: string[];
-  onLook: () => void;
-  onBid: (bid: Bid) => void;
-}) {
-  if (props.hidden) {
-    return (
-      <div className="sheet">
-        <h2>Your bid</h2>
-        <p>You haven't looked at your cards. You can bid blind nil now, or look first.</p>
-        <div className="sheet-actions">
-          <button type="button" className="primary" onClick={() => props.onBid({ kind: "blind-nil" })}>
-            Blind nil
-          </button>
-          <button type="button" className="secondary" onClick={props.onLook}>
-            Look at my cards
-          </button>
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className="sheet">
-      <h2>Your bid</h2>
-      {props.bidsSoFar.length > 0 && <p>So far: {props.bidsSoFar.join(" · ")}</p>}
-      <div className="bids">
-        {Array.from({ length: 13 }, (_, i) => i + 1).map((n) => (
-          <button key={n} type="button" onClick={() => props.onBid({ kind: "tricks", count: n })}>
-            {n}
-          </button>
-        ))}
-        {props.preset.nil.enabled && (
-          <button type="button" className="nil" onClick={() => props.onBid({ kind: "nil" })}>
-            Nil
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function HandSummary({ record, game, onNext }: { record: HandRecord; game: ReturnType<typeof useLocalGame>["game"]; onNext: () => void }) {
-  return (
-    <div className="sheet">
-      <h2>Hand {record.handNumber + 1}</h2>
-      <table className="summary">
-        <thead>
-          <tr>
-            <th />
-            <th>Us</th>
-            <th>Them</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <th>Bid / took</th>
-            {record.results.map((r) => (
-              <td key={r.team}>
-                {r.bid} / {r.tricks}
-              </td>
-            ))}
-          </tr>
-          <tr>
-            <th>Nil</th>
-            {record.results.map((r) => (
-              <td key={r.team}>{r.nilPoints === 0 ? "—" : signed(r.nilPoints)}</td>
-            ))}
-          </tr>
-          <tr>
-            <th>Bags</th>
-            {record.results.map((r) => (
-              <td key={r.team}>
-                +{r.bagsTaken}
-                {r.bagPenalty > 0 && <em> (−{r.bagPenalty})</em>}
-              </td>
-            ))}
-          </tr>
-          <tr>
-            <th>This hand</th>
-            {record.results.map((r) => (
-              <td key={r.team} className={r.delta < 0 ? "neg" : "pos"}>
-                {signed(r.delta)}
-              </td>
-            ))}
-          </tr>
-          <tr className="total">
-            <th>Score</th>
-            {game.scores.map((s, i) => (
-              <td key={i}>{s.points}</td>
-            ))}
-          </tr>
-        </tbody>
-      </table>
-      <button type="button" className="primary" onClick={onNext}>
-        Deal the next hand
-      </button>
-    </div>
-  );
-}
-
-function GameOver({ game, names, onAgain }: { game: ReturnType<typeof useLocalGame>["game"]; names: Record<Seat, string>; onAgain: () => void }) {
-  const won = game.winner === 0;
-  return (
-    <div className="sheet">
-      <h2>{won ? "You won!" : `${names[1]} & ${names[3]} won`}</h2>
-      <p className="final">
-        {game.scores[0].points} – {game.scores[1].points} after {game.history.length} hands
-      </p>
-      <button type="button" className="primary" onClick={onAgain}>
-        Play again
-      </button>
-    </div>
-  );
-}
-
-const bags = (n: number) => `${n} bag${n === 1 ? "" : "s"}`;
-const signed = (n: number) => (n > 0 ? `+${n}` : String(n));

@@ -1,0 +1,9 @@
+{
+  "name": "@spades/ui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Spades table components written in Zubra: one source for the React app and the open.blog embed.",
+  "type": "module",
+  "exports": { "./*": "./src/*" },
+  "peerDependencies": { "@zubra/runtime": "^5.9.1" }
+}

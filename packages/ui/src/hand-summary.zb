@@ -1,0 +1,43 @@
+<!--
+  How a hand scored, us against them. `rows` is `[{ label, us, them, tone }]`; `tone` "score"
+  colours the values by sign, and "total" makes the row the bottom line.
+  @fires next - The action button was pressed.
+-->
+<script>
+  import { emit } from '@zubra/runtime'
+
+  const toneOf = (row, value) => (row.tone === "score" ? (String(value).startsWith("-") || String(value).startsWith("−") ? "neg" : "pos") : "")
+</script>
+<style>
+  :host { display: block; }
+  section { display: flex; flex-direction: column; gap: 12px; }
+  h2 { margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: 1.4rem; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
+  th, td { padding: 6px 4px; text-align: right; border-bottom: 1px solid var(--border, #e6dccb); }
+  tbody th { text-align: left; font-weight: 500; color: var(--muted-foreground, #6c6357); }
+  thead th { font-weight: 700; }
+  .pos { color: #1c6b3f; font-weight: 700; }
+  .neg { color: var(--destructive, #b3261e); font-weight: 700; }
+  tr.total td { font-size: 1.2rem; font-weight: 700; font-family: Georgia, serif; border-bottom: 0; }
+  button { border: 0; border-radius: 999px; padding: 14px 22px; background: var(--primary, #e8c46a); color: var(--primary-foreground, #1d1a16); font: inherit; font-weight: 600; font-size: 1.05rem; cursor: pointer; }
+</style>
+<hand-summary heading rows={[]} action="Next">
+  <section aria-label={heading}>
+    <h2>{heading}</h2>
+    <table>
+      <thead>
+        <tr><th></th><th scope="col">Us</th><th scope="col">Them</th></tr>
+      </thead>
+      <tbody>
+        <zb-each items={rows} as="row" key={row.label}>
+          <tr class:total={row.tone === "total"}>
+            <th scope="row">{row.label}</th>
+            <td class={toneOf(row, row.us)}>{row.us}</td>
+            <td class={toneOf(row, row.them)}>{row.them}</td>
+          </tr>
+        </zb-each>
+      </tbody>
+    </table>
+    <button zb-if={action} type="button" onclick={() => emit('next')}>{action}</button>
+  </section>
+</hand-summary>
