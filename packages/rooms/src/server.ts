@@ -13,8 +13,8 @@
 import { createSyncServer, memoryLog, type Log } from "@zubra/sync/server";
 
 export interface RoomDefinition<State, Move, View, Options, Summary = unknown> {
-  /** Seats at the table. */
-  seats: number;
+  /** Seats at the table: a number, or worked out from the room's options (a game for 2 to 6, say). */
+  seats: number | ((options: Options) => number);
   /** A new game, from the options a room was created with and a seed. */
   setup(options: Options, seed: number): State;
   /** Apply a move by a seat. Throw a RefusedMove (or any Error) to refuse it; the message goes back to the player. */
@@ -23,6 +23,8 @@ export interface RoomDefinition<State, Move, View, Options, Summary = unknown> {
   view(state: State, seat: number): View;
   /** What everyone may see (lobby, scoreboards, a blog embed). */
   summary?(state: State): Summary;
+  /** What everyone may see before the game starts, from the room's options: its game and rules, say. */
+  info?(options: Options): unknown;
   /** A bot's move for a seat, or null when it isn't that seat's move. `name` is the bot's name in that seat. */
   bot?(state: State, seat: number, name: string): Move | null;
   /** Whether the game is over. Finished rooms are dropped from memory (the log keeps them). */
@@ -52,6 +54,8 @@ export interface Seat {
 
 export interface RoomDoc<Summary = unknown> {
   seats: Seat[];
+  /** The room's public info from its options (see RoomDefinition.info), or null. */
+  info: unknown;
   started: boolean;
   summary: Summary | null;
   version: number;
@@ -135,6 +139,7 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
 ) {
   const mount = (options.mount ?? "/rooms").replace(/\/$/, "");
   const fixedDelay = options.botDelay;
+  const seatsFor = (o: Options) => (typeof def.seats === "function" ? def.seats(o) : def.seats);
   /** Run an app's hook without letting it break the room. */
   const safely = (fn: () => void) => {
     try {
@@ -217,8 +222,9 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
   /** Open a new room with these options. Resolves to its id. */
   async function create(roomOptions: Options): Promise<string> {
     const id = newId();
-    await sync.write("games", id, { options: roomOptions, seed: null, holders: Array(def.seats).fill(null) });
-    await sync.write("rooms", id, { seats: Array.from({ length: def.seats }, () => ({ name: null, bot: false })), started: false, summary: null, version: 0 });
+    const n = seatsFor(roomOptions);
+    await sync.write("games", id, { options: roomOptions, seed: null, holders: Array(n).fill(null) });
+    await sync.write("rooms", id, { seats: Array.from({ length: n }, () => ({ name: null, bot: false })), info: def.info?.(roomOptions) ?? null, started: false, summary: null, version: 0 });
     return id;
   }
 
@@ -262,7 +268,8 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     entry.version += 1;
     const writes: Promise<unknown>[] = [];
     if (entry.state !== null) {
-      for (let seat = 0; seat < def.seats; seat++)
+      const n = (await game(id))?.holders.length ?? 0;
+      for (let seat = 0; seat < n; seat++)
         writes.push(sync.write("views", `${id}/${seat}`, { view: def.view(entry.state, seat), version: entry.version }));
     }
     writes.push(
@@ -296,7 +303,7 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     const entry = await stateOf(id);
     if (!def.bot || entry.state === null || entry.timer) return;
     const seats = (await room(id))?.seats ?? [];
-    for (let seat = 0; seat < def.seats; seat++) {
+    for (let seat = 0; seat < seats.length; seat++) {
       if (!seats[seat]?.bot) continue;
       const botName = seats[seat]!.name ?? "";
       if (def.bot(entry.state, seat, botName) === null) continue;
@@ -356,7 +363,7 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     if (action === "sit") {
       const seat = Number(input.seat);
       const name = String(input.name ?? "").trim().slice(0, 20) || "Player";
-      if (!Number.isInteger(seat) || seat < 0 || seat >= def.seats) return json({ error: "No such seat." }, 400);
+      if (!Number.isInteger(seat) || seat < 0 || seat >= r.seats.length) return json({ error: "No such seat." }, 400);
       if (r.started && mySeat !== seat) return json({ error: "This game has started." }, 409);
       const holder = g.holders[seat];
       if ((holder && holder !== player) || r.seats[seat]?.bot) return json({ error: "Someone's already sitting there." }, 409);
@@ -376,7 +383,7 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
       const seat = Number(input.seat);
       const add = input.add !== false;
       if (r.started) return json({ error: "This game has started." }, 409);
-      if (!Number.isInteger(seat) || seat < 0 || seat >= def.seats || g.holders[seat]) return json({ error: "That seat isn't free." }, 409);
+      if (!Number.isInteger(seat) || seat < 0 || seat >= r.seats.length || g.holders[seat]) return json({ error: "That seat isn't free." }, 409);
       const seats = [...r.seats];
       seats[seat] = add ? { name: String(input.name ?? `Bot ${seat + 1}`), bot: true } : { name: null, bot: false };
       await sync.write("rooms", id, { seats });

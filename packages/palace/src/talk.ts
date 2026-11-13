@@ -148,3 +148,29 @@ export function reactToPalace(before: PalaceState, after: PalaceState, cast: Pal
   } else if (move.kind === "flip" && mover) say(mover.seat, mover.name, move.pickedUp ? "blindMiss" : "blindLuck", 0.5, [300, 900]);
   return out.slice(0, 2);
 }
+
+/** A bot answers a person's chat (laughs, luck, thanks, hearts, oops) in its own spades voice. */
+export function palaceReplyTo(text: string, cast: PalaceCast, rand: Rand = Math.random): PalaceRemark[] {
+  const t = text.toLowerCase();
+  const event = /😂|🤣|😆|😄|\blol\b|\bhaha|\blmao\b/.test(t)
+    ? "replyLaugh"
+    : /good luck|\bgl\b|🍀|🤞/.test(t)
+      ? "replyLuck"
+      : /thank|nice|good job|great|👏|well played|\bgj\b/.test(t)
+        ? "replyThanks"
+        : /❤️|♥|🥰|😘|love/.test(t)
+          ? "replyHeart"
+          : /oops|sorry|my bad|😬|😭/.test(t)
+            ? "replyOops"
+            : null;
+  if (!event) return [];
+  const named = cast.bots.find((b) => t.includes(b.name.toLowerCase()));
+  for (const bot of named ? [named] : [...cast.bots].sort(() => rand() - 0.5)) {
+    const persona = personaFor(bot.name);
+    const options = persona.lines[event];
+    if (options?.length && rand() <= persona.chatty * (named ? 3 : 0.9)) {
+      return [{ seat: bot.seat, text: options[Math.floor(rand() * options.length)]!, delay: 900 + rand() * 1300 }];
+    }
+  }
+  return [];
+}

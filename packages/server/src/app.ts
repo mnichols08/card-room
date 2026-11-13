@@ -2,21 +2,21 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Log } from "@zubra/sync/server";
 import { createRooms, type RoomDoc } from "@spades/rooms/server";
-import { greet, reactToMove, replyTo, type GameState, type Remark, type Seat, type TableCast } from "@spades/rules";
 import { createChallenges } from "./challenges.js";
 import { createHouses } from "./houses.js";
 import { createPush, type PushOptions } from "./push.js";
 import { playerOf } from "@spades/rooms/server";
-import { spadesRoom } from "./spades.js";
+import { gameOfOptions, tableRoom, talk, type GameId, type Remark } from "./games.js";
 
 export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: boolean; push?: PushOptions } = {}) {
   const talking = options.talk ?? true;
   const timers = new Set<ReturnType<typeof setTimeout>>();
   const lastWord = new Map<string, number>();
 
-  const castOf = (room: RoomDoc<unknown>): TableCast => ({
-    bots: room.seats.flatMap((s, i) => (s.bot ? [{ seat: i as Seat, name: s.name ?? "Bot" }] : [])),
+  const castOf = (room: RoomDoc<unknown>) => ({
+    bots: room.seats.flatMap((s, i) => (s.bot ? [{ seat: i, name: s.name ?? "Bot" }] : [])),
   });
+  const gameOfRoom = (room: RoomDoc<unknown>): GameId => gameOfOptions(room.info ?? room.summary);
 
   /** Say each remark after its delay, unless another bot spoke a moment ago (no talking over each other). */
   function speak(id: string, remarks: Remark[], always = false) {
@@ -34,16 +34,13 @@ export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: b
     }
   }
 
-  const rooms = createRooms(spadesRoom, {
+  const rooms = createRooms(tableRoom, {
     log: options.log,
     botDelay: options.botDelay,
-    onStart: ({ id, room }) => speak(id, greet(castOf(room))),
-    onMove: ({ id, before, after, room }) => {
-      const remarks = reactToMove(before as GameState, after as GameState, castOf(room));
-      speak(id, remarks, (after as GameState).phase === "finished");
-    },
+    onStart: ({ id, state, room }) => speak(id, talk.greet(state, castOf(room))),
+    onMove: ({ id, before, after, room }) => speak(id, talk.react(before, after, castOf(room)), talk.finished(after)),
     // Someone spoke to the table: an answer is never dropped for being close to other talk.
-    onSay: ({ id, message, room }) => speak(id, replyTo(message.text, message.seat as Seat, castOf(room)), true),
+    onSay: ({ id, message, room }) => speak(id, talk.reply(gameOfRoom(room), message.text, message.seat, castOf(room)), true),
   });
   const push = createPush(rooms.sync, options.push);
   const houses = createHouses(rooms, { push });

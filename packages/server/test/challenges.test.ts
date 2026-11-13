@@ -91,7 +91,7 @@ describe("challenges", () => {
     const id = sentChallenge.body.id;
 
     expect(sent).toHaveLength(1);
-    expect(sent[0]!.notice).toMatchObject({ title: "Rick challenged you to spades! ♠️", url: `/?table=${id}` });
+    expect(sent[0]!.notice).toMatchObject({ title: "Rick challenged you to Spades! ♠️", url: `/?table=${id}` });
     expect(sent[0]!.notice.body).toContain("Bring it on, Grammi 😤");
 
     // The table: her in the south seat, Rick across as an opponent, a partner bot each.
@@ -151,6 +151,6 @@ describe("house tables", () => {
     const { id } = (await rick("/houses/grammis-house/tables", {})).body;
     await new Promise((r) => setTimeout(r, 20));
     expect(sent.map((s) => s.to)).toEqual([sub(1).endpoint]); // not the one who opened it
-    expect(sent[0]!.notice).toMatchObject({ title: "Rick opened a table at Grammi's House ♠️", url: `/?table=${id}&house=grammis-house` });
+    expect(sent[0]!.notice).toMatchObject({ title: "Rick opened a Spades table at Grammi's House ♠️", url: `/?table=${id}&house=grammis-house` });
   });
 });
