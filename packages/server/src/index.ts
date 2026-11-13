@@ -1,31 +1,41 @@
-// The spades server: rooms (moves, seats, bots), the sync log, and the built web app.
+// The Card Room server: rooms (moves, seats, bots), the sync log, and the built web app.
 //
-//   PORT=8787 SPADES_DB=spades.db node dist/index.js
+//   PORT=8787 CARDROOM_DB=cardroom.db node dist/index.js
+//
+// Settings are CARDROOM_*; the older SPADES_* names still work (CARDROOM_* wins if both are set).
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createCardRoom } from "./app.js";
 
-const port = Number(process.env.PORT ?? 8787);
-const web = resolve(process.env.SPADES_WEB ?? fileURLToPath(new URL("../../web/dist", import.meta.url)));
+/** A setting: CARDROOM_<name>, or the older SPADES_<name>. */
+function setting(name: string): string | undefined {
+  const now = process.env[`CARDROOM_${name}`];
+  const old = process.env[`SPADES_${name}`];
+  if (now === undefined && old !== undefined) console.log(`SPADES_${name} is now CARDROOM_${name} (the old name still works)`);
+  return now ?? old;
+}
 
-// A SQLite log keeps tables across restarts; without SPADES_DB, they live in memory.
-const log = process.env.SPADES_DB
-  ? await (await import("@zubra/sync/sqlite")).sqliteLog(process.env.SPADES_DB, { keep: "latest" })
-  : undefined;
-// Bots take humanlike time unless SPADES_BOT_DELAY fixes it (handy for testing).
+const port = Number(process.env.PORT ?? 8787);
+const web = resolve(setting("WEB") ?? fileURLToPath(new URL("../../web/dist", import.meta.url)));
+
+// A SQLite log keeps tables across restarts; without CARDROOM_DB, they live in memory.
+const db = setting("DB");
+const log = db ? await (await import("@zubra/sync/sqlite")).sqliteLog(db, { keep: "latest" }) : undefined;
+// Bots take humanlike time unless CARDROOM_BOT_DELAY fixes it (handy for testing).
+const botDelay = setting("BOT_DELAY");
 const cardRoom = createCardRoom({
   log,
-  botDelay: process.env.SPADES_BOT_DELAY ? Number(process.env.SPADES_BOT_DELAY) : undefined,
+  botDelay: botDelay ? Number(botDelay) : undefined,
   // Push notifications are on when the server has VAPID keys (`npx web-push generate-vapid-keys`).
   push: {
-    publicKey: process.env.SPADES_VAPID_PUBLIC_KEY,
-    privateKey: process.env.SPADES_VAPID_PRIVATE_KEY,
-    subject: process.env.SPADES_VAPID_SUBJECT,
+    publicKey: setting("VAPID_PUBLIC_KEY"),
+    privateKey: setting("VAPID_PRIVATE_KEY"),
+    subject: setting("VAPID_SUBJECT"),
   },
 });
-if (!cardRoom.push.enabled) console.log("push notifications are off: set SPADES_VAPID_PUBLIC_KEY and SPADES_VAPID_PRIVATE_KEY to turn them on");
+if (!cardRoom.push.enabled) console.log("push notifications are off: set CARDROOM_VAPID_PUBLIC_KEY and CARDROOM_VAPID_PRIVATE_KEY to turn them on");
 
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",

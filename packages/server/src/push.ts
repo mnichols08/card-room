@@ -2,7 +2,8 @@
 // table opens in their house. Standard Web Push with VAPID keys; nothing to sign up for.
 //
 // Keys come from the environment (make a pair with `npx web-push generate-vapid-keys`):
-//   SPADES_VAPID_PUBLIC_KEY, SPADES_VAPID_PRIVATE_KEY, SPADES_VAPID_SUBJECT (mailto: or https: URL)
+//   CARDROOM_VAPID_PUBLIC_KEY, CARDROOM_VAPID_PRIVATE_KEY, CARDROOM_VAPID_SUBJECT (mailto: or https: URL)
+//   (the older SPADES_VAPID_* names still work)
 // Without them, notifications are off and the app says so.
 //
 // Subscriptions are kept per player in `pushsubs/<player>` in the sync log, which only the server
