@@ -97,6 +97,27 @@ export function describe(r: RulePreset): string {
   ].join(" · ");
 }
 
+/** The rules in a few plain sentences, for the setup screen. */
+export function explain(r: RulePreset): string[] {
+  const lines = [
+    "Partners across. Thirteen cards each: bid how many tricks you'll take, and your bid adds to your partner's.",
+    r.trump === "jokers-and-deuces"
+      ? "Jokers and deuces: the 2♣ and 2♥ come out, and the top trumps are the Big Joker, Little Joker, 2♦ and 2♠, then the A♠ on down."
+      : "Spades are always trump, ace high.",
+    `Follow suit if you can; the highest card of the suit led wins, unless someone trumps.${r.spadesMustBeBroken ? " Spades can't be led until one has been played (unless that's all you have)." : ""}`,
+    `Make your team's bid for 10 a trick, plus 1 for each extra trick (a bag). Fall short and you lose 10 a trick.${r.bags ? ` Every ${r.bags.limit} bags costs ${r.bags.penalty}.` : ""}`,
+  ];
+  if (r.minTeamBid !== null) lines.push(`Each team bids at least ${r.minTeamBid} between the two of you.`);
+  if (r.nil.enabled)
+    lines.push(`Nil: bid to take no tricks at all, for ${r.nil.value} (or −${r.nil.value} if you take one). ${r.nilTricksCountTowardBid ? "A nil bidder's tricks still count toward the partner's bid." : "A nil bidder's tricks only count as bags."}`);
+  if (r.blindNil.enabled)
+    lines.push(
+      `Blind nil: bid nil before you look at your cards, for ${r.blindNil.value}${r.blindNil.onlyWhenDownBy !== null ? `, only when your team is down by ${r.blindNil.onlyWhenDownBy} or more` : ""}${r.blindNil.passCards ? `; then you and your partner swap ${r.blindNil.passCards} cards` : ""}.`,
+    );
+  lines.push(`First team to ${r.playTo} wins${r.loseAt !== null ? `; a team at ${r.loseAt} or below loses` : ""}.`);
+  return lines;
+}
+
 /** Number choices as select options, keeping the current value even if it isn't one of them. */
 export function points(choices: number[], current: number): [string, string][] {
   const all = choices.includes(current) ? choices : [...choices, current].sort((a, b) => a - b);
