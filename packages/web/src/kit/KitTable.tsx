@@ -154,9 +154,11 @@ export function KitTable({
   const status = error ? (
     <span className="error">{error}</span>
   ) : view.over ? null : view.turn === me ? (
-    <span className="mine">{view.pick?.prompt || "Your turn"}</span>
-  ) : view.turn === null && view.pick ? (
-    <span className="mine">{view.pick.prompt}</span>
+    <span className="mine">
+      {view.pick?.prompt || view.gridTap?.prompt || "Your turn"}
+    </span>
+  ) : view.turn === null && (view.pick || view.gridTap) ? (
+    <span className="mine">{view.pick?.prompt ?? view.gridTap?.prompt}</span>
   ) : view.turn !== null ? (
     `${names[view.turn] ?? "Someone"} is thinking…`
   ) : view.result ? null : (
@@ -173,6 +175,7 @@ export function KitTable({
     picked.length <= view.pick.max;
   const meldsOf = (seat: number) =>
     view.melds.filter((m) => !m.byTeam && m.owner === seat);
+  const gridOf = (seat: number) => view.grids?.find((g) => g.owner === seat);
   const teamMelds = view.melds.filter((m) => m.byTeam);
 
   return (
@@ -233,6 +236,9 @@ export function KitTable({
                   />
                   {meldsOf(seat).length > 0 && (
                     <MeldRow melds={meldsOf(seat)} size="mini" names={names} />
+                  )}
+                  {gridOf(seat) && (
+                    <CardGrid grid={gridOf(seat)!} size="mini" />
                   )}
                 </div>
               ))}
@@ -310,6 +316,16 @@ export function KitTable({
             <TeamMelds melds={teamMelds} view={view} names={names} />
           </div>
         )}
+        {gridOf(me) && (
+          <div className="mine-on-table">
+            <CardGrid
+              grid={gridOf(me)!}
+              size="table"
+              tap={view.gridTap ?? null}
+              send={send}
+            />
+          </div>
+        )}
         {meldsOf(me).length > 0 && (
           <div className="mine-on-table">
             <MeldRow melds={meldsOf(me)} size="table" names={names} />
@@ -340,7 +356,7 @@ export function KitTable({
                   } as React.CSSProperties
                 }
               />
-            ) : (
+            ) : view.grids ? null : (
               <div className="empty-slot">Out</div>
             )}
           </div>
@@ -460,7 +476,7 @@ function KitSeat({
         )}
       </strong>
       {p.line && <span>{named(p.line, [])}</span>}
-      {!row && (
+      {!row && !view.grids && (
         <small>
           {p.cards} card{p.cards === 1 ? "" : "s"}
         </small>
@@ -515,7 +531,11 @@ function CenterArea({
           );
         })}
         {center.winner !== null && (
-          <div className="took">{center.winner === view.me ? "You take it" : `${names[center.winner]} takes it`}</div>
+          <div className="took">
+            {center.winner === view.me
+              ? "You take it"
+              : `${names[center.winner]} takes it`}
+          </div>
         )}
         {center.lead && <div className="kit-lead">{center.lead}</div>}
       </div>
@@ -603,6 +623,20 @@ function CenterArea({
             <small>{center.stockLabel ?? `${center.stock} to draw`}</small>
           )}
         </div>
+        {center.held && (
+          <div className="held-card">
+            <PlayingCard
+              card={center.held}
+              size="table"
+              won
+              data-flip={center.held.id}
+              data-from=".kit-stock"
+            />
+            <small>
+              {center.heldLabel ? named(center.heldLabel, names) : "Drawn"}
+            </small>
+          </div>
+        )}
         {!center.noDiscard && (
           <div className="pile">
             {top.length ? (
@@ -651,6 +685,52 @@ function CenterArea({
     );
   }
   return null;
+}
+
+/** Cards laid out in rows and columns in front of a player (Golf); null is face down. */
+function CardGrid({
+  grid,
+  size,
+  tap,
+  send,
+}: {
+  grid: { cols: number; cards: (KCard | null)[] };
+  size: "mini" | "table";
+  tap?: { type: string; cells: number[] } | null;
+  send?: (move: Record<string, unknown>) => void;
+}) {
+  return (
+    <div
+      className={`card-grid ${size}`}
+      style={{ "--cols": grid.cols } as React.CSSProperties}
+      aria-label="Cards on the table"
+    >
+      {grid.cards.map((c, i) => {
+        const face = c ? (
+          <PlayingCard card={c} size={size} data-flip={c.id} />
+        ) : (
+          <PlayingCard back size={size} />
+        );
+        return tap?.cells.includes(i) && send ? (
+          <button
+            key={i}
+            type="button"
+            className="grid-cell pile-button"
+            aria-label={
+              c ? `Your card ${i + 1}` : `Your face-down card ${i + 1}`
+            }
+            onClick={() => send({ type: tap.type, index: i })}
+          >
+            {face}
+          </button>
+        ) : (
+          <span key={i} className="grid-cell">
+            {face}
+          </span>
+        );
+      })}
+    </div>
+  );
 }
 
 /** Melds in a row: each meld a little fan of cards with its label. */
