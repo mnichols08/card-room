@@ -302,3 +302,21 @@ describe("table settings", () => {
     expect(seen.at(-1)!.settings).toEqual({ step: 2, wait: "fast" });
   });
 });
+
+describe("the player cookie", () => {
+  it("is HttpOnly always, and Secure when the browser came over HTTPS (directly or through a proxy)", async () => {
+    const sit = async (url: string, headers: Record<string, string> = {}) => {
+      const rooms = createRooms(counting, { botDelay: 5, seed: () => 1, id: () => "cook01" });
+      open.push(rooms as any);
+      await rooms.create({ start: 0 });
+      const r = await rooms.fetch(new Request(url + "/rooms/cook01/sit", { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify({ seat: 0, name: "A" }) }));
+      return r!.headers.get("set-cookie")!;
+    };
+    const plain = await sit("http://localhost:8787");
+    expect(plain).toContain("HttpOnly");
+    expect(plain).not.toContain("Secure");
+    expect(await sit("https://cards.example")).toContain("; Secure");
+    expect(await sit("http://internal:8080", { "x-forwarded-proto": "https" })).toContain("; Secure");
+    expect(await sit("https://cards.example", { "x-forwarded-proto": "http" })).not.toContain("Secure");
+  });
+});

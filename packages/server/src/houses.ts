@@ -265,7 +265,7 @@ export function createHouses(rooms: Rooms, { mount = "/houses", push }: { mount?
       const owner: Member = { id: random(8), player, name: cleanName(input.you, "Host"), role: "owner", joined: Date.now() };
       const house: HouseDoc = { slug, name, code: random(6), members: [owner], presets: [rules], defaultPreset: rules.id, palacePresets: [familyPalace], palaceDefault: familyPalace.id, tables: [] };
       await save(house);
-      return json(await forMember(house, owner), 201, cookiePlayer ? {} : { "set-cookie": playerCookie(player) });
+      return json(await forMember(house, owner), 201, cookiePlayer ? {} : { "set-cookie": playerCookie(player, request) });
     }
 
     const house = parts[0] ? await get(parts[0]) : undefined;
@@ -313,7 +313,7 @@ export function createHouses(rooms: Rooms, { mount = "/houses", push }: { mount?
       const member: Member = { id: random(8), player, name: cleanName(input.name, "Guest"), role: "member", joined: Date.now() };
       house.members.push(member);
       await save(house);
-      return json(await forMember(house, member), 200, cookiePlayer ? {} : { "set-cookie": playerCookie(player) });
+      return json(await forMember(house, member), 200, cookiePlayer ? {} : { "set-cookie": playerCookie(player, request) });
     }
 
     if (!me) return json({ error: "Join the house first." }, 403);
