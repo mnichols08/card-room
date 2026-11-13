@@ -3,6 +3,7 @@ import SelectField from "@spades/ui/zubra-ui/select-field.zb";
 import TextField from "@spades/ui/zubra-ui/text-field.zb";
 import ToggleSwitch from "@spades/ui/zubra-ui/toggle-switch.zb";
 import { useMemo, useState } from "react";
+import { loadFeedbackSettings, play, saveFeedbackSettings, type SoundName } from "./feedback/sounds";
 import {
   deleteSavedPreset,
   loadLastPreset,
@@ -26,6 +27,21 @@ export function Setup({ onStart, onFamilyTable }: Props) {
   const [rules, setRules] = useState<RulePreset>(loadLastPreset);
   const [showRules, setShowRules] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState(loadFeedbackSettings);
+  const canVibrate = typeof navigator !== "undefined" && typeof navigator.vibrate === "function";
+  const setFeedbackSetting = (patch: Partial<typeof feedback>) => {
+    const next = { ...feedback, ...patch };
+    saveFeedbackSettings(next);
+    setFeedback(next);
+  };
+  function sample() {
+    const tour: SoundName[] = ["deal", "card", "card", "yourTurn", "trickUs", "spadesBroken", "trickThem", "nilMade"];
+    let at = 0;
+    for (const name of tour) {
+      setTimeout(() => play(name), at);
+      at += name === "deal" ? 900 : name === "card" ? 300 : 800;
+    }
+  }
   const [problem, setProblem] = useState<string | null>(null);
   const all = useMemo(() => [...starterPresets, ...saved], [saved]);
   const errors = validatePreset(rules);
@@ -76,6 +92,16 @@ export function Setup({ onStart, onFamilyTable }: Props) {
       />
 
       <p className="rules-summary">{describe(rules)}</p>
+
+      <section className="feedback" aria-label="Sound and vibration">
+        <Toggle label="Sounds" description="Cards, your turn, tricks and nils." checked={feedback.sound} onChange={(v) => setFeedbackSetting({ sound: v })} />
+        {canVibrate && <Toggle label="Vibration" description="A buzz on your turn and when your team takes a trick." checked={feedback.vibrate} onChange={(v) => setFeedbackSetting({ vibrate: v })} />}
+        {feedback.sound && (
+          <button type="button" className="link" onClick={sample}>
+            Hear the sounds
+          </button>
+        )}
+      </section>
 
       <button type="button" className="link" onClick={() => setShowRules((v) => !v)}>
         {showRules ? "Hide the rules" : "Change the rules"}
