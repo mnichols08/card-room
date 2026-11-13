@@ -29,6 +29,8 @@ const TYPES: Record<string, string> = {
 
 createServer(async (req, res) => {
   try {
+    // Railway (and any other host) checks this before sending traffic to a new deploy.
+    if (req.url === "/healthz") return void res.writeHead(200, { "content-type": "text/plain" }).end("ok");
     if (await rooms.handle(req, res)) return;
     const path = decodeURIComponent(new URL(req.url ?? "/", "http://x").pathname);
     let file = normalize(join(web, path));
