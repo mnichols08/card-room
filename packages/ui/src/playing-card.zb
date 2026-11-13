@@ -1,51 +1,163 @@
 <!--
   One playing card: a pip card, a joker, or the back of a card. Tap a playable card to pick it.
   `card` is `{ kind: "pip", suit, rank }` (rank 2–14) or `{ kind: "joker", size: "big" | "little" }`.
+  Sizes come from the page: --card-w / --card-h for the hand, --trick-w / --trick-h for size="table".
+  Everything inside scales with the card itself (container units), so one design serves every size.
   @fires pick - A playable card was tapped.
 -->
 <script>
   import { emit } from '@zubra/runtime'
 
-  const SYMBOLS = { spades: "♠", hearts: "♥", diamonds: "♦", clubs: "♣" }
+  // U+FE0E asks for the text glyph, so phones don't draw ♥ and ♦ as emoji (which ignore colour).
+  const SYMBOLS = { spades: "♠︎", hearts: "♥︎", diamonds: "♦︎", clubs: "♣︎" }
   const RANKS = { 11: "J", 12: "Q", 13: "K", 14: "A" }
+  // Classic pip spots: x%, y%, and 1 when the pip is upside down (the bottom half of the card).
+  const PIPS = {
+    2: [[50, 20], [50, 80, 1]],
+    3: [[50, 20], [50, 50], [50, 80, 1]],
+    4: [[35, 20], [65, 20], [35, 80, 1], [65, 80, 1]],
+    5: [[35, 20], [65, 20], [50, 50], [35, 80, 1], [65, 80, 1]],
+    6: [[35, 20], [65, 20], [35, 50], [65, 50], [35, 80, 1], [65, 80, 1]],
+    7: [[35, 20], [65, 20], [50, 35], [35, 50], [65, 50], [35, 80, 1], [65, 80, 1]],
+    8: [[35, 20], [65, 20], [50, 35], [35, 50], [65, 50], [50, 65, 1], [35, 80, 1], [65, 80, 1]],
+    9: [[35, 20], [65, 20], [35, 40], [65, 40], [50, 50], [35, 60, 1], [65, 60, 1], [35, 80, 1], [65, 80, 1]],
+    10: [[35, 20], [65, 20], [50, 30], [35, 40], [65, 40], [35, 60, 1], [65, 60, 1], [50, 70, 1], [35, 80, 1], [65, 80, 1]],
+  }
 
   const joker = card.kind === "joker"
   const red = joker ? card.size === "big" : card.suit === "hearts" || card.suit === "diamonds"
   const rank = joker ? "★" : RANKS[card.rank] ?? String(card.rank)
   const symbol = joker ? "" : SYMBOLS[card.suit]
   const name = joker ? (card.size === "big" ? "Big Joker" : "Little Joker") : `${rank} of ${card.suit}`
+  const court = !joker && card.rank >= 11 && card.rank <= 13
+  const ace = !joker && card.rank === 14
+  const kind = joker ? "joker" : court ? "court" : ace ? "ace" : "pips"
+  const pips = kind === "pips" ? PIPS[card.rank].map(([x, y, f], i) => ({ id: i, x: `${x}%`, y: `${y}%`, flip: !!f })) : []
+  const ten = rank === "10"
+  const spadeAce = ace && card.suit === "spades"
+  const jokerWord = joker ? (card.size === "big" ? "BIG" : "LIL") : ""
 </script>
 <style>
   :host { display: inline-block; flex: none; }
   .card {
+    --ink-black: #1d1a16;
+    --ink-red: #b3261e;
     position: relative;
+    display: block;
     width: var(--card-w, 56px);
     height: var(--card-h, 80px);
     padding: 0;
-    border-radius: 7px;
-    border: 1px solid #d9d2c3;
-    background: #fffdf8;
-    color: #1d1a16;
+    overflow: hidden;
+    container-type: inline-size;
+    border-radius: var(--card-radius, 7px);
+    border: 1px solid rgba(40, 30, 15, 0.16);
+    background: linear-gradient(170deg, #fffefb 0%, #fbf7ee 60%, #f3ede0 100%);
+    color: var(--ink-black);
     font: inherit;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
-    transition: transform var(--duration-fast, 150ms), opacity var(--duration-fast, 150ms);
+    text-align: left;
+    box-shadow: var(--elev-1, 0 1px 1px rgba(0, 0, 0, 0.2), 0 2px 5px rgba(0, 0, 0, 0.22)), inset 0 0 0 1px rgba(255, 255, 255, 0.7);
+    transition:
+      transform var(--dur-1, 120ms) var(--ease-out, ease-out),
+      box-shadow var(--dur-1, 120ms) var(--ease-out, ease-out),
+      filter var(--dur-1, 120ms);
   }
-  .card.red { color: #b3261e; }
-  .corner { position: absolute; top: 4px; left: 5px; font-size: 0.85rem; font-weight: 700; line-height: 1; text-align: center; }
-  .pip { position: absolute; right: 6px; bottom: 4px; font-size: 1.6rem; line-height: 1; }
-  .joker-name { position: absolute; right: 5px; bottom: 5px; font-size: 0.55rem; font-weight: 800; text-align: right; letter-spacing: 0.05em; }
-  .card[data-size=table] { width: 52px; height: 74px; }
-  .card[data-size=table] .pip { right: 50%; bottom: 50%; transform: translate(50%, 50%); font-size: 1.8rem; }
+  .card[data-size=table] { width: var(--trick-w, 52px); height: var(--trick-h, 74px); border-radius: calc(var(--trick-w, 52px) * 0.1); }
+  .card.red { color: var(--ink-red); }
+  .glyph { font-family: "Apple Symbols", "Segoe UI Symbol", "Noto Sans Symbols 2", system-ui, sans-serif; font-style: normal; font-variant-emoji: text; line-height: 1; }
+
+  /* The corner index: what shows in an overlapped hand, so it's big. */
+  .index { position: absolute; display: flex; flex-direction: column; align-items: center; line-height: 0.9; }
+  .index.tl { top: 5cqw; left: 6cqw; }
+  .index b { font: 800 30cqw/0.9 system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: -0.06em; font-variant-numeric: tabular-nums; }
+  .index b.ten { letter-spacing: -0.12em; margin-left: -0.08em; }
+  .index i { font-size: 24cqw; margin-top: 1cqw; }
+  .index.br { bottom: 5cqw; right: 6cqw; rotate: 180deg; display: none; }
+  .card[data-size=table] .index.br { display: flex; }
+
+  /* The middle of the card. Small cards: one big symbol clear of the index. */
+  .face { position: absolute; inset: 0; pointer-events: none; }
+  .face .big { position: absolute; left: 60%; top: 62%; translate: -50% -50%; font-size: 44cqw; }
+  .face .letter { position: absolute; left: 62%; top: 64%; translate: -50% -50%; font: 700 40cqw/1 Georgia, "Times New Roman", serif; }
+  .face .pip { display: none; position: absolute; translate: -50% -50%; font-size: 17cqw; }
+  .face .pip.flip { rotate: 180deg; }
+  .face .frame, .face .ring, .face .jword { display: none; }
+  .face.ace .big { left: 50%; top: 52%; font-size: 56cqw; }
+  .face.joker .big { left: 55%; top: 60%; font-size: 46cqw; }
+  .face.joker .big::before { content: "★"; }
+  .index .jsize { font: 800 12cqw/1 system-ui, sans-serif; margin-top: 2cqw; letter-spacing: 0.04em; }
+
+  /* Bigger cards (tablet, desktop, and every card on the table): the classic layouts. */
+  @container (min-width: 84px) {
+    .index.br { display: flex; }
+    .index b { font-size: 24cqw; }
+    .index i { font-size: 18cqw; }
+    .face.pips { inset: 14cqw 10cqw; }
+    .face.pips .big { display: none; }
+    .face.pips .pip { display: block; }
+    .face.court .letter { left: 50%; top: 50%; font-size: 44cqw; }
+    .face.court .frame {
+      display: block; position: absolute; inset: 18cqw 16cqw; border-radius: 4cqw;
+      border: 1px solid color-mix(in oklab, currentColor 35%, transparent);
+      background: color-mix(in oklab, currentColor 7%, #fffdf8);
+    }
+    .face.court .frame::before, .face.court .frame::after {
+      content: attr(data-suit); position: absolute; left: 50%; translate: -50% 0; font-size: 16cqw; line-height: 1;
+    }
+    .face.court .frame::before { top: 4cqw; }
+    .face.court .frame::after { bottom: 4cqw; rotate: 180deg; }
+    .face.joker .big { left: 46%; top: 50%; }
+    .face.joker .jword {
+      display: block; position: absolute; right: 7cqw; top: 50%; translate: 0 -50%;
+      writing-mode: vertical-rl; font: 800 11cqw/1 system-ui, sans-serif; letter-spacing: 0.2em;
+    }
+  }
+  .card[data-size=table] .face.pips { inset: 14cqw 10cqw; }
+  .card[data-size=table] .face.pips .big { display: none; }
+  .card[data-size=table] .face.pips .pip { display: block; }
+  .face.ace .ring { display: block; position: absolute; left: 50%; top: 52%; width: 66cqw; height: 66cqw; translate: -50% -50%; border-radius: 50%; box-shadow: 0 0 0 2cqw #fffdf8, 0 0 0 3cqw currentColor; opacity: 0.6; }
+
+  /* States. Playable cards look normal; the ones you can't play sink and grey a little, but stay readable. */
   .card.playable { cursor: pointer; }
-  .card.playable:not(.dim):hover, .card.playable:not(.dim):focus-visible { transform: translateY(-10px); }
-  .card.dim { opacity: 0.45; filter: grayscale(0.4); cursor: default; }
-  .card.selected { transform: translateY(-14px); box-shadow: 0 0 0 3px var(--primary, #e8c46a), 0 4px 10px rgba(0, 0, 0, 0.4); }
-  .card.won { box-shadow: 0 0 0 3px var(--primary, #e8c46a), 0 4px 10px rgba(0, 0, 0, 0.4); }
-  .back { background: repeating-linear-gradient(45deg, #7a1f2b 0 6px, #8e2a36 6px 12px); border: 3px solid #fffdf8; }
-  @media (prefers-reduced-motion: reduce) { .card { transition: none; } }
+  @media (hover: hover) {
+    .card.playable:not(.dim):hover { transform: translateY(calc(var(--card-h, 80px) * -0.1)); box-shadow: var(--elev-2, 0 10px 18px rgba(0, 0, 0, 0.3)); }
+  }
+  .card.dim { cursor: default; transform: translateY(calc(var(--card-h, 80px) * 0.06)); filter: saturate(0.55) brightness(0.82); }
+  .card.selected {
+    transform: translateY(calc(var(--card-h, 80px) * -0.18));
+    box-shadow: 0 0 0 3px #e8c46a, var(--elev-2, 0 10px 18px rgba(0, 0, 0, 0.3));
+    transition-timing-function: var(--ease-back, ease-out);
+  }
+  .card.won { box-shadow: 0 0 0 3px #e8c46a, 0 0 18px 2px rgba(232, 196, 106, 0.55), var(--elev-3, 0 18px 36px rgba(0, 0, 0, 0.38)); }
+  .card:focus-visible { outline: 3px solid #ffd76a; outline-offset: 2px; transform: translateY(calc(var(--card-h, 80px) * -0.1)); }
+  .card.shake { animation: card-shake 220ms linear; }
+  @keyframes card-shake { 25% { translate: -4px 0; } 50% { translate: 4px 0; } 75% { translate: -3px 0; } }
+
+  /* The back: burgundy lattice, cream border with a gold hairline, a gold medallion with a spade. */
+  .back {
+    --bw: var(--card-w, 56px);
+    --u: calc(var(--bw) / 100);
+    position: relative;
+    width: var(--bw);
+    height: var(--card-h, 80px);
+    border-radius: var(--card-radius, 7px);
+    background:
+      radial-gradient(circle at 50% 50%, #e8c46a 0 calc(var(--u) * 9), transparent calc(var(--u) * 9.5)),
+      radial-gradient(circle at 50% 50%, #7a1f2b 0 calc(var(--u) * 13), transparent calc(var(--u) * 13.5)),
+      repeating-linear-gradient(45deg, rgba(232, 196, 106, 0.22) 0 1px, transparent 1px calc(var(--u) * 7)),
+      repeating-linear-gradient(-45deg, rgba(232, 196, 106, 0.22) 0 1px, transparent 1px calc(var(--u) * 7)),
+      linear-gradient(160deg, #8e2a36, #6a1a25);
+    box-shadow: var(--elev-1, 0 2px 5px rgba(0, 0, 0, 0.3)), inset 0 0 0 calc(var(--u) * 4) #fffdf8, inset 0 0 0 calc(var(--u) * 5) rgba(232, 196, 106, 0.7);
+  }
+  .back[data-size=table] { --bw: var(--trick-w, 52px); height: var(--trick-h, 74px); border-radius: calc(var(--trick-w, 52px) * 0.1); }
+  .back::after {
+    content: "♠\FE0E"; position: absolute; inset: 0; display: grid; place-items: center;
+    font-size: calc(var(--u) * 12); line-height: 1; color: #7a1f2b; font-variant-emoji: text;
+  }
+
+  @media (prefers-reduced-motion: reduce) { .card { transition: none; } .card.shake { animation: none; } }
 </style>
-<playing-card card={{ kind: "pip", suit: "spades", rank: 14 }} size="hand" back={false} playable={false} dim={false} selected={false} won={false}>
-  <div zb-if={back} class="card back" data-size={size} aria-hidden="true"></div>
+<playing-card card={{ kind: "pip", suit: "spades", rank: 14 }} size="hand" back={false} playable={false} dim={false} selected={false} won={false} shake={false}>
+  <div zb-if={back} class="back" data-size={size} aria-hidden="true"></div>
   <button
     zb-else
     type="button"
@@ -56,13 +168,30 @@
     class:dim={dim}
     class:selected={selected}
     class:won={won}
+    class:shake={shake}
     disabled={!playable || dim}
     aria-label={name}
     aria-pressed={selected ? "true" : null}
     onclick={() => emit('pick')}
   >
-    <span class="corner">{rank}<br />{symbol}</span>
-    <span zb-if={joker} class="joker-name">{card.size === "big" ? "BIG" : "LIL"}<br />JOKER</span>
-    <span zb-else class="pip">{symbol}</span>
+    <span class="index tl" aria-hidden="true">
+      <b class:ten={ten}>{rank}</b>
+      <i zb-if={!joker} class="glyph">{symbol}</i>
+      <span zb-else class="jsize">{jokerWord}</span>
+    </span>
+    <span class="index br" aria-hidden="true">
+      <b class:ten={ten}>{rank}</b>
+      <i zb-if={!joker} class="glyph">{symbol}</i>
+    </span>
+    <span class="face" class:pips={kind === "pips"} class:court={court} class:ace={ace} class:joker={joker} aria-hidden="true">
+      <span zb-if={court} class="frame glyph" data-suit={symbol}></span>
+      <span zb-if={spadeAce} class="ring"></span>
+      <span zb-if={court} class="letter">{rank}</span>
+      <span zb-else class="big glyph">{symbol}</span>
+      <zb-each items={pips} as="p" key={p.id}>
+        <span class="pip glyph" class:flip={p.flip} style={{ left: p.x, top: p.y }}>{symbol}</span>
+      </zb-each>
+      <span zb-if={joker} class="jword">JOKER</span>
+    </span>
   </button>
 </playing-card>

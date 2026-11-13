@@ -23,9 +23,9 @@
   header.no-back { grid-template-columns: 1fr auto 1fr; }
   .leave { background: none; border: 0; color: var(--primary, #e8c46a); font-size: 1.4rem; padding: 0 6px; cursor: pointer; }
   .team { display: flex; flex-direction: column; align-items: center; line-height: 1.15; min-width: 0; }
-  .team span { font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-  .team strong { font-size: 1.6rem; font-family: Georgia, "Times New Roman", serif; }
-  small { font-size: 0.7rem; opacity: 0.8; }
+  .team span { font-size: var(--ui-s, 0.75rem); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .team strong { font-size: var(--score, 1.6rem); font-family: Georgia, "Times New Roman", serif; }
+  small { font-size: calc(var(--ui-s, 0.78rem) * 0.9); opacity: 0.8; }
   .us strong { color: var(--team-us, #e8c46a); }
   .them strong { color: var(--team-them, #a9c7ff); }
   .middle { display: flex; flex-direction: column; align-items: center; }
