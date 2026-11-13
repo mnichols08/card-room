@@ -564,6 +564,8 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; }
   .palace-felt { padding: 24px 56px 20px; }
   /* Palace keeps your hand below the table: your own table cards sit at its edge. */
   .palace .me { margin-top: 0; }
+  /* Your melds sit at the table's edge: keep your hand off them. */
+  .kit-felt:has(.mine-on-table) + .me { margin-top: 0; }
   /* Across a real table the pile and your table cards look a little smaller than your hand, and
      the news sits beside the pile, so everything fits a laptop's height. */
   .palace { --trick-w: calc(var(--card-w) * 0.85); --trick-h: calc(var(--trick-w) * var(--card-ratio)); }
@@ -694,6 +696,8 @@ html[data-motion="off"] .kit-seat.active strong::before, html[data-motion="calm"
 /* Phones: the players at your sides sit at the top of their side, clear of the trick. */
 @media (max-width: 599px) {
   .kit-felt .opp-area.left, .kit-felt .opp-area.right { align-self: start; }
+  /* Your melds on a phone: small, like everyone else's, so the middle keeps its room. */
+  .kit-felt .mine-on-table { --trick-w: var(--mini-w); --trick-h: var(--mini-h); }
   .kit-trick { width: calc(var(--trick-w) * 2.9); }
 }
 .kit-lead { position: absolute; top: 0; left: 50%; translate: -50% 0; font-size: var(--ui-s); color: #cfe2d6; }
@@ -703,6 +707,10 @@ html[data-motion="off"] .kit-seat.active strong::before, html[data-motion="calm"
 .kit-choices.grid p { grid-column: 1 / -1; }
 .kit-felt .center { min-width: 0; }
 .kit-felt .opp { gap: 4px; }
+/* A kit player's melds sit under their seat, even at your sides, clear of the middle. */
+.kit-felt .opp.left, .kit-felt .opp.right { flex-direction: column; }
+.kit-felt .opp .kit-melds { max-width: calc(var(--mini-w) * 6); }
+.kit-meld small { display: block; max-width: calc(var(--mini-w) * 5); text-align: center; line-height: 1.2; }
 
 /* Piles you can tap. */
 .pile-button { padding: 0; border: 0; background: none; cursor: pointer; border-radius: calc(var(--trick-w) * 0.1); outline-offset: 3px; }

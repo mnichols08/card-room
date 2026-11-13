@@ -147,7 +147,7 @@ export function KitTable({ view, names, act, onLeave, banner, chat, settings }: 
               .map(({ seat }) => (
                 <div key={seat} className={`opp ${area}`} data-seat={seat}>
                   <KitSeat view={view} seat={seat} name={names[seat] ?? `Seat ${seat + 1}`} />
-                  {meldsOf(seat).length > 0 && <MeldRow melds={meldsOf(seat)} size="mini" />}
+                  {meldsOf(seat).length > 0 && <MeldRow melds={meldsOf(seat)} size="mini" names={names} />}
                 </div>
               ))}
           </div>
@@ -204,7 +204,7 @@ export function KitTable({ view, names, act, onLeave, banner, chat, settings }: 
 
         {meldsOf(me).length > 0 && (
           <div className="mine-on-table">
-            <MeldRow melds={meldsOf(me)} size="table" />
+            <MeldRow melds={meldsOf(me)} size="table" names={names} />
           </div>
         )}
       </div>
@@ -287,6 +287,8 @@ function KitSeat({ view, seat, name, row }: { view: KitView; seat: number; name:
 /** The middle of the table: a trick laid toward each player, or the stock and discard piles. */
 function CenterArea({ center, view, names, send }: { center: Center; view: KitView; names: string[]; send: (move: Record<string, unknown>) => void }) {
   if (center.kind === "trick") {
+    // Nothing played yet and melds on show (Pinochle's meld): leave the room to the melds.
+    if (!center.plays.length && view.melds.length) return null;
     const n = view.seats;
     return (
       <div className="kit-trick" aria-label="Cards on the table">
@@ -357,7 +359,7 @@ function CenterArea({ center, view, names, send }: { center: Center; view: KitVi
 }
 
 /** Melds in a row: each meld a little fan of cards with its label. */
-function MeldRow({ melds, size }: { melds: Meld[]; size: "mini" | "table" }) {
+function MeldRow({ melds, size, names }: { melds: Meld[]; size: "mini" | "table"; names: string[] }) {
   return (
     <div className={`kit-melds ${size}`}>
       {melds.map((m, i) => (
@@ -367,7 +369,7 @@ function MeldRow({ melds, size }: { melds: Meld[]; size: "mini" | "table" }) {
               <PlayingCard key={c.id} card={c} size={size} data-flip={c.id} />
             ))}
           </div>
-          {m.label && <small>{m.label}</small>}
+          {m.label && <small>{named(m.label, names)}</small>}
         </div>
       ))}
     </div>
@@ -384,7 +386,7 @@ function TeamMelds({ melds, view, names }: { melds: Meld[]; view: KitView; names
         return (
           <section key={team} className={team === mine ? "us" : "them"}>
             <h3>{sideName([team, team + 2], names)}</h3>
-            {list.length ? <MeldRow melds={list} size="mini" /> : <p className="fine">No melds yet</p>}
+            {list.length ? <MeldRow melds={list} size="mini" names={names} /> : <p className="fine">No melds yet</p>}
           </section>
         );
       })}
