@@ -3,7 +3,7 @@
 //   PORT=8787 CARDROOM_DB=cardroom.db node dist/index.js
 //
 // Settings are CARDROOM_*; the older SPADES_* names still work (CARDROOM_* wins if both are set).
-import { createReadStream, existsSync, statSync } from "node:fs";
+import { createReadStream, existsSync, readFileSync, statSync } from "node:fs";
 import { createServer } from "node:http";
 import { extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -37,12 +37,24 @@ const cardRoom = createCardRoom({
 });
 if (!cardRoom.push.enabled) console.log("push notifications are off: set CARDROOM_VAPID_PUBLIC_KEY and CARDROOM_VAPID_PRIVATE_KEY to turn them on");
 
+/**
+ * This server's own address, for link previews: from the proxy's headers (Railway) or the Host header.
+ * Anything that isn't a plain host name and port is refused, so nothing odd lands in the page.
+ */
+function originOf(headers: Record<string, string | string[] | undefined>): string {
+  const first = (h: string | string[] | undefined) => String(Array.isArray(h) ? h[0] : (h ?? "")).split(",")[0]!.trim();
+  const host = first(headers["x-forwarded-host"]) || first(headers.host);
+  const proto = first(headers["x-forwarded-proto"]) === "https" ? "https" : "http";
+  return /^[a-z0-9.-]+(:\d{1,5})?$/i.test(host) ? `${proto}://${host}` : "";
+}
+
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
   ".js": "text/javascript",
   ".css": "text/css",
   ".svg": "image/svg+xml",
   ".png": "image/png",
+  ".jpg": "image/jpeg",
   ".json": "application/json",
   ".webmanifest": "application/manifest+json",
   ".woff2": "font/woff2",
@@ -69,6 +81,8 @@ createServer(async (req, res) => {
       // A <script type="module"> on another site fetches with CORS.
       ...(embed ? { "access-control-allow-origin": "*", "cross-origin-resource-policy": "cross-origin" } : {}),
     });
+    // The page carries link-preview tags whose image needs this server's full address.
+    if (file.endsWith("index.html")) return void res.end(readFileSync(file, "utf8").replaceAll("__ORIGIN__", originOf(req.headers)));
     createReadStream(file).pipe(res);
   } catch (e) {
     console.error(e);
