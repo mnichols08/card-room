@@ -16,6 +16,9 @@
       ],
       "@spades/ui/*": [
         "../ui/src/*"
+      ],
+      "@spades/rooms/*": [
+        "../rooms/src/*"
       ]
     },
     "types": [
@@ -27,7 +30,6 @@
   "include": [
     "src",
     "vite.config.ts",
-    "../ui/src",
-    "zubra-unplugin.d.ts"
+    "../ui/src"
   ]
 }

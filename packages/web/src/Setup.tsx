@@ -16,13 +16,17 @@ import {
 
 interface Props {
   onStart: (name: string, preset: RulePreset) => void;
+  /** Start a table on the server with these rules. Rejects when the server can't be reached. */
+  onFamilyTable: (preset: RulePreset) => Promise<void>;
 }
 
-export function Setup({ onStart }: Props) {
+export function Setup({ onStart, onFamilyTable }: Props) {
   const [name, setName] = useState(loadName);
   const [saved, setSaved] = useState(loadSavedPresets);
   const [rules, setRules] = useState<RulePreset>(loadLastPreset);
   const [showRules, setShowRules] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
   const all = useMemo(() => [...starterPresets, ...saved], [saved]);
   const errors = validatePreset(rules);
   const isSaved = saved.some((p) => p.id === rules.id);
@@ -179,10 +183,30 @@ export function Setup({ onStart }: Props) {
         </section>
       )}
 
-      <button type="button" className="primary deal" onClick={start} disabled={errors.length > 0}>
-        Deal me in
+      <button
+        type="button"
+        className="primary deal"
+        disabled={errors.length > 0 || busy}
+        onClick={async () => {
+          setBusy(true);
+          setProblem(null);
+          saveName(name.trim() || "You");
+          saveLastPreset(rules);
+          try {
+            await onFamilyTable(rules);
+          } catch {
+            setProblem("Couldn't reach the card room. Try again in a minute.");
+            setBusy(false);
+          }
+        }}
+      >
+        Start a family table
       </button>
-      <p className="fine">You'll play with three computer players for now. Family tables are coming.</p>
+      <button type="button" className="secondary" onClick={start} disabled={errors.length > 0}>
+        Practice against the computer
+      </button>
+      {problem && <p className="error">{problem}</p>}
+      <p className="fine">A family table gets a link to send to everyone. Empty seats can be filled with computer players.</p>
     </main>
   );
 }

@@ -12,9 +12,10 @@ See [docs/SPEC.md](docs/SPEC.md) for the plan.
 | Package | Status |
 | --- | --- |
 | [`packages/rules`](packages/rules) | Rules engine and bots |
-| `packages/server` | Planned |
 | [`packages/ui`](packages/ui) | Table components in Zubra, shared by the app and the blog embed |
-| [`packages/web`](packages/web) | React card table using the Zubra components: play against bots, set and save house rules |
+| [`packages/web`](packages/web) | React card table using the Zubra components: family tables, practice against bots, house rules |
+| [`packages/rooms`](packages/rooms) | Turn-based rooms over `@zubra/sync`: seats, server-decided moves, private views, bots |
+| [`packages/server`](packages/server) | The card room server: rooms, the sync log and the web app |
 | `packages/embed` | Planned |
 
 ## Development
@@ -22,7 +23,20 @@ See [docs/SPEC.md](docs/SPEC.md) for the plan.
 ```sh
 npm install
 npm test
-npm run dev -w @spades/web   # open the table at http://localhost:5173
+npm run dev        # the server on :8787 and the app on http://localhost:5173
 ```
 
-The table deploys to GitHub Pages on every push to `main`.
+Family tables need the server. Practice against the computer works anywhere, including the
+GitHub Pages build of the app.
+
+## Hosting the card room
+
+One container runs everything; mount a volume so tables survive restarts:
+
+```sh
+docker build -t spades .
+docker run -p 8787:8787 -v spades:/data spades
+```
+
+Any host that runs a container works (Fly.io, Railway, Render). Without `SPADES_DB`, tables
+live in memory.

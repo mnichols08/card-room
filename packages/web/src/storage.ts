@@ -23,6 +23,8 @@ function write(key: string, value: unknown) {
 }
 
 export const loadName = () => read(NAME_KEY, "brokennil");
+/** The name this browser has used before, or "" for someone arriving by an invite link. */
+export const loadSavedName = () => read(NAME_KEY, "");
 export const saveName = (name: string) => write(NAME_KEY, name);
 
 export const loadSavedPresets = () => read<RulePreset[]>(PRESETS_KEY, []);

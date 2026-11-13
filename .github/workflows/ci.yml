@@ -13,7 +13,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # Building writes the components' typings (*.d.zb.ts), so typecheck after it.
-      - run: npm run build -w @spades/web
+      # Building writes the components' typings (*.d.zb.ts) and the packages the server imports,
+      # so typecheck after it.
+      - run: npm run build
       - run: npm run typecheck
       - run: npm test
