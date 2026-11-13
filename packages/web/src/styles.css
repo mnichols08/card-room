@@ -801,3 +801,14 @@ body:has(.setup.wide)::before {
 }
 /* Behind everything, in case a page pulls past its edge: the dark of the felt, never white. */
 html:has(.setup.wide), html:has(.table), html:has(.setup.house) { background-color: #0d2219; }
+
+/* A hand to take from (Old Maid): their cards face down, fanned; tap the one you want. */
+.kit-fan-area { display: flex; flex-direction: column; align-items: center; gap: 10px; padding-top: 10px; }
+.kit-fan-area small { color: #cfe2d6; font-size: var(--ui-s); text-align: center; }
+.kit-fan { display: flex; justify-content: center; padding: 0 calc(var(--trick-w) * 0.3); }
+.kit-fan-card { display: block; margin-left: calc(var(--trick-w) * -0.62); rotate: var(--tilt); translate: 0 var(--lift); transform-origin: 50% 120%; animation: none; }
+.kit-fan-card:first-child { margin-left: 0; }
+button.kit-fan-card { transition: translate var(--dur-1, 120ms) var(--ease-out, ease-out); }
+@media (hover: hover) { button.kit-fan-card:hover { translate: 0 calc(var(--lift) - var(--trick-h) * 0.18); z-index: 2; } }
+button.kit-fan-card:focus-visible { translate: 0 calc(var(--lift) - var(--trick-h) * 0.18); z-index: 2; }
+.won-sheet .won-line { margin: 0; color: var(--ink); opacity: 0.8; }
