@@ -12,6 +12,8 @@ import type { Seat, Team } from "./types.js";
 
 export interface Persona {
   name: string;
+  /** Their way of talking. Other games give each voice their own lines. */
+  voice: Voice;
   /** One line about them, for the lobby. */
   blurb: string;
   /** How often they speak up (0–1), scaled per event. */
@@ -48,7 +50,9 @@ type Lines = Partial<Record<TalkEvent, string[]>>;
 type Rand = () => number;
 
 /** Shared voices. A persona takes one and adds lines of its own. */
-const VOICES: Record<"warm" | "dry" | "goofy" | "sharp" | "quiet" | "nervous" | "dramatic", Lines> = {
+export type Voice = "warm" | "dry" | "goofy" | "sharp" | "quiet" | "nervous" | "dramatic";
+
+const VOICES: Record<Voice, Lines> = {
   warm: {
     hello: ["Hi everybody! 👋", "Good luck, all! 🍀", "Let's have fun ❤️"],
     partnerNilMade: ["That's my partner! 🎉", "Beautiful nil 👏", "You did it!! 🎉"],
@@ -202,7 +206,7 @@ const persona = (
 ): Persona => {
   const lines: Lines = { ...VOICES[voice] };
   for (const [event, more] of Object.entries(extra) as [TalkEvent, string[]][]) lines[event] = [...more, ...(lines[event] ?? [])];
-  return { name, blurb, chatty, pace, style, lines };
+  return { name, blurb, voice, chatty, pace, style, lines };
 };
 
 /** Everyone who can take a seat. Some are sharp, some are careless; all are good company. */
