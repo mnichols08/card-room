@@ -23,6 +23,7 @@ jobs:
       - run: npm run build -w @spades/web
         env:
           BASE_PATH: /${{ github.event.repository.name }}/
+          SITE_ORIGIN: https://${{ github.repository_owner }}.github.io
       - uses: actions/upload-pages-artifact@v3
         with:
           path: packages/web/dist
