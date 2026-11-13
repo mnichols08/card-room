@@ -7,6 +7,7 @@ import {
   palaceBot,
   palaceThinkingTime,
   normalizePalaceRules,
+  BEFORE_SETTINGS,
   validatePalaceRules,
   viewPalace,
   type PalaceAction,
@@ -45,7 +46,8 @@ export interface PalaceSummary {
 export function palaceRulesFrom(rules: unknown): PalaceRules {
   if (!rules || typeof rules !== "object") return familyPalace;
   const given = rules as Partial<PalaceRules>;
-  if ("swap" in given && !("choose" in given)) return { ...familyPalace, ...given, choose: false };
+  // A whole set (it has `swap`): any setting it doesn't mention didn't exist yet, so it keeps the meaning it had.
+  if ("swap" in given) return { ...familyPalace, ...BEFORE_SETTINGS, ...given } as PalaceRules;
   return normalizePalaceRules(given);
 }
 

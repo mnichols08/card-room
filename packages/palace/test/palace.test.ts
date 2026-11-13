@@ -281,3 +281,55 @@ describe("bots", () => {
     expect(said[0]!.text).toMatch(/🔥/);
   });
 });
+
+describe("Grammi's house rules: 2s and face-up cards", () => {
+  const c = (id: string) => {
+    const rank = ({ J: 11, Q: 12, K: 13, A: 14 } as Record<string, number>)[id.slice(0, -1)] ?? Number(id.slice(0, -1));
+    const suit = ({ "♠": "spades", "♥": "hearts", "♦": "diamonds", "♣": "clubs" } as Record<string, string>)[id.slice(-1)]!;
+    return { kind: "pip", rank, suit } as const;
+  };
+  const playingWith = (rules: typeof familyPalace, p0: { hand: string[]; up: string[] }) => {
+    const s = newPalace(rules, 2, 1, 0);
+    s.phase = "playing";
+    s.turn = 0;
+    s.deck = [];
+    s.pile = [c("9♦") as never];
+    s.players[0]!.hand = p0.hand.map(c) as never;
+    s.players[0]!.up = p0.up.map(c) as never;
+    s.players[0]!.down = [c("3♣") as never];
+    s.players[1]!.hand = [c("4♠") as never];
+    return s;
+  };
+
+  it("after a 2 you play again, on top of it", () => {
+    let s = playingWith(familyPalace, { hand: ["2♥", "5♠"], up: [] });
+    s = applyPalace(s, { type: "play", seat: 0, cards: ["2♥"] });
+    expect(s.turn).toBe(0);
+    expect(s.last!.again).toBe(true);
+    s = applyPalace(s, { type: "play", seat: 0, cards: ["5♠"] });
+    expect(s.turn).toBe(1);
+    // Without the house rule, a 2 passes the turn like any card.
+    let t = playingWith({ ...familyPalace, twoAgain: false }, { hand: ["2♥", "5♠"], up: [] });
+    t = applyPalace(t, { type: "play", seat: 0, cards: ["2♥"] });
+    expect(t.turn).toBe(1);
+  });
+
+  it("face-up cards go down one at a time, and the bots know it", () => {
+    const s = playingWith(familyPalace, { hand: [], up: ["J♠", "J♥", "J♦"] });
+    expect(() => applyPalace(s, { type: "play", seat: 0, cards: ["J♠", "J♥"] })).toThrow("one at a time");
+    expect(applyPalace(s, { type: "play", seat: 0, cards: ["J♠"] }).players[0]!.up).toHaveLength(2);
+    const move = palaceBot(s, 0, { skill: 1, sloppy: 0 }) as { type: string; cards: string[] };
+    expect(move.cards).toHaveLength(1);
+    // From the hand, a set still goes down together.
+    const h = playingWith(familyPalace, { hand: ["J♠", "J♥"], up: [] });
+    expect(applyPalace(h, { type: "play", seat: 0, cards: ["J♠", "J♥"] }).pile).toHaveLength(3);
+  });
+
+  it("rules saved before these settings keep their old meaning; the built-in family rules get the new ones", () => {
+    const { twoAgain, upOneAtATime, ...older } = familyPalace;
+    void twoAgain;
+    void upOneAtATime;
+    expect(normalizePalaceRules({ ...older, id: "my-rules" })).toMatchObject({ twoAgain: false, upOneAtATime: false });
+    expect(normalizePalaceRules({ ...older })).toMatchObject({ twoAgain: true, upOneAtATime: true });
+  });
+});
