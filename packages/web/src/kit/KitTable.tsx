@@ -54,7 +54,7 @@ export function KitTable({ view, names, act, onLeave, banner, chat, settings }: 
   }, [error]);
 
   // Sounds: a card landing, your turn, the end.
-  const centerKey = JSON.stringify(view.center.kind === "trick" ? view.center.plays.map((p) => p.card.id) : view.center.kind === "piles" ? [view.center.discardCount, view.center.stock] : []);
+  const centerKey = JSON.stringify(view.center.kind === "trick" ? view.center.plays.map((p) => p.card.id) : view.center.kind === "piles" ? [view.center.discardCount, view.center.stock] : view.center.kind === "fan" ? [view.center.from, view.center.count] : []);
   const seen = useRef<string | null>(null);
   useEffect(() => {
     if (seen.current !== null && seen.current !== centerKey) play("card");
@@ -259,6 +259,7 @@ export function KitTable({ view, names, act, onLeave, banner, chat, settings }: 
       {view.over && (
         <div className="sheet won-sheet">
           <h2>{view.over.winners.includes(me) ? (view.teams ? "You won! 🎉" : "You won! 🏆") : named(view.over.title, names)}</h2>
+          {view.over.winners.includes(me) && !view.result && !view.over.title.includes(`{${me}}`) && <p className="won-line">{named(view.over.title, names)}</p>}
           {view.result && <ResultTable result={view.result} names={names} me={me} untitled />}
           <button type="button" className="primary" onClick={onLeave}>
             Play again
@@ -308,6 +309,30 @@ function CenterArea({ center, view, names, send }: { center: Center; view: KitVi
         })}
         {center.winner !== null && <div className="took">{names[center.winner]} takes it</div>}
         {center.lead && <div className="kit-lead">{center.lead}</div>}
+      </div>
+    );
+  }
+  if (center.kind === "fan") {
+    // Their hand, face down and fanned: tap the card you want.
+    const n = center.count;
+    return (
+      <div className="kit-fan-area" aria-label={center.label ? named(center.label, names) : "Their cards"}>
+        <div className="kit-fan" data-from={`[data-seat="${center.from}"]`} style={{ "--n": n } as React.CSSProperties}>
+          {Array.from({ length: n }, (_, i) => {
+            const tilt = n > 1 ? (i / (n - 1) - 0.5) * Math.min(40, n * 4) : 0;
+            const style = { "--tilt": `${tilt.toFixed(1)}deg`, "--lift": `${(Math.abs(tilt) * 0.35).toFixed(1)}px` } as React.CSSProperties;
+            return center.takeType ? (
+              <button key={i} type="button" className="kit-fan-card pile-button" style={style} aria-label={`Take card ${i + 1} of ${n}`} onClick={() => send({ type: center.takeType!, index: i })}>
+                <PlayingCard back size="table" />
+              </button>
+            ) : (
+              <span key={i} className="kit-fan-card" style={style}>
+                <PlayingCard back size="table" />
+              </span>
+            );
+          })}
+        </div>
+        {center.label && <small>{named(center.label, names)}</small>}
       </div>
     );
   }

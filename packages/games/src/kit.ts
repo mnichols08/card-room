@@ -5,7 +5,7 @@
 // scores. One table screen draws every game from that, and one room runs them all on the server.
 import { mulberry32, type Card, type PlayStyle, type Suit } from "@spades/rules";
 
-export type KitGameId = "hearts" | "ohhell" | "euchre" | "crazy8" | "gin" | "pinochle" | "canasta" | "gofish";
+export type KitGameId = "hearts" | "ohhell" | "euchre" | "crazy8" | "gin" | "pinochle" | "canasta" | "gofish" | "oldmaid";
 
 /** A move that isn't allowed. The message is shown to the player as is. */
 export class GameError extends Error {}
@@ -126,6 +126,8 @@ export type Center =
       /** Only a stock, no discard pile beside it (Go Fish's pond). */
       noDiscard?: boolean;
     }
+  /** Another player's hand, face down: tap a card to take it (Old Maid). Sends { type: takeType, index }. */
+  | { kind: "fan"; from: number; count: number; takeType: string | null; label?: string }
   | { kind: "none" };
 
 export interface Meld {
