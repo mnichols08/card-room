@@ -1,0 +1,57 @@
+# @spades/rooms
+
+Turn-based rooms over [`@zubra/sync`](https://github.com/journey-to-code-org/zubra/blob/main/docs/sync.md):
+seats, moves the server decides, a private view per seat, bots, and a move log. Nothing in it is
+about spades; a room is defined by five functions.
+
+It lives here while spades shapes its API, and moves to its own repository once that settles.
+
+## Defining a room
+
+```ts
+import { createRooms, RefusedMove } from "@spades/rooms/server";
+
+const rooms = createRooms({
+  seats: 4,
+  setup: (options, seed) => newGame(options, seed),
+  act: (state, seat, move) => applyAction(state, { ...move, seat }), // throw to refuse; the message goes to the player
+  view: (state, seat) => viewFor(state, seat),                       // what that seat may see
+  summary: (state) => ({ scores: state.scores }),                    // what everyone may see
+  bot: (state, seat) => botMove(state, seat),                        // or null when it isn't that seat's move
+}, { log: sqliteLog("rooms.db", { keep: "latest" }) });
+
+// Node: answers /rooms/* and /_zb/sync/*
+http.createServer(async (req, res) => { if (!(await rooms.handle(req, res))) serveApp(req, res); });
+```
+
+## In the browser
+
+```ts
+import { createRoom, openRoom } from "@spades/rooms/client";
+
+const id = await createRoom(houseRules);
+const room = openRoom(id);
+room.onRoom((doc) => render(doc.seats));          // who's sitting where, started or not
+const { seat } = await room.sit(0, "brokennil");
+room.onView(seat, ({ view }) => render(view));    // this seat's view only
+await room.act({ type: "bid", bid: { kind: "nil" } });
+```
+
+## How it keeps a hand private
+
+| Collection | Holds | Who reads it |
+| --- | --- | --- |
+| `rooms/<id>` | seats, started, summary | everyone |
+| `views/<id>/<seat>` | one seat's view | that seat's holder |
+| `games/<id>` | options, seed, seat holders | the server |
+| `moves/<id>` | every move, one field each | the server |
+
+- **Pages never write.** `authorize` refuses every page push. Moves go to `POST /rooms/<id>/act`, and the server writes the result.
+- **A seat is a cookie.** Sitting down sets an HttpOnly `rooms_player` cookie, and `authorize` lets a request read a seat's view only when its cookie holds that seat.
+- **Moves can't interleave.** The server decides a move and records it with no `await` in between.
+- **Restarts replay.** After a restart, a room's state is rebuilt by replaying `setup` and its move log, so `act` must be deterministic.
+
+## Two things learned about Sync along the way
+
+- **The live stream is authorized when it opens.** A browser that gets its cookie after connecting (by sitting down) keeps being treated as a stranger until it reconnects; `sit()` reopens the connection for this reason.
+- **Sync has no plain-JavaScript way to follow a document yet**; documents reach `'use collection'` components. The client wraps the store (`configure({ store })`, public API) and tells subscribers about every save. A `subscribe(collection, key)` in Sync itself would make this unnecessary.

@@ -1,32 +1,36 @@
-import { cardId, passingSeats, sameCard, type Bid, type Card, type HandRecord, type RulePreset, type Seat } from "@spades/rules";
+import { cardId, passingSeats, sameCard, teamOf, type Bid, type Card, type GameState, type HandRecord, type Seat, type SeatView, type Team } from "@spades/rules";
 import BidPad from "@spades/ui/bid-pad.zb";
 import HandSummary from "@spades/ui/hand-summary.zb";
 import PlayingCard from "@spades/ui/playing-card.zb";
 import ScoreBoard from "@spades/ui/score-board.zb";
 import SeatBadge from "@spades/ui/seat-badge.zb";
 import { useState } from "react";
-import { HUMAN, useLocalGame } from "./useLocalGame";
+import type { TableState } from "./useTable";
 
 interface Props {
-  name: string;
-  preset: RulePreset;
-  seed: number;
+  table: TableState;
+  names: Record<Seat, string>;
   onLeave: () => void;
+  /** Shown under the scoreboard: the table code, who's here. */
+  banner?: React.ReactNode;
 }
 
-type Game = ReturnType<typeof useLocalGame>["game"];
+const SIDES = ["bottom", "left", "top", "right"] as const;
 
-const POSITION: Record<Seat, "bottom" | "left" | "top" | "right"> = { 0: "bottom", 1: "left", 2: "top", 3: "right" };
-
-export function Table({ name, preset, seed, onLeave }: Props) {
-  const g = useLocalGame(preset, seed);
-  const { game, view } = g;
-  const names: Record<Seat, string> = { 0: name, 1: "Hank", 2: "Dot", 3: "Lou" };
+export function Table({ table: t, names, onLeave, banner }: Props) {
+  const view = t.view!;
+  const me = t.seat;
+  const preset = view.preset;
+  const side = (s: Seat) => SIDES[(s - me + 4) % 4]!;
+  const partner = ((me + 2) % 4) as Seat;
+  const left = ((me + 1) % 4) as Seat;
+  const right = ((me + 3) % 4) as Seat;
+  const myTeam = teamOf(me);
   const [selected, setSelected] = useState<Card[]>([]);
 
-  const myTurnToBid = game.phase === "bidding" && game.turn === HUMAN && !g.paused;
-  const myTurnToPlay = game.phase === "playing" && game.turn === HUMAN && !g.paused;
-  const iPass = game.phase === "passing" && passingSeats(game).includes(HUMAN) && !game.passes[HUMAN];
+  const myTurnToBid = view.phase === "bidding" && view.turn === me && !t.paused;
+  const myTurnToPlay = view.phase === "playing" && view.turn === me && !t.paused;
+  const iPass = view.phase === "passing" && passingSeats(view as unknown as GameState).includes(me) && !view.myPass;
   const passCount = preset.blindNil.passCards;
 
   function pick(card: Card) {
@@ -40,21 +44,21 @@ export function Table({ name, preset, seed, onLeave }: Props) {
       );
       return;
     }
-    if (myTurnToPlay) g.act({ type: "play", seat: HUMAN, card });
+    if (myTurnToPlay) void t.act({ type: "play", card });
   }
 
   function bid(detail: number | "nil" | "blind-nil") {
     const choice: Bid = typeof detail === "number" ? { kind: "tricks", count: detail } : { kind: detail };
-    g.act({ type: "bid", seat: HUMAN, bid: choice });
+    void t.act({ type: "bid", bid: choice });
   }
 
   const seat = (s: Seat, layout: "row" | "column" = "column") => (
     <SeatBadge
       name={names[s]}
-      bid={bidLabel(game.bids[s] ?? null)}
-      tricks={game.tricksWon[s]}
-      team={s % 2 === 0 ? "us" : "them"}
-      active={game.phase !== "finished" && (s === HUMAN ? myTurnToBid || myTurnToPlay : game.turn === s)}
+      bid={bidLabel(view.bids[s] ?? null)}
+      tricks={view.tricksWon[s]}
+      team={teamOf(s) === myTeam ? "us" : "them"}
+      active={view.phase !== "finished" && (s === me ? myTurnToBid || myTurnToPlay : view.turn === s)}
       layout={layout}
     />
   );
@@ -62,52 +66,53 @@ export function Table({ name, preset, seed, onLeave }: Props) {
   return (
     <main className="table">
       <ScoreBoard
-        us={{ name: `${names[0]} & ${names[2]}`, ...game.scores[0] }}
-        them={{ name: `${names[1]} & ${names[3]}`, ...game.scores[1] }}
-        hand={game.handNumber + 1}
-        playTo={game.preset.playTo}
+        us={{ name: `${names[me]} & ${names[partner]}`, ...view.scores[myTeam] }}
+        them={{ name: `${names[left]} & ${names[right]}`, ...view.scores[(1 - myTeam) as Team] }}
+        hand={view.handNumber + 1}
+        playTo={preset.playTo}
         onLeave={() => confirm("Leave this game?") && onLeave()}
       />
+      {banner}
 
       <div className="felt">
-        {([1, 2, 3] as Seat[]).map((s) => (
-          <div key={s} className={`seat-slot ${POSITION[s]}`}>
+        {[left, partner, right].map((s) => (
+          <div key={s} className={`seat-slot ${side(s)}`}>
             {seat(s)}
           </div>
         ))}
 
         <div className="trick" aria-label="Cards on the table">
-          {g.trickOnTable.map((play) => (
-            <div key={cardId(play.card)} className={`played ${POSITION[play.seat]}`}>
-              <PlayingCard card={play.card} size="table" won={g.trickWinner === play.seat} />
+          {t.trickOnTable.map((play) => (
+            <div key={cardId(play.card)} className={`played ${side(play.seat)}`}>
+              <PlayingCard card={play.card} size="table" won={t.trickWinner === play.seat} />
             </div>
           ))}
-          {g.trickWinner !== null && <div className="took">{names[g.trickWinner]} takes it</div>}
+          {t.trickWinner !== null && <div className="took">{names[t.trickWinner]} takes it</div>}
         </div>
 
         <div className="status" role="status">
-          {g.error ? (
-            <span className="error">{g.error}</span>
+          {t.error ? (
+            <span className="error">{t.error}</span>
           ) : myTurnToPlay ? (
             "Your play"
           ) : myTurnToBid ? (
             "Your bid"
           ) : iPass ? (
-            `Pick ${passCount} card${passCount === 1 ? "" : "s"} to pass to ${names[2]}`
-          ) : game.phase === "passing" ? (
+            `Pick ${passCount} card${passCount === 1 ? "" : "s"} to pass to ${names[partner]}`
+          ) : view.phase === "passing" ? (
             "Swapping cards…"
-          ) : game.phase !== "finished" && !g.paused ? (
-            `${names[game.turn]} is thinking…`
+          ) : view.phase !== "finished" && !t.paused ? (
+            `${names[view.turn]} is thinking…`
           ) : null}
         </div>
       </div>
 
       <section className="me">
-        <div className="me-badge">{seat(HUMAN, "row")}</div>
+        <div className="me-badge">{seat(me, "row")}</div>
         <div className="hand" role="group" aria-label="Your hand">
-          {view.hand === null
-            ? Array.from({ length: 13 }, (_, i) => <PlayingCard key={i} back />)
-            : view.hand.map((card) => (
+          {t.hand === null
+            ? Array.from({ length: view.handCounts[me] ?? 13 }, (_, i) => <PlayingCard key={i} back />)
+            : t.hand.map((card) => (
                 <PlayingCard
                   key={cardId(card)}
                   card={card}
@@ -123,18 +128,18 @@ export function Table({ name, preset, seed, onLeave }: Props) {
       {myTurnToBid && (
         <div className="sheet">
           <BidPad
-            blind={view.hand === null}
+            blind={t.hand === null}
             nil={preset.nil.enabled}
-            sofar={([1, 2, 3] as Seat[]).flatMap((s) => (game.bids[s] ? [`${names[s]} ${bidLabel(game.bids[s]!)}`] : [])).join(" · ")}
+            sofar={[left, partner, right].flatMap((s) => (view.bids[s] ? [`${names[s]} ${bidLabel(view.bids[s]!)}`] : [])).join(" · ")}
             onBid={(event: CustomEvent<number | "nil" | "blind-nil">) => bid(event.detail)}
-            onLook={g.look}
+            onLook={t.look}
           />
         </div>
       )}
 
-      {view.hand === null && game.phase === "bidding" && !myTurnToBid && !g.paused && (
+      {t.hand === null && view.phase === "bidding" && !myTurnToBid && !t.paused && (
         <div className="peek">
-          <button type="button" className="secondary" onClick={g.look}>
+          <button type="button" className="secondary" onClick={t.look}>
             Look at my cards
           </button>
           <span>Don't look yet if you might go blind nil.</span>
@@ -148,26 +153,26 @@ export function Table({ name, preset, seed, onLeave }: Props) {
             className="primary"
             disabled={selected.length !== passCount}
             onClick={() => {
-              g.act({ type: "pass", seat: HUMAN, cards: selected });
+              void t.act({ type: "pass", cards: selected });
               setSelected([]);
             }}
           >
-            Pass {selected.length}/{passCount} to {names[2]}
+            Pass {selected.length}/{passCount} to {names[partner]}
           </button>
         </div>
       )}
 
-      {g.summary && game.phase !== "finished" && (
+      {t.summary && view.phase !== "finished" && (
         <div className="sheet">
-          <HandSummary heading={`Hand ${g.summary.handNumber + 1}`} rows={summaryRows(g.summary, game)} action="Deal the next hand" onNext={g.dismissSummary} />
+          <HandSummary heading={`Hand ${t.summary.handNumber + 1}`} rows={summaryRows(t.summary, view, myTeam)} action="Deal the next hand" onNext={t.dismissSummary} />
         </div>
       )}
 
-      {game.phase === "finished" && (
+      {view.phase === "finished" && (
         <div className="sheet">
-          <h2>{game.winner === 0 ? "You won!" : `${names[1]} & ${names[3]} won`}</h2>
+          <h2>{view.winner === myTeam ? "You won!" : `${names[left]} & ${names[right]} won`}</h2>
           <p className="final">
-            {game.scores[0].points} – {game.scores[1].points} after {game.history.length} hands
+            {view.scores[myTeam].points} – {view.scores[(1 - myTeam) as Team].points} after {view.history.length} hands
           </p>
           <button type="button" className="primary" onClick={onLeave}>
             Play again
@@ -187,14 +192,15 @@ function bidLabel(bid: Bid | null) {
 
 const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : "0");
 
-function summaryRows(record: HandRecord, game: Game) {
-  const [us, them] = record.results;
+function summaryRows(record: HandRecord, view: SeatView, myTeam: Team) {
+  const us = record.results[myTeam];
+  const them = record.results[(1 - myTeam) as Team];
   const both = (f: (r: typeof us) => string) => ({ us: f(us), them: f(them) });
   return [
     { label: "Bid / took", ...both((r) => `${r.bid} / ${r.tricks}`) },
     { label: "Nil", ...both((r) => (r.nilPoints === 0 ? "—" : signed(r.nilPoints))) },
     { label: "Bags", ...both((r) => `+${r.bagsTaken}${r.bagPenalty > 0 ? ` (−${r.bagPenalty})` : ""}`) },
     { label: "This hand", tone: "score", ...both((r) => signed(r.delta)) },
-    { label: "Score", tone: "total", us: String(game.scores[0].points), them: String(game.scores[1].points) },
+    { label: "Score", tone: "total", us: String(view.scores[myTeam].points), them: String(view.scores[(1 - myTeam) as Team].points) },
   ];
 }

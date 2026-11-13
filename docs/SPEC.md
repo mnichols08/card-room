@@ -81,6 +81,7 @@ packages/
   ui/       table components written in Zubra (.zb): custom elements shared by web and embed
   web/      the card table app: React, using the ui components through @zubra/unplugin
   rooms/    a kit over @zubra/sync for server-decided, turn-based rooms with private per-seat views
+  server/   the card room: rooms + the sync log + the web app, in one Node process
   embed/    the ui components on open.blog pages: game nights, leaderboard, join button
 ```
 
@@ -100,7 +101,7 @@ packages/
 1. **Rules engine** — presets, deck, legal plays, tricks, bidding, scoring, game reducer, tests. ✅
 2. **Local table** — `web` plays a full game against simple bots, no server. Rules editor saves presets in the browser. ✅
 3. **Zubra components** — the table and setup screen rebuilt on `.zb` components inside React. ✅
-4. **Rooms kit + realtime tables** — `packages/rooms` over `@zubra/sync`: seats, server-checked moves, per-seat views, bots and a move log.
+4. **Rooms kit + family tables** — `packages/rooms` over `@zubra/sync`: seats, server-checked moves, per-seat views, bots and a move log; invite links and a lobby in the app; one container to host it. ✅
 5. **Houses** — accounts, invite links, roles, preset editor, house default preset.
 6. **Tournaments & leaderboard.**
 7. **open.blog embed** for Grammi's House.

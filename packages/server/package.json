@@ -1,0 +1,22 @@
+{
+  "name": "@spades/server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The spades server: family tables over the rooms kit, and the web app.",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/index.js",
+    "dev": "tsc -p tsconfig.json && SPADES_BOT_DELAY=500 node dist/index.js"
+  },
+  "dependencies": {
+    "@spades/rooms": "*",
+    "@spades/rules": "*",
+    "@zubra/sync": "^5.9.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}

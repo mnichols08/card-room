@@ -1,0 +1,24 @@
+{
+  "name": "@spades/rooms",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Turn-based rooms over @zubra/sync: seats, server-decided moves, private per-seat views, bots and a move log.",
+  "type": "module",
+  "exports": {
+    "./server": { "types": "./dist/server.d.ts", "default": "./dist/server.js" },
+    "./client": { "types": "./dist/client.d.ts", "default": "./dist/client.js" }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@zubra/sync": "^5.9.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0"
+  }
+}

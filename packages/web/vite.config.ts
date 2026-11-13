@@ -10,10 +10,14 @@ export default defineConfig({
   base: process.env.BASE_PATH ?? "/",
   // In .tsx files, a .zb import is a typed React component: props in, on<Event> handlers out.
   plugins: [zubra(), react()],
+  // `npm run dev -w @spades/server` serves the rooms and the sync log on 8787.
+  server: { proxy: { "/rooms": "http://localhost:8787", "/_zb": "http://localhost:8787" } },
   resolve: {
     alias: {
       "@spades/rules": local("../rules/src/index.ts"),
       "@spades/ui": local("../ui/src"),
+      "@spades/rooms/client": local("../rooms/src/client.ts"),
+      "@spades/rooms/server": local("../rooms/src/server.ts"),
     },
   },
 });
