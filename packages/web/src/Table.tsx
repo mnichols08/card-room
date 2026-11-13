@@ -5,6 +5,8 @@ import PlayingCard from "@spades/ui/playing-card.zb";
 import ScoreBoard from "@spades/ui/score-board.zb";
 import SeatBadge from "@spades/ui/seat-badge.zb";
 import { useState } from "react";
+import { loadFeedbackSettings, play, saveFeedbackSettings } from "./feedback/sounds";
+import { useTableSounds } from "./feedback/useTableSounds";
 import type { TableState } from "./useTable";
 
 interface Props {
@@ -27,6 +29,15 @@ export function Table({ table: t, names, onLeave, banner }: Props) {
   const right = ((me + 3) % 4) as Seat;
   const myTeam = teamOf(me);
   const [selected, setSelected] = useState<Card[]>([]);
+  const [soundOn, setSoundOn] = useState(() => loadFeedbackSettings().sound);
+  useTableSounds(t);
+
+  function toggleSound() {
+    const next = { ...loadFeedbackSettings(), sound: !soundOn };
+    saveFeedbackSettings(next);
+    setSoundOn(next.sound);
+    if (next.sound) play("bid");
+  }
 
   const myTurnToBid = view.phase === "bidding" && view.turn === me && !t.paused;
   const myTurnToPlay = view.phase === "playing" && view.turn === me && !t.paused;
@@ -75,6 +86,9 @@ export function Table({ table: t, names, onLeave, banner }: Props) {
       {banner}
 
       <div className="felt">
+        <button type="button" className="sound-toggle" onClick={toggleSound} aria-pressed={soundOn} aria-label={soundOn ? "Turn sounds off" : "Turn sounds on"}>
+          {soundOn ? "🔊" : "🔇"}
+        </button>
         {[left, partner, right].map((s) => (
           <div key={s} className={`seat-slot ${side(s)}`}>
             {seat(s)}
