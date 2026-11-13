@@ -134,8 +134,23 @@ const randomId = (n: number) => Array.from(crypto.getRandomValues(new Uint8Array
 /** A new player id: the secret a browser's cookie holds. */
 export const newPlayerId = () => randomId(24);
 
-/** The Set-Cookie value that makes a browser this player, for a year. */
-export const playerCookie = (player: string) => `${COOKIE}=${player}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000`;
+/** Whether the browser reached us over HTTPS: directly, or through a proxy that says so (Railway). */
+export function overHttps(request?: Request): boolean {
+  if (!request) return false;
+  const forwarded = request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim().toLowerCase();
+  if (forwarded) return forwarded === "https";
+  try {
+    return new URL(request.url).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The Set-Cookie value that makes a browser this player, for a year. Over HTTPS it's also Secure, so
+ * the browser never sends it over plain http; plain-http development (localhost) still works.
+ */
+export const playerCookie = (player: string, request?: Request) => `${COOKIE}=${player}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000${overHttps(request) ? "; Secure" : ""}`;
 
 export function playerOf(request: Request): string | null {
   const cookie = request.headers.get("cookie") ?? "";
@@ -417,7 +432,7 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
       seats[seat] = { name, bot: false };
       await sync.write("games", id, { holders });
       await sync.write("rooms", id, { seats });
-      return json({ seat }, 200, player ? {} : { "set-cookie": playerCookie(me) });
+      return json({ seat }, 200, player ? {} : { "set-cookie": playerCookie(me, request) });
     }
 
     if (mySeat < 0) return json({ error: "Take a seat first." }, 403);

@@ -120,7 +120,7 @@ export function createChallenges(rooms: Rooms, push: Push, { mount = "/challenge
       if (typeof input.enabled === "boolean") c.enabled = input.enabled;
       await save(c);
       await rooms.sync.write("challengeOf", me, { code: c.code });
-      return json(mine(c), 200, player ? {} : { "set-cookie": playerCookie(me) });
+      return json(mine(c), 200, player ? {} : { "set-cookie": playerCookie(me, request) });
     }
 
     const code = parts[0];
@@ -176,7 +176,7 @@ export function createChallenges(rooms: Rooms, push: Push, { mount = "/challenge
         url: `/?table=${id}`,
         tag: `challenge-${id}`,
       });
-      return json({ id, game, notified: delivered > 0 }, 201, player ? {} : { "set-cookie": playerCookie(challenger) });
+      return json({ id, game, notified: delivered > 0 }, 201, player ? {} : { "set-cookie": playerCookie(challenger, request) });
     }
 
     return json({ error: "Not found" }, 404);
