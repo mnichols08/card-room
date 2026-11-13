@@ -5,6 +5,7 @@ import type { GameId } from "./storage";
 export interface HouseTable {
   id: string;
   game: GameId;
+  tournament: string | null;
   rules: string;
   created: number;
   seats: { name: string | null; bot: boolean }[];
@@ -23,6 +24,40 @@ export interface House {
   palacePresets: PalaceRules[];
   palaceDefault: string;
   tables: HouseTable[];
+  tournaments: TournamentBrief[];
+}
+
+export type TournamentStatus = "signup" | "playing" | "finished";
+
+export interface TournamentBrief {
+  id: string;
+  name: string;
+  game: GameId;
+  status: TournamentStatus;
+  entrants: number;
+  champion: string | null;
+  round: string | null;
+}
+
+/** One side of a match: an entrant's index, a bye, or not known yet. */
+export type Side = number | "bye" | null;
+
+export interface Tournament {
+  id: string;
+  name: string;
+  game: GameId;
+  rules: string;
+  status: TournamentStatus;
+  champion: number | null;
+  created: number;
+  by: string;
+  /** Your entry's index, if you're playing. */
+  mine: number | null;
+  entrants: { id: string; name: string; players: ({ bot: true; name: string } | { bot: false; id: string; name: string })[] }[];
+  rounds: {
+    name: string;
+    matches: { a: Side; b: Side; table: string | null; winner: 0 | 1 | null; how: "played" | "bye" | "called" | null; playing: boolean; score: string | null }[];
+  }[];
 }
 
 export interface Standings {
@@ -81,6 +116,11 @@ export const houses = {
   setRole: (slug: string, member: string, role: "admin" | "member") => call<House>(at(slug, "role"), { member, role }),
   remove: (slug: string, member: string) => call<House>(at(slug, "remove"), { member }),
   newLink: (slug: string) => call<House>(at(slug, "new-link"), {}),
+  tournament: (slug: string, id: string) => call<Tournament>(at(slug, `tournaments/${encodeURIComponent(id)}`)),
+  newTournament: (slug: string, name: string, game: GameId, presetId: string, settings: TableSettings) => call<Tournament>(at(slug, "tournaments"), { name, game, presetId, settings }),
+  /** enter { partner? } · leave · add { players } · remove { entrant } · start · call { round, match, winner } · cancel */
+  tournamentAction: (slug: string, id: string, action: string, body: Record<string, unknown> = {}) =>
+    call<Tournament>(at(slug, `tournaments/${encodeURIComponent(id)}/${action}`), body),
 };
 
 export const inviteLink = (house: Pick<House, "slug" | "code">) =>

@@ -38,7 +38,11 @@ export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: b
     log: options.log,
     botDelay: options.botDelay,
     onStart: ({ id, state, room }) => speak(id, talk.greet(state, castOf(room))),
-    onMove: ({ id, before, after, room }) => speak(id, talk.react(before, after, castOf(room)), talk.finished(after)),
+    onMove: ({ id, before, after, room }) => {
+      speak(id, talk.react(before, after, castOf(room)), talk.finished(after));
+      // A tournament match that just ended moves its winner on.
+      if (talk.finished(after) && !talk.finished(before)) void houses.tableFinished(id, tableRoom.summary!(after)).catch((e) => console.error("tournament", e));
+    },
     // Someone spoke to the table: an answer is never dropped for being close to other talk.
     onSay: ({ id, message, room }) => speak(id, talk.reply(gameOfRoom(room), message.text, message.seat, castOf(room)), true),
   });

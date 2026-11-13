@@ -183,9 +183,9 @@ function Lobby(props: {
         <div className="suits" aria-hidden>
           {game === "palace" ? "🏰" : "♠ ♥ ♣ ♦"}
         </div>
-        <h1>{game === "palace" ? "Palace" : "Spades"} · Table {room.id}</h1>
+        <h1>{doc.label ?? `${game === "palace" ? "Palace" : "Spades"} · Table ${room.id}`}</h1>
         <p>
-          {doc.started ? "This game has started." : game === "palace" ? "First one out wins. Fill empty seats with bots." : "Partners sit across from each other."}
+          {doc.started ? "This game has started." : doc.locked ? (mySeat !== null ? "Your tournament match. Deal when you're ready; the game waits for whoever's turn it is." : "A tournament match. The seats are set.") : game === "palace" ? "First one out wins. Fill empty seats with bots." : "Partners sit across from each other."}
           {info?.rules ? ` ${info.rules}.` : ""}
         </p>
       </header>
@@ -207,7 +207,7 @@ function Lobby(props: {
                 {game === "spades" && s.bot && s.name && personaFor(s.name).blurb && <small className="blurb">{personaFor(s.name).blurb}</small>}
               </strong>
               {mine && <em>you</em>}
-              {!doc.started && empty && mySeat === null && (
+              {!doc.started && !doc.locked && empty && mySeat === null && (
                 <button
                   type="button"
                   className="secondary small"
@@ -223,7 +223,7 @@ function Lobby(props: {
                   Sit here
                 </button>
               )}
-              {!doc.started && empty && mySeat !== null && (
+              {!doc.started && !doc.locked && empty && mySeat !== null && (
                 <button
                   type="button"
                   className="link"
@@ -237,7 +237,7 @@ function Lobby(props: {
                   Add a bot
                 </button>
               )}
-              {!doc.started && s.bot && mySeat !== null && (
+              {!doc.started && !doc.locked && s.bot && mySeat !== null && (
                 <button type="button" className="link" onClick={() => attempt(() => room.removeBot(i))}>
                   Remove
                 </button>
@@ -254,9 +254,11 @@ function Lobby(props: {
       )}
       {!doc.started && (
         <>
-          <button type="button" className="secondary" onClick={share}>
-            {copied ? "Link copied" : "Invite people"}
-          </button>
+          {!doc.locked && (
+            <button type="button" className="secondary" onClick={share}>
+              {copied ? "Link copied" : "Invite people"}
+            </button>
+          )}
           {mySeat !== null && (
             <button type="button" className="primary deal" disabled={!full} onClick={() => attempt(() => room.start())}>
               {full ? "Deal" : "Waiting for every seat"}

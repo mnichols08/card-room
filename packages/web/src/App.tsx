@@ -11,6 +11,7 @@ import { RoomTable } from "./RoomTable";
 import { LocalPalace } from "./palace/LocalPalace";
 import { PalaceSetup } from "./palace/PalaceSetup";
 import { Setup } from "./Setup";
+import { TournamentPage } from "./TournamentPage";
 import { loadGame, loadTableSettings, rememberHouse, saveGame, type GameId } from "./storage";
 
 type Screen =
@@ -19,6 +20,7 @@ type Screen =
   | { kind: "local-palace"; name: string; rules: PalaceRules; seats: number; seed: number }
   | { kind: "room"; id: string; house: string | null }
   | { kind: "house"; slug: string; code: string | null }
+  | { kind: "tournament"; slug: string; id: string }
   | { kind: "challenge"; code: string };
 
 /** The screen is in the URL, so links work and the back button does what people expect. */
@@ -27,6 +29,8 @@ function fromUrl(): Screen {
   const table = q.get("table");
   const house = q.get("house");
   if (table) return { kind: "room", id: table, house };
+  const tournament = q.get("tournament");
+  if (house && tournament) return { kind: "tournament", slug: house, id: tournament };
   if (house) return { kind: "house", slug: house, code: q.get("code") };
   const challenge = q.get("challenge");
   if (challenge) return { kind: "challenge", code: challenge };
@@ -67,6 +71,10 @@ export function App() {
     go({ house: slug });
     setScreen({ kind: "house", slug, code: null });
   };
+  const openTournament = (slug: string, id: string) => {
+    go({ house: slug, tournament: id });
+    setScreen({ kind: "tournament", slug, id });
+  };
   const openTable = (id: string, house: string | null) => {
     go({ table: id, house });
     setScreen({ kind: "room", id, house });
@@ -91,7 +99,10 @@ export function App() {
   }
   if (screen.kind === "challenge") return <ChallengePage code={screen.code} onSent={(id) => openTable(id, null)} onLeave={home} />;
   if (screen.kind === "house") {
-    return <HousePage key={screen.slug} slug={screen.slug} code={screen.code} onOpenTable={(id) => openTable(id, screen.slug)} onLeave={home} />;
+    return <HousePage key={screen.slug} slug={screen.slug} code={screen.code} onOpenTable={(id) => openTable(id, screen.slug)} onOpenTournament={(id) => openTournament(screen.slug, id)} onLeave={home} />;
+  }
+  if (screen.kind === "tournament") {
+    return <TournamentPage key={screen.id} slug={screen.slug} id={screen.id} onOpenTable={(id) => openTable(id, screen.slug)} onBack={() => openHouse(screen.slug)} />;
   }
   if (game === "palace") {
     return (

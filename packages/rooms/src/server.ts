@@ -65,6 +65,10 @@ export interface RoomDoc<Summary = unknown> {
   /** The table's settings (see RoomDefinition.settings), or null. */
   settings?: unknown;
   started: boolean;
+  /** Seats set by the server (a tournament match, say): nobody may sit, swap or change bots. */
+  locked?: boolean;
+  /** A name for the table, set by the server, for pages to show. */
+  label?: string;
   summary: Summary | null;
   version: number;
 }
@@ -260,6 +264,31 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     seats[seat] = { name, bot: true };
     await sync.write("rooms", id, { seats });
   }
+  /** Deal: from a seated player's request, or from server code. Resolves to a problem, or null. */
+  async function start(id: string): Promise<string | null> {
+    const g = await game(id);
+    const r = await room(id);
+    if (!g || !r) return "No such table.";
+    if (r.started) return null;
+    if (r.seats.some((s, i) => !s.bot && !g.holders[i])) return "Every seat needs a player or a bot.";
+    const seed = newSeed();
+    await sync.write("games", id, { seed });
+    const entry = await stateOf(id);
+    entry.state = def.setup(g.options, seed);
+    entry.moves = 0;
+    await publish(id, entry);
+    if (options.onStart) {
+      const started = await room(id);
+      if (started) safely(() => options.onStart!({ id, state: entry.state, room: started }));
+    }
+    void driveBots(id);
+    return null;
+  }
+  /** Set the seats for good (after seating everyone from server code), and name the table. */
+  async function lock(id: string, label?: string): Promise<void> {
+    await sync.write("rooms", id, { locked: true, ...(label ? { label: label.slice(0, 60) } : {}) });
+  }
+
   /** Who holds each seat (player ids), for server code. Never send these to a page. */
   async function holders(id: string): Promise<(string | null)[]> {
     return (await game(id))?.holders ?? [];
@@ -374,6 +403,7 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     const input = await body(request);
 
     if (action === "sit") {
+      if (r.locked) return json({ error: "The seats at this table are already set." }, 409);
       const seat = Number(input.seat);
       const name = String(input.name ?? "").trim().slice(0, 20) || "Player";
       if (!Number.isInteger(seat) || seat < 0 || seat >= r.seats.length) return json({ error: "No such seat." }, 400);
@@ -412,6 +442,7 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
       const seat = Number(input.seat);
       const add = input.add !== false;
       if (r.started) return json({ error: "This game has started." }, 409);
+      if (r.locked) return json({ error: "The seats at this table are already set." }, 409);
       if (!Number.isInteger(seat) || seat < 0 || seat >= r.seats.length || g.holders[seat]) return json({ error: "That seat isn't free." }, 409);
       const seats = [...r.seats];
       seats[seat] = add ? { name: String(input.name ?? `Bot ${seat + 1}`), bot: true } : { name: null, bot: false };
@@ -420,20 +451,8 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     }
 
     if (action === "start") {
-      if (r.started) return json({ ok: true });
-      if (r.seats.some((s, i) => !s.bot && !g.holders[i])) return json({ error: "Every seat needs a player or a bot." }, 409);
-      const seed = newSeed();
-      await sync.write("games", id, { seed });
-      const entry = await stateOf(id);
-      entry.state = def.setup(g.options, seed);
-      entry.moves = 0;
-      await publish(id, entry);
-      if (options.onStart) {
-        const started = await room(id);
-        if (started) safely(() => options.onStart!({ id, state: entry.state, room: started }));
-      }
-      void driveBots(id);
-      return json({ ok: true });
+      const problem = await start(id);
+      return problem ? json({ error: problem }, 409) : json({ ok: true });
     }
 
     // POST /rooms/:id/say { text }
@@ -475,6 +494,8 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     say,
     seatPlayer,
     seatBot,
+    start,
+    lock,
     holders,
     /** The public room doc, or undefined. */
     room,
