@@ -38,5 +38,22 @@ docker build -t spades .
 docker run -p 8787:8787 -v spades:/data spades
 ```
 
-Any host that runs a container works (Fly.io, Railway, Render). Without `SPADES_DB`, tables
-live in memory.
+Without `SPADES_DB`, tables live in memory. `GET /healthz` answers `ok` for health checks.
+
+### On Railway
+
+`.railway/railway.ts` describes the card room as its own Railway project: the service built
+from this repository's Dockerfile, a 1 GB volume at `/data`, the health check, and one replica
+(the server holds live connections and game state in one process, so never run two). Keep it in
+a project of its own, because applying the file makes the whole project match it.
+
+```sh
+npm install -g @railway/cli   # once
+railway login
+railway init                  # a new, empty project named spades (or `railway link` to an empty one)
+railway config plan           # shows what it will create
+railway config apply
+```
+
+Then, in the dashboard, generate a domain for the service under **Networking**. Generated
+domains aren't part of the file. Every merge to `main` deploys.
