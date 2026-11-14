@@ -1007,7 +1007,8 @@ button.cross-pile.can::after {
    One board in the middle, as big as the screen allows: the full width on a phone, and never taller
    than what's left under the bar and above your seat. Everything inside is sized from the board's
    own width (container units), so a 3×3 and a 15×15 both fill it. */
-.board-felt { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 10px 8px 12px; }
+/* The felt is as tall as what's on it, so a table too tall for the screen scrolls instead of sliding under your seat. */
+.board-felt { flex: 1 0 auto; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 10px 8px 12px; }
 .board .status { position: static; }
 .board-others { display: flex; justify-content: center; flex-wrap: wrap; gap: clamp(10px, 4vw, 48px); }
 .board-others .opp { gap: 4px; }
@@ -1019,6 +1020,19 @@ button.cross-pile.can::after {
 }
 /* A second board (your own fleet beside the one you're shooting at) is drawn smaller. */
 .board-wrap.side { --board-max: 300px; }
+/* Two boards have titles, and usually reserves above and below: leave them the room. */
+.boards.many .board-wrap { width: min(100%, var(--board-max), max(220px, calc((100dvh - 410px) * var(--cols) / var(--rows)))); }
+/* Two boards on a phone: the main one a little shorter, and the second small beside the notes and
+   buttons instead of under them, so both boards and what just happened are all on the screen. */
+@media (max-width: 640px) {
+  .board-felt:has(.boards.many) { flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: flex-start; }
+  .board-felt:has(.boards.many) .board-others { width: 100%; }
+  .boards.many { display: contents; }
+  .boards.many .board-wrap:not(.side) { width: min(100%, var(--board-max), max(280px, calc((100dvh - 500px) * var(--cols) / var(--rows)))); }
+  .boards.many .board-wrap.side { --board-max: min(46vw, 210px); flex: none; }
+  .boards.many .board-wrap.side .coords { font-size: 0.5rem; }
+  .boards.many ~ .center-info { flex: 1 1 0; min-width: 0; align-self: center; }
+}
 .board-wrap.with-coords { grid-template-columns: 1.3em minmax(0, 1fr); grid-template-areas: "title title" "rows grid" ". cols"; }
 .board-title { grid-area: title; margin: 0 0 4px; text-align: center; font-size: var(--ui-m); color: var(--gold); }
 .coords { color: #cfe2d6; font-size: 0.68rem; line-height: 1; user-select: none; }
@@ -1057,6 +1071,19 @@ button.cross-pile.can::after {
 .board-grid .cell.picked { background: #f3d77f; }
 .board-grid .cell.target::after { content: ""; position: absolute; width: 30%; aspect-ratio: 1; border-radius: 50%; background: rgba(31, 77, 58, 0.55); }
 .board-grid .cell.target:has(.piece)::after { width: 86%; background: none; border: max(2px, 0.5cqw) solid rgba(31, 77, 58, 0.6); }
+/* A piece that covers several cells (a ship: cells with one `span`) is drawn as one hull under its
+   cells' glyphs, rounded where it ends and running through the grid lines where it carries on. */
+.board-grid .cell.spanned { --hull: #5b6876; --hull-edge: transparent; --hull-inset: 14%; --hull-line: max(2px, 0.5cqw); }
+.board-grid .cell.spanned::before {
+  content: ""; position: absolute; inset: var(--hull-inset); box-sizing: border-box;
+  background: var(--hull); border: var(--hull-line) solid var(--hull-edge); border-radius: 38%;
+}
+.board-grid .cell.spanned.join-n::before { top: calc(-1 * var(--line-w)); border-top: 0; border-top-left-radius: 0; border-top-right-radius: 0; }
+.board-grid .cell.spanned.join-s::before { bottom: calc(-1 * var(--line-w)); border-bottom: 0; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.board-grid .cell.spanned.join-w::before { left: calc(-1 * var(--line-w)); border-left: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.board-grid .cell.spanned.join-e::before { right: calc(-1 * var(--line-w)); border-right: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.board-grid .cell.spanned .piece { position: relative; z-index: 1; }
+.board-grid .cell.spanned.picked { --hull: #1f4d3a; }
 
 /* Blocks of cells with heavier lines between them (Ultimate Tic-Tac-Toe's nine small boards). */
 .board-grid.blocked { --line-w: 1px; --line: rgba(29, 26, 22, 0.3); }
@@ -1100,10 +1127,43 @@ html[data-motion="off"] .board-grid .piece, html[data-motion="off"] .board-block
 @keyframes piece-in { from { scale: 0.4; opacity: 0; } to { scale: 1; opacity: 1; } }
 @keyframes piece-win { 50% { scale: 1.18; } }
 
+/* Reversi: round discs with a little shine, on a green board. A cell you can move to has a dot. */
+.board-reversi .board-grid { background: #2f8a5b; --line: rgba(10, 40, 26, 0.7); }
+.board-grid .cell.mark-hint::after { content: ""; position: absolute; width: 26%; aspect-ratio: 1; border-radius: 50%; background: rgba(8, 32, 20, 0.45); }
+.piece.kind-disc {
+  width: 82%; aspect-ratio: 1; border-radius: 50%; color: transparent; text-shadow: none; overflow: hidden;
+  background: var(--disc); box-shadow: 0 max(1px, 0.4cqw) max(2px, 0.7cqw) rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+.piece.kind-disc.tone-dark { --disc: radial-gradient(circle at 35% 30%, #5a554e, #1d1a16 62%); }
+.piece.kind-disc.tone-light { --disc: radial-gradient(circle at 35% 30%, #ffffff, #e2dccd 70%); }
+.board-seat .piece.kind-disc.small, .board-reserve .piece.kind-disc.small { width: 1.25em; height: 1.25em; border-radius: 50%; background: var(--disc); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35); }
+/* The discs the last move turned over keep a soft gold rim until the next move, so it can be read without the animation. */
+.board-grid .cell.mark-flipped .piece.kind-disc { box-shadow: 0 0 0 max(2px, 0.5cqw) rgba(232, 196, 106, 0.7), 0 max(1px, 0.4cqw) max(2px, 0.7cqw) rgba(0, 0, 0, 0.45); }
+/* A trapped disc turns over: edge-on halfway, where it changes colour. Without motion it simply is the new colour. */
+@media (prefers-reduced-motion: no-preference) {
+  .board-grid .cell.mark-flipped .piece.kind-disc.tone-dark { animation: disc-to-dark 460ms ease-in-out; }
+  .board-grid .cell.mark-flipped .piece.kind-disc.tone-light { animation: disc-to-light 460ms ease-in-out; }
+}
+html[data-motion="off"] .board-grid .cell.mark-flipped .piece.kind-disc { animation: none; }
+@keyframes disc-to-dark {
+  0% { transform: rotateY(0deg); background: radial-gradient(circle at 35% 30%, #ffffff, #e2dccd 70%); }
+  49% { background: radial-gradient(circle at 35% 30%, #ffffff, #e2dccd 70%); }
+  50% { transform: rotateY(90deg) scale(1.12); background: radial-gradient(circle at 35% 30%, #5a554e, #1d1a16 62%); }
+  100% { transform: rotateY(0deg); }
+}
+@keyframes disc-to-light {
+  0% { transform: rotateY(0deg); background: radial-gradient(circle at 35% 30%, #5a554e, #1d1a16 62%); }
+  49% { background: radial-gradient(circle at 35% 30%, #5a554e, #1d1a16 62%); }
+  50% { transform: rotateY(90deg) scale(1.12); background: radial-gradient(circle at 35% 30%, #ffffff, #e2dccd 70%); }
+  100% { transform: rotateY(0deg); }
+}
+
 /* What a player plays as, beside their name, on a little cream chip so every colour reads. */
 .board-seat .piece.small, .board-reserve .piece.small {
   width: 1.5em; height: 1.5em; flex: none; border-radius: 6px; background: var(--cream); font-size: 0.85em;
 }
+/* A reserve piece with a long glyph (a ship, a block per square) gets a chip as wide as it needs. */
+.board-reserve .piece.small { width: auto; min-width: 1.5em; padding: 0 0.3em; box-sizing: border-box; }
 .board-seat.row { align-items: center; }
 .board-reserve { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; font-size: var(--ui-s); color: #cfe2d6; }
 .board-reserve .reserve-piece { display: inline-flex; align-items: center; gap: 3px; padding: 3px 6px; border: 2px solid transparent; border-radius: 10px; background: rgba(0, 0, 0, 0.25); color: var(--cream); font: inherit; }
@@ -1113,6 +1173,46 @@ html[data-motion="off"] .board-grid .piece, html[data-motion="off"] .board-block
 .board .bubble.bottom { bottom: 110px; }
 /* The end of a board game leaves the board in view: the sheet sits at the bottom, not over it. */
 .sheet.board-over { top: auto; bottom: max(12px, env(safe-area-inset-bottom)); }
+/* A board that stands on its edge (Drop Four's rack). The discs sit behind a front with round holes
+   in it and fall in from the top; a cell's own background is what shows through an empty hole. */
+.board-grid.gravity { --rack: #2460b8; --hole: #163a76; background: var(--rack); border-radius: 14px; }
+.board-grid.gravity .cell, .board-grid.gravity .cell.can:hover, .board-grid.gravity .cell.picked, .board-grid.gravity .cell.mark-win { border: 0; background: var(--hole); box-shadow: none; }
+.board-grid.gravity .cell::before {
+  content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background: radial-gradient(circle closest-side, transparent 78%, rgba(0, 0, 0, 0.35) 80%, var(--rack) 85%);
+}
+.board-grid.gravity .piece { position: relative; z-index: 1; width: 88%; height: 88%; border-radius: 50%; font-size: 0; box-shadow: inset 0 0 0 max(3px, 2.2cqw) rgba(0, 0, 0, 0.13); }
+.board-grid.gravity .piece.tone-red { background: #d8402f; }
+.board-grid.gravity .piece.tone-gold { background: #f6c930; }
+/* The last disc dropped and the winning line wear a white ring; the rest of a finished rack dims. */
+.board-grid.gravity .cell.mark-last .piece, .board-grid.gravity .cell.mark-win .piece { box-shadow: inset 0 0 0 max(4px, 2.4cqw) #fff; }
+.board-grid.gravity:has(.mark-win) .cell:not(.mark-win) .piece { opacity: 0.5; }
+.board-seat .piece.small.kind-disc.tone-gold { color: #dba800; }
+.board-grid.gravity .cell.picked .piece { box-shadow: inset 0 0 0 max(4px, 2.4cqw) var(--ink); }
+.board-grid.gravity .cell.target::after { display: none; }
+/* The column under the pointer, the hole its disc would land in, and the column a disc was popped out of. */
+.board-grid.gravity .cell.col-over, .board-grid.gravity .cell.mark-from { --rack: #3f7fdc; background-image: none; }
+.board-grid.gravity .cell.lands.col-over { background: #6f93c9; }
+.board-grid.gravity .cell:focus-visible { outline-color: #fff; }
+@media (prefers-reduced-motion: no-preference) {
+  .board-grid.gravity .piece { animation: disc-drop calc(120ms + var(--row, 0) * 50ms) cubic-bezier(0.4, 0, 0.9, 0.5); }
+  .board-grid.gravity .cell.mark-win .piece { animation: disc-drop calc(120ms + var(--row, 0) * 50ms) cubic-bezier(0.4, 0, 0.9, 0.5), disc-win 700ms ease-in-out 450ms 3; }
+}
+@keyframes disc-drop { from { translate: 0 calc(-1 * (var(--row, 0) + 1) * 100cqw / var(--cols)); } }
+@keyframes disc-win { 50% { filter: brightness(1.35); } }
+
+/* ---- Combat: two grids of water, hulls, and shots told apart by shape as well as colour ---------- */
+/* A hit is a white cross on a red disc; a miss is a small pale dot; a marked shot is a gold ring. */
+.board-combat .piece.kind-hit, .board-combat .piece.kind-sunk { width: 62%; aspect-ratio: 1; border-radius: 50%; background: #b3261e; color: #fff; font-size: 0.62em; }
+.board-combat .piece.kind-miss { font-size: 0.42em; color: #fffdf8; text-shadow: 0 0 1px #1d1a16, 0 0 2px rgba(29, 26, 22, 0.8); }
+.board-combat .piece.kind-aim { font-size: 1.15em; color: #7a5600; }
+.board-combat .piece.kind-clear { font-size: 1.1em; }
+/* A whole square of a ship is just hull: its block is for screens that can't draw one. */
+.board-combat .board-grid .piece.kind-ship { visibility: hidden; }
+/* A sunk ship: a dark hull with a hard outline. A ship shown at the end that was never hit there: a ghost. */
+.board-combat .cell.spanned:has(.kind-sunk) { --hull: #262c33; --hull-edge: #1d1a16; --hull-inset: 9%; }
+.board-combat .cell.spanned:has(.piece.faded)::before { opacity: 0.5; }
+.board-combat .board-reserve .piece.small { letter-spacing: 0.08em; font-size: 0.7em; height: 2em; color: #3d4852; }
 
 /* Picking a piece up and moving it (checkers, chess): it can be dragged, so a press on it mustn't
    scroll the page, and while it is in the air it rides above the other cells. */

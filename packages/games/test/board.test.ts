@@ -39,6 +39,19 @@ export function checkBoardView(v: BoardView, seat: number) {
     }
     // What is already in hand is something that can be put down.
     if (g.select?.held !== undefined) expect(g.select.sources.some((s) => s.from === g.select!.held)).toBe(true);
+    // What the table picks up for you is something you could have picked up yourself.
+    if (g.select?.suggest !== undefined) expect(g.select.sources.some((s) => s.from === g.select!.suggest)).toBe(true);
+    // A piece that covers several cells lies in one unbroken straight line of them.
+    const spans = new Map<string, number[]>();
+    g.cells.forEach((piece, cell) => piece?.span !== undefined && spans.set(piece.span, [...(spans.get(piece.span) ?? []), cell]));
+    for (const cells of spans.values()) {
+      const step = cells.length > 1 ? cells[1]! - cells[0]! : 1;
+      expect([1, g.cols]).toContain(step);
+      expect(cells.every((cell, i) => cell === cells[0]! + i * step)).toBe(true);
+      if (step === 1) expect(rowOf(g.cols, cells.at(-1)!)).toBe(rowOf(g.cols, cells[0]!));
+    }
+    // A private grid is only ever sent to the seat it belongs to.
+    if (g.owner !== undefined) expect(g.owner).toBe(seat);
     for (const piece of g.cells) if (piece) expect(piece.glyph && piece.label && piece.kind).toBeTruthy();
   }
   for (const r of v.reserves) for (const p of r.pieces) expect(p.count).toBeGreaterThanOrEqual(0);
@@ -95,6 +108,13 @@ describe("the board kit's helpers", () => {
     const two = { ...base, grids: [{ ...grid, id: "theirs", tap: { type: "shoot", cells: [3] } }, { ...grid, id: "mine", owner: 0 }] };
     checkBoardView(two, 0);
     expect(movesOffered(two)).toEqual([{ type: "shoot", cell: 3, grid: "theirs" }]);
+    // A piece over several cells, and one the table picks up for you: both have to add up.
+    const long = { ...piece, span: "a" };
+    const fleet = { ...base, reserves: view.reserves, grids: [{ ...grid, cells: [long, long, null, null, null, null], select: { type: "place", sources: [{ from: "ship", to: [3] }], suggest: "ship" } }] };
+    checkBoardView(fleet, 0);
+    expect(() => checkBoardView({ ...fleet, grids: [{ ...fleet.grids[0]!, select: { ...fleet.grids[0]!.select, suggest: "boat" } }] }, 0)).toThrow();
+    expect(() => checkBoardView({ ...fleet, grids: [{ ...fleet.grids[0]!, cells: [long, null, long, null, null, null] }] }, 0)).toThrow();
+    expect(() => checkBoardView({ ...fleet, grids: [{ ...fleet.grids[0]!, cells: [null, null, long, long, null, null] }] }, 0)).toThrow();
   });
 
   it("names cells and finds lines", () => {
@@ -204,6 +224,16 @@ for (const game of BOARD_GAMES) {
       // When it's one seat's turn, nobody else is offered a move on the board.
       const turn = views[0]!.turn;
       if (turn !== null) for (const v of views) if (v.me !== turn) expect(v.grids.every((g) => !g.tap?.cells.length && !g.select?.sources.length)).toBe(true);
+      // When everyone moves at once (placing ships), one seat's move never changes what another may do.
+      if (turn === null && !views[0]!.over) {
+        for (const v of views) {
+          for (const move of movesOffered(v).slice(0, 5)) {
+            const next = game.apply(s, v.me, move);
+            if (game.view(next, 0).turn !== null || game.summary(next).phase !== game.summary(s).phase) continue;
+            for (const w of views) if (w.me !== v.me) expect(movesOffered(game.view(next, w.me))).toEqual(movesOffered(w));
+          }
+        }
+      }
     });
 
     it("refuses moves out of turn and leaves the state alone", () => {
