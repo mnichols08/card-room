@@ -81,6 +81,8 @@ const YOU_VERBS: Record<string, string> = {
   holes: "hole",
   finds: "find",
   runs: "run",
+  fires: "fire",
+  sinks: "sink",
 };
 
 export const named = (text: string, names: string[]) =>

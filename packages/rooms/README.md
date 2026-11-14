@@ -62,6 +62,7 @@ createRooms({
 | `after` | Ms after the last move (or the deal). "30 seconds a turn" is `after: 30_000`; a chess clock is `after: state.bank[state.turn]`. |
 | `at` | Instead of `after`: a server time, for a state that keeps times itself. |
 | `seat` | Whose clock it is. The timeout move is made as this seat. |
+| `grace` | Optional: ms the server waits past that time before it makes the move. Pages count down to the time itself; a move sent as it reaches zero has this long to arrive. For clocks of a few seconds. |
 | `move()` | The move, worked out only when time runs out. `null`: nothing happens, and the room waits. |
 
 - **One timer a room.** The server asks for the deadline after every move, arms one timer, and

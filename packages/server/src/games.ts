@@ -10,7 +10,7 @@ import { cleanSettings, greet, reactToMove, replyTo, type GameState, type RulePr
 import { palaceOptions, palaceRoom, type PalaceOptions } from "./palace.js";
 import { spadesRoom } from "./spades.js";
 import { kitOptions, kitRoom, type KitOptions } from "./kit.js";
-import { turnDeadline } from "./timer.js";
+import { sooner, turnDeadline } from "./timer.js";
 
 export type GameId = "spades" | "palace" | KitGameId;
 export const GAMES: { id: GameId; name: string; emoji: string; seats: [number, number]; teams: boolean }[] = [
@@ -62,8 +62,10 @@ export const tableRoom: RoomDefinition<AnyState, unknown, unknown, TableOptions,
   settings: cleanSettings,
   botDelay: (s, seat, name, settings) => byState(s).botDelay?.(s, seat, name, settings) ?? 700,
   bot: (s, seat, name, settings) => byState(s).bot?.(s, seat, name, settings) ?? null,
-  // The turn timer (a table setting): the game's computer player moves for a person who runs out of time.
-  deadline: (s, table) => turnDeadline(s, table, (seat, name) => byState(s).bot?.(s, seat, name, table.settings) ?? null),
+  // Two clocks can be running: the game's own (a shot clock, which makes the game's timeout move) and
+  // the turn timer (a table setting: the game's computer player moves for a person who runs out of
+  // time). Whichever runs out first is the room's deadline.
+  deadline: (s, table) => sooner(byState(s).deadline?.(s, table) ?? null, turnDeadline(s, table, (seat, name) => byState(s).bot?.(s, seat, name, table.settings) ?? null)),
 };
 
 /**
