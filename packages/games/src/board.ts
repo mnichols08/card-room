@@ -3,7 +3,7 @@
 // and the same room on the server runs them.
 //
 // It is shaped for more than the first game. A view is one or more grids (most games have one; a
-// hidden-board game like Battleship has yours and theirs), each a row-major list of cells that hold
+// hidden-board game like Combat has yours and theirs), each a row-major list of cells that hold
 // at most one piece. What you can do on a grid is said in one of two ways:
 //
 //   tap:    cells you can tap to move there and then (Tic-Tac-Toe, Gomoku, Reversi, Go, a shot in a
@@ -38,6 +38,11 @@ export interface BoardPiece {
   id?: string;
   /** Drawn faintly: a piece just taken, a ship that has sunk. */
   faded?: boolean;
+  /**
+   * A piece that covers several cells (a ship) is one of these per cell, all with the same `span`:
+   * the table joins them into one shape, and picking up any cell of it picks up the whole piece.
+   */
+  span?: string;
 }
 
 /** How a cell is shaded, when it isn't plain: the two colours of a chessboard, water, a marked spot. */
@@ -101,8 +106,10 @@ export interface BoardGrid {
   /**
    * Things you can pick up now, and where each can go: `from` is a cell of this grid, or the
    * `kind` of a piece in your reserve. Choosing one and then a destination sends { type, from, to }.
+   * `suggest` is a source the table picks up for you while you hold nothing else (the next ship to
+   * place), so one tap puts it down.
    */
-  select?: { type: string; sources: { from: number | string; to: number[] }[] } | null;
+  select?: { type: string; sources: { from: number | string; to: number[] }[]; suggest?: number | string } | null;
 }
 
 /** Pieces off the board, per side: captured pieces, stones or discs left, ships still to place. */
