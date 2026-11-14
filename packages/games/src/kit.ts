@@ -5,7 +5,7 @@
 // scores. One table screen draws every game from that, and one room runs them all on the server.
 import { mulberry32, type Card, type PlayStyle, type Suit } from "@spades/rules";
 
-export type KitGameId = "hearts" | "ohhell" | "euchre" | "crazy8" | "gin" | "pinochle" | "canasta" | "gofish" | "oldmaid" | "war" | "whist" | "golf" | "rummy500" | "president" | "klondike" | "freecell" | "handfoot" | "cribbage" | "fivedraw" | "holdem" | "bluff" | "liarspoker" | "switch";
+export type KitGameId = "hearts" | "ohhell" | "euchre" | "crazy8" | "gin" | "pinochle" | "canasta" | "gofish" | "oldmaid" | "war" | "whist" | "golf" | "rummy500" | "president" | "klondike" | "freecell" | "handfoot" | "cribbage" | "fivedraw" | "holdem" | "bluff" | "liarspoker" | "switch" | "thirtyone" | "kingscorner" | "blackjack" | "spite" | "pitch" | "fivehundred" | "durak" | "bridge" | "fruitsalad" | "slapjack" | "speed" | "memory";
 
 /** A move that isn't allowed. The message is shown to the player as is. */
 export class GameError extends Error {}
@@ -23,7 +23,11 @@ export const rankWord = (rank: number) => RANK_WORD[rank] ?? String(rank);
  * card a kit game deals carries a unique `id` ("A♠", or "A♠·2" for the second copy). Moves name
  * cards by id.
  */
-export type KCard = Card & { id: string };
+/** A card from a colour-card deck (Fruit Salad): a fruit and a number or an action; wild cards have no fruit. */
+export type FruitCard = { kind: "fruit"; fruit: Fruit | null; face: FruitFace };
+export type Fruit = "cherry" | "lemon" | "pear" | "grape";
+export type FruitFace = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | "hop" | "turn" | "plus2" | "salad" | "salad4";
+export type KCard = (Card | FruitCard) & { id: string };
 
 const baseId = (c: Card) => (c.kind === "joker" ? (c.size === "big" ? "BJ" : "LJ") : `${rankLabel(c.rank)}${SYMBOL[c.suit]}`);
 
@@ -60,7 +64,7 @@ export function nextRandom(state: { rng: number }): () => number {
   };
 }
 
-export const isPip = (c: Card): c is PipCard & { id: string } => c.kind === "pip";
+export const isPip = (c: Card | FruitCard): c is PipCard & { id: string } => c.kind === "pip";
 export const plainId = baseId;
 
 /** Find cards in a hand by id; throws a GameError when one isn't there. */
@@ -129,6 +133,8 @@ export type Center =
       noDiscard?: boolean;
       /** The discard pile spread out so every card shows; tapping one of `cards` sends { type, card } (Rummy 500). */
       spread?: { type: string; cards: string[] };
+      /** Face-down cards after the spread (the dealer's hole card in Blackjack). */
+      spreadHidden?: number;
       /** A card just drawn, shown beside the piles until it's placed (Golf). */
       held?: KCard | null;
       heldLabel?: string;
@@ -143,12 +149,30 @@ export type Center =
       stock: number | null;
       waste: KCard[];
       foundations: (KCard | null)[];
+      /** What an empty foundation shows (suit marks by default). */
+      foundationLabels?: string[];
       cells: (KCard | null)[] | null;
       columns: { down: number; up: KCard[] }[];
       tap: { type: string; cards: string[] } | null;
       drawMove: Record<string, unknown> | null;
       stockLabel?: string;
     }
+  /**
+   * A cross of piles round the stock (Kings in the Corner): the four sides (top, right, bottom, left)
+   * then the four corners (top-left, top-right, bottom-right, bottom-left). Each pile shows its top
+   * card with its bottom card peeking out; tapping a pile sends its move.
+   */
+  | {
+      kind: "cross";
+      stock: number;
+      piles: { cards: KCard[]; empty?: string; move: Record<string, unknown> | null; label: string; note?: string }[];
+      /** In a row beside the stock instead (Spite and Malice's building piles). */
+      layout?: "row";
+    }
+  /** Cards in a grid in the middle (Memory); null is face down. Tapping a cell sends { type, index }. */
+  | { kind: "board"; cols: number; cards: (KCard | null)[]; empty: number[]; tap: { type: string; cells: number[] } | null }
+  /** Attacks and the cards that beat them (Durak), beside the stock with the trump card under it. */
+  | { kind: "pairs"; stock: number; trumpCard: KCard | null; trumpLabel: string; pairs: { attack: KCard; defense: KCard | null }[]; discards: number }
   /** Another player's hand, face down: tap a card to take it (Old Maid). Sends { type: takeType, index }. */
   | { kind: "fan"; from: number; count: number; takeType: string | null; label?: string }
   | { kind: "none" };
@@ -178,8 +202,8 @@ export interface KitView {
   turn: number | null;
   dealer: number;
   hand: KCard[];
-  /** Your own cards are face down and unseen (War): the table shows your pile, not a hand. */
-  handHidden?: boolean;
+  /** Your own cards are face down and unseen (War): the table shows your pile, not a hand. "none": no cards of your own at all (Memory). */
+  handHidden?: boolean | "none";
   /** Tapping one of these cards in your hand sends { type, card: id }. */
   tap: { type: string; cards: string[] } | null;
   /** Pick several cards, then press one of the buttons: sends { type, cards: ids }. */
@@ -190,7 +214,7 @@ export interface KitView {
   center: Center;
   melds: Meld[];
   /** Cards laid out in front of each player in rows and columns (Golf); null is a face-down card. */
-  grids?: { owner: number; cols: number; cards: (KCard | null)[] }[];
+  grids?: { owner: number; cols: number; cards: (KCard | null)[]; /** Cells drawn as empty spaces. */ empty?: number[] }[];
   /** Cells of your own grid you can tap now: sends { type, index }. */
   gridTap?: { type: string; cells: number[]; prompt?: string } | null;
   /** A score track (Cribbage's board): each side's front peg, and the back peg where it was before. */
@@ -264,6 +288,11 @@ export interface CardGame<R extends BaseRules = BaseRules, S = unknown, M = Reco
   bot(state: S, seat: number, style: PlayStyle): M | null;
   /** How long a person would think here, in ms (before the persona's own pace). */
   thinkingTime(state: S, seat: number): number;
+  /**
+   * For a race (a slap in Slapjack): how long this computer player takes to react, in ms. When it
+   * gives a number, it's used as is, whatever pace the table is set to, so a person can win the race.
+   */
+  reactionTime?(state: S, seat: number, style: PlayStyle): number | null;
   summary(state: S): KitSummary;
 }
 

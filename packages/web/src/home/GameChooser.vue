@@ -16,7 +16,7 @@ export interface ChooserGame {
   seats: [number, number];
   teams: boolean;
   /** Three cards to fan out on the tile. */
-  fan: { kind: "pip"; suit: string; rank: number }[];
+  fan: Record<string, unknown>[];
 }
 
 const props = defineProps<{
