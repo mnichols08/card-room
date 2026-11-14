@@ -41,5 +41,7 @@ export * from "./cuckoo.js";
 export * from "./contractrummy.js";
 export * from "./spider.js";
 export * from "./pyramid.js";
+export * from "./drinks.js";
+export * from "./ridethebus.js";
 export * from "./registry.js";
 export * from "./talk.js";

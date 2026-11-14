@@ -39,9 +39,10 @@ import { cuckoo } from "./cuckoo.js";
 import { contractRummy } from "./contractrummy.js";
 import { spider } from "./spider.js";
 import { pyramid } from "./pyramid.js";
+import { rideTheBus } from "./ridethebus.js";
 import type { CardGame, KitGameId } from "./kit.js";
 
-export const KIT_GAMES: CardGame<any, any, any>[] = [hearts, ohHell, euchre, crazy8, gin, pinochle, canasta, goFish, oldMaid, war, whist, golf, rummy500, president, klondike, freeCell, handFoot, cribbage, fiveDraw, holdem, bluff, liarsPoker, switchGame, thirtyOne, kingsCorner, blackjack, spite, pitch, fiveHundred, durak, bridge, fruitSalad, slapjack, speed, memory, sevens, cuckoo, contractRummy, spider, pyramid];
+export const KIT_GAMES: CardGame<any, any, any>[] = [hearts, ohHell, euchre, crazy8, gin, pinochle, canasta, goFish, oldMaid, war, whist, golf, rummy500, president, klondike, freeCell, handFoot, cribbage, fiveDraw, holdem, bluff, liarsPoker, switchGame, thirtyOne, kingsCorner, blackjack, spite, pitch, fiveHundred, durak, bridge, fruitSalad, slapjack, speed, memory, sevens, cuckoo, contractRummy, spider, pyramid, rideTheBus];
 
 export const kitGame = (id: unknown): CardGame<any, any, any> | undefined => KIT_GAMES.find((g) => g.id === id);
 export const isKitGame = (id: unknown): id is KitGameId => KIT_GAMES.some((g) => g.id === id);
