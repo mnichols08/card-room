@@ -49,6 +49,7 @@ const FANS: Record<string, object[]> = {
   speed: [card(6, "hearts"), card(7, "clubs"), card(8, "diamonds")],
   memory: [card(7, "hearts"), card(7, "diamonds"), card(12, "spades")],
   sevens: [card(6, "hearts"), card(7, "hearts"), card(8, "hearts")],
+  cuckoo: [card(13, "clubs"), card(14, "hearts")],
 };
 
 const SEATS: Record<string, { seats: [number, number]; teams: boolean }> = {
