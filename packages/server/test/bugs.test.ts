@@ -1,6 +1,7 @@
 import { memoryLog } from "@zubra/sync/server";
 import { afterEach, describe, expect, it } from "vitest";
 import { createCardRoom } from "../src/app.js";
+import { playerRef } from "../src/moderation.js";
 import { plain, SHOT_LIMIT, type BugOptions } from "../src/bugs.js";
 
 const BASE = "https://cards.test";
@@ -21,7 +22,7 @@ function setup(bugs: BugOptions = {}) {
     asked.push({ url, headers: init.headers as Record<string, string>, body: JSON.parse(String(init.body)) });
     return github();
   }) as unknown as typeof globalThis.fetch;
-  const app = createCardRoom({ log: memoryLog({ keep: "latest" }), botDelay: 5, talk: false, admin: { key: "let-me-in-please" }, bugs: { token: "ghp_secret", repo: "o/r", version: "abc1234", fetch, ...bugs } });
+  const app = createCardRoom({ log: memoryLog({ keep: "latest" }), botDelay: 5, talk: false, adminToken: "a-long-admin-token", bugs: { token: "ghp_secret", repo: "o/r", version: "abc1234", fetch, ...bugs } });
   open.push(app);
   const phone = () => {
     const cookies = new Map<string, string>();
@@ -160,13 +161,20 @@ describe("reporting a problem", () => {
 
   it("isn't for a blocked player", async () => {
     const { phone, asked } = setup();
-    const admin = phone();
-    const pest = phone();
-    await admin("/admin/signin", { key: "let-me-in-please" });
-    const { id } = (await admin("/rooms", { options: { game: "gin" } })).body;
-    await admin("/rooms/" + id + "/sit", { seat: 0, name: "Admin" });
-    await pest("/rooms/" + id + "/sit", { seat: 1, name: "Pest" });
-    await admin("/admin/block", { table: id, seat: 1 });
+    const { phone: _phone, app } = { phone, app: open.at(-1)! };
+    let cookie = "";
+    const pest = async (path: string, body: unknown) => {
+      const r = (await app.fetch(new Request(BASE + path, { method: "POST", headers: { "content-type": "application/json", cookie }, body: JSON.stringify(body) })))!;
+      cookie = r.headers.get("set-cookie")?.split(";")[0] ?? cookie;
+      return { status: r.status };
+    };
+    const { status } = await pest("/lobby/join", { game: "gin", name: "Pest" });
+    expect(status).toBe(201);
+    // The card room's host blocks them in the admin app.
+    const blocked = await app.fetch(
+      new Request(`${BASE}/moderation/players/${playerRef(cookie.split("=")[1]!)}/block`, { method: "POST", headers: { "content-type": "application/json", authorization: "Bearer a-long-admin-token" }, body: JSON.stringify({ reason: "spam" }) }),
+    );
+    expect(blocked!.status).toBe(200);
     expect((await pest("/bugs", { description: "spam" })).status).toBe(403);
     expect(asked).toEqual([]);
   });

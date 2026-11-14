@@ -1,9 +1,11 @@
 import { openRoom, RoomError, type ChatMessage, type Room } from "@spades/rooms/client";
 import { TableChat, type ChatProps } from "./Chat";
 import type { RoomDoc } from "@spades/rooms/server";
-import { cleanSettings, personaFor, pickPersonas, type Seat, type SeatView, type TableSettings } from "@spades/rules";
+import { cleanSettings, partnerOf, personaFor, pickPersonas, seatsOf, teamOf, type Seat, type SeatView, type TableSettings } from "@spades/rules";
 import TextField from "@spades/ui/zubra-ui/text-field.zb";
-import { useEffect, useMemo, useState } from "react";
+import { applyDeck, deckAtTable, prefersOwnDeck, savedDeck, type TableDeck } from "@cardroom/decks";
+import { TableDeckPicker } from "./TableDeck";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { lobby } from "./lobbyApi";
 import { loadSavedName, saveName, saveTableSettings } from "./storage";
 import { Table } from "./Table";
@@ -14,7 +16,6 @@ import { isBoardGame, isKitGame, kitGame, type BoardView, type KitView } from "@
 import { GAME_LIST } from "./GamePicker";
 import { GameTable } from "./kit/GameTable";
 import { OnlineTable, TablePlayers, TableSettingsFields, TurnTimerField, type TablePlayersValue } from "./TableSettings";
-import { admin } from "./adminApi";
 import { TurnClock } from "./TurnClock";
 
 type Summary = { game?: string; rules: string; scores?: { points: number }[]; hand?: number; finished?: number[] };
@@ -29,6 +30,7 @@ const gameOf = (doc: RoomDoc<Summary>): string => {
 const seatLabel = (game: string, i: number) => (game === "spades" ? SEAT_LABELS[i]! : `Seat ${i + 1}`);
 
 const SEAT_LABELS = ["South", "West", "North", "East"];
+const WATCHING = "You're watching: the computer plays this seat.";
 
 /** A family table on the server: sit down, invite people, fill seats with bots, then play. */
 export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) {
@@ -39,10 +41,17 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
   const [problem, setProblem] = useState<string | null>(null);
   const [missing, setMissing] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  // Seats whose chat this device has hidden, and whether this device is the card room's admin.
+  // Seats whose chat this device has hidden.
   const [hidden, setHidden] = useState<number[]>([]);
-  const [isAdmin, setIsAdmin] = useState(false);
-  useEffect(() => void admin.amI().then(setIsAdmin), []);
+  // Someone without a seat watches. At a table of computer players they look over one seat's
+  // shoulder and see its hand. At a table with people they see the table from one seat's side and
+  // nobody's hand (the server's watch view), if the card room's host lets people watch.
+  const [watchSeat, setWatchSeat] = useState(0);
+  const overShoulder = mySeat === null && !!doc?.watchable;
+  const fromTheSide = mySeat === null && !!doc?.started && !doc.watchable;
+  const source: Seat | "watch" | null = overShoulder ? (watchSeat as Seat) : fromTheSide ? "watch" : mySeat;
+  const watching = overShoulder || (fromTheSide && view !== null);
+  const seat = watching ? (watchSeat as Seat) : mySeat;
 
   useEffect(() => {
     room
@@ -65,10 +74,26 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
     };
   }, [room]);
 
+  // The table's deck dresses every card on the page while this table is open: the same cards for
+  // everyone here, unless this browser's owner always wants their own (set in the card designer).
+  const tableDeck = (doc?.deck ?? null) as TableDeck | null;
+  const deckKey = tableDeck ? JSON.stringify(tableDeck) : "";
   useEffect(() => {
-    if (mySeat === null) return;
-    return room.onView(mySeat, (doc) => setView(doc.view));
-  }, [room, mySeat]);
+    const dress = () => applyDeck(document.documentElement, deckAtTable(tableDeck, savedDeck(), prefersOwnDeck()));
+    dress();
+    // Choosing another deck in the designer's tab changes the cards here at once.
+    window.addEventListener("storage", dress);
+    return () => {
+      window.removeEventListener("storage", dress);
+      applyDeck(document.documentElement, savedDeck());
+    };
+  }, [deckKey]);
+
+  useEffect(() => {
+    if (source === null) return;
+    setView(null);
+    return room.onView(source, (doc) => setView(doc.view));
+  }, [room, source]);
 
   // Your seat can be taken away before the deal (the host removed you, or you went quiet at an open
   // table). The public seats say so; check with the server before believing it.
@@ -124,6 +149,18 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
     );
   }
   if (!doc) return <main className="setup lobby"><p>Finding the table…</p></main>;
+  // The card room's host closed this table (the admin app): nothing more can happen here.
+  if (doc.closed) {
+    return (
+      <main className="setup lobby">
+        <h1>This table is closed</h1>
+        <p>{doc.closed}</p>
+        <button type="button" className="primary" onClick={onLeave}>
+          Back
+        </button>
+      </main>
+    );
+  }
 
   const chat: ChatProps = {
     messages: hidden.length ? messages.filter((m) => !hidden.includes(m.seat)) : messages,
@@ -149,14 +186,13 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
   // Every table gets the same countdown, on whichever seat the server's deadline names, and its
   // settings offer the turn timer.
   // The other players, for the ⚙︎ sheet. Anyone can hide someone's chat on their own device. At a
-  // table that is or was open to everyone, its host (and the card room's admin) can mute and remove.
-  const hosting = doc.host != null && (doc.host === mySeat || isAdmin);
+  // table that is or was open to everyone, its host can mute and remove.
+  const hosting = doc.host != null && doc.host === mySeat;
   const players: TablePlayersValue = {
     players: doc.seats.flatMap((s, i) => (i === mySeat || !s.name ? [] : [{ seat: i, name: s.name, bot: s.bot, hidden: hidden.includes(i), muted: Boolean(doc.muted?.includes(i)) }])),
     hide: (seat, hide) => setHidden((was) => (hide ? [...was, seat] : was.filter((s) => s !== seat))),
     mute: hosting ? (seat, muted) => lobby.mute(id, seat, muted) : undefined,
     remove: hosting ? (seat) => lobby.remove(id, seat) : undefined,
-    block: isAdmin ? (seat) => admin.block(id, seat) : undefined,
   };
   const online = (table: React.ReactNode) => (
     <OnlineTable.Provider value={true}>
@@ -167,15 +203,36 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
     </OnlineTable.Provider>
   );
 
-  if (doc.started && mySeat !== null && view) {
+  // A watcher's taps don't play: the computer plays every seat.
+  const act = watching ? () => Promise.resolve<string | null>(WATCHING) : (move: unknown) => room.act(move).then(() => null, (e: Error) => e.message);
+  const banner = watching ? (
+    <div className="banner watching">
+      <label>
+        👀 Watching {overShoulder ? "over" : "from"}{" "}
+        <select value={watchSeat} onChange={(e) => setWatchSeat(Number(e.target.value))}>
+          {doc.seats.map((s, i) => (
+            <option key={i} value={i}>
+              {s.name ?? seatLabel(game, i)}
+            </option>
+          ))}
+        </select>
+        {overShoulder ? "’s shoulder" : "’s side"}
+      </label>
+      {!overShoulder && <span className="hint">Hands are hidden</span>}
+    </div>
+  ) : null;
+
+  if (doc.started && seat !== null && view) {
     if (isKitGame(game)) {
       return online(
         <GameTable
-          view={view as KitView | BoardView}
+          // The watch view looks on from the first seat; turn it to the side being watched from.
+          view={fromTheSide ? { ...(view as KitView | BoardView), me: seat } : (view as KitView | BoardView)}
+          watching={watching}
           names={doc.seats.map((s, i) => s.name ?? seatLabel(game, i))}
-          act={(move) => room.act(move).then(() => null, (e: Error) => e.message)}
+          act={act}
           onLeave={onLeave}
-          banner={<div className="banner">{(doc as { label?: string }).label ?? `Table ${id}`}</div>}
+          banner={banner ?? <div className="banner">{(doc as { label?: string }).label ?? `Table ${id}`}</div>}
           chat={chat}
           settings={tableSettings}
         />,
@@ -185,17 +242,28 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
       return online(
         <PalaceTable
           view={view as PalaceView}
-          seat={mySeat}
+          seat={seat}
+          watching={watching}
           names={doc.seats.map((s, i) => s.name ?? seatLabel(game, i))}
-          act={(move: PalaceMove) => room.act(move).then(() => null, (e: Error) => e.message)}
+          act={act as (move: PalaceMove) => Promise<string | null>}
           onLeave={onLeave}
-          banner={<div className="banner">Table {id}</div>}
+          banner={banner ?? <div className="banner">Table {id}</div>}
           chat={chat}
           settings={tableSettings}
         />,
       );
     }
-    return online(<PlayingTable room={room as unknown as SpadesRoom} view={view as SeatView} seat={mySeat} names={names} onLeave={onLeave} code={id} chat={chat} settings={tableSettings} />);
+    // Spades asks its room to act: a watcher's room refuses.
+    const spades = (watching ? { ...room, act: () => Promise.reject(new Error(WATCHING)) } : room) as unknown as SpadesRoom;
+    const turned = fromTheSide ? ({ ...(view as SeatView), seat, team: teamOf(seat), partner: partnerOf(seat), teamSeats: seatsOf(teamOf(seat)) } as SeatView) : (view as SeatView);
+    return online(<PlayingTable room={spades} view={turned} seat={seat} names={names} onLeave={onLeave} code={id} chat={chat} settings={tableSettings} banner={banner} watching={watching} />);
+  }
+  if (overShoulder) {
+    return (
+      <main className="setup lobby">
+        <p>Pulling up a chair…</p>
+      </main>
+    );
   }
 
   // Leaving an open table before the deal gives the seat back, so nobody waits on an empty chair.
@@ -203,7 +271,7 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
     if (waiting) void room.stand().catch(() => undefined);
     onLeave();
   };
-  return <Lobby room={room} doc={doc} mySeat={mySeat} onSat={setMySeat} problem={problem} setProblem={setProblem} onLeave={leave} chat={chat} settings={tableSettings} isAdmin={isAdmin} />;
+  return <Lobby room={room} doc={doc} mySeat={mySeat} onSat={setMySeat} problem={problem} setProblem={setProblem} onLeave={leave} chat={chat} settings={tableSettings} />;
 }
 
 function PlayingTable(props: {
@@ -215,10 +283,13 @@ function PlayingTable(props: {
   code: string;
   chat: ChatProps;
   settings?: { value: TableSettings; change: (next: TableSettings) => Promise<void> };
+  banner?: ReactNode;
+  watching?: boolean;
 }) {
   const table = useTable({
     view: props.view,
     seat: props.seat,
+    watching: props.watching,
     act: (move) =>
       props.room.act(move).then(
         () => null,
@@ -230,7 +301,7 @@ function PlayingTable(props: {
       table={table}
       names={props.names}
       onLeave={props.onLeave}
-      banner={<div className="banner">Table {props.code}</div>}
+      banner={props.banner ?? <div className="banner">Table {props.code}</div>}
       chat={props.chat}
       settings={props.settings}
     />
@@ -247,8 +318,6 @@ function Lobby(props: {
   onLeave: () => void;
   chat: ChatProps;
   settings?: { value: TableSettings; change: (next: TableSettings) => Promise<void> };
-  /** This device is the card room's admin: it may remove at open tables and block anywhere. */
-  isAdmin: boolean;
 }) {
   const { room, doc, mySeat } = props;
   const game = gameOf(doc);
@@ -313,18 +382,7 @@ function Lobby(props: {
               {mine && <em>you</em>}
               {!mine && doc.open && !doc.started && doc.host === i && <em>host</em>}
               {doc.muted?.includes(i) && <em>muted</em>}
-              {props.isAdmin && !mine && !s.bot && s.name && (
-                <button
-                  type="button"
-                  className="link danger"
-                  onClick={() => {
-                    if (window.confirm(`Block ${s.name} from the whole card room?`)) attempt(() => admin.block(room.id, i));
-                  }}
-                >
-                  Block
-                </button>
-              )}
-              {doc.open && !doc.started && ((mySeat !== null && doc.host === mySeat) || props.isAdmin) && !mine && !s.bot && s.name && (
+              {doc.open && !doc.started && mySeat !== null && doc.host === mySeat && !mine && !s.bot && s.name && (
                 <button
                   type="button"
                   className="link danger"
@@ -380,6 +438,7 @@ function Lobby(props: {
           <TurnTimerField settings={props.settings.value} onChange={(next) => attempt(() => props.settings!.change(next))} />
         </section>
       )}
+      <TableDeckPicker table={room.id} deck={(doc.deck ?? null) as TableDeck | null} canChoose={!doc.started && mySeat !== null} onProblem={props.setProblem} />
       {!doc.started && props.settings && doc.seats.some((s) => s.bot) && (
         <section className="house-block" aria-label="Computer players">
           <TableSettingsFields settings={props.settings.value} onChange={(next) => attempt(() => props.settings!.change(next))} />

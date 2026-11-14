@@ -1,0 +1,44 @@
+<!-- Copied from zubra-ui (ba5737e) components/range-slider.zb: https://github.com/journey-to-code-org/zubra-ui. Ours to edit. -->
+<!--
+  Pick a number by dragging, on a native `<input type="range">`: arrow keys, Page Up and Down,
+  Home and End work as the browser's own, and it submits under `name`. The value shows beside the
+  label, with `unit` after it. `value` is two-way.
+  @fires valuechange - The value changed; `detail` is the number.
+-->
+<script>
+  import { id } from '@zubra/runtime'
+
+  const inputId = id()
+  const fill = max > min ? ((Math.min(Math.max(value, min), max) - min) / (max - min)) * 100 : 0
+  // en-US grouping and up to three decimals, as toLocaleString("en-US") gives, in arithmetic the
+  // server runs too (toLocaleString is the browser's alone), so the server's HTML has the numbers.
+  const thousands = (n) => (n < 1000 ? String(n) : `${thousands(Math.floor(n / 1000))},${String(n % 1000).padStart(3, "0")}`)
+  const number = (value) => {
+    const milli = Math.round(Math.abs(value) * 1000)
+    const rest = milli % 1000
+    const fraction = rest === 0 ? "" : rest % 100 === 0 ? `.${rest / 100}` : rest % 10 === 0 ? `.${String(rest / 10).padStart(2, "0")}` : `.${String(rest).padStart(3, "0")}`
+    return `${value < 0 && milli > 0 ? "-" : ""}${thousands(Math.floor(milli / 1000))}${fraction}`
+  }
+  const shown = `${number(Number(value))}${unit}`
+</script>
+<style>
+  :host { display: block; }
+  .range-head { display: flex; justify-content: space-between; gap: 1rem; margin-bottom: 0.5rem; }
+  label { font-weight: 600; font-size: 0.925rem; }
+  output { font-variant-numeric: tabular-nums; font-weight: 600; }
+  input { width: 100%; height: 1.5rem; margin: 0; background: none; appearance: none; cursor: pointer; }
+  input::-webkit-slider-runnable-track { height: 0.4rem; border-radius: 999px; background: linear-gradient(to right, var(--primary, #18181b) var(--fill), var(--muted, #e4e4e7) var(--fill)); }
+  input::-moz-range-track { height: 0.4rem; border-radius: 999px; background: var(--muted, #e4e4e7); }
+  input::-moz-range-progress { height: 0.4rem; border-radius: 999px; background: var(--primary, #18181b); }
+  input::-webkit-slider-thumb { appearance: none; width: 1.15rem; height: 1.15rem; margin-top: -0.375rem; border: 2px solid var(--primary, #18181b); border-radius: 50%; background: var(--background, #fff); box-shadow: 0 1px 3px #0003; }
+  input::-moz-range-thumb { width: 1rem; height: 1rem; border: 2px solid var(--primary, #18181b); border-radius: 50%; background: var(--background, #fff); }
+  input:focus-visible { outline: 2px solid var(--ring, #a1a1aa); outline-offset: 4px; border-radius: 0.25rem; }
+  input:disabled { opacity: 0.5; cursor: not-allowed; }
+  .range-scale { display: flex; justify-content: space-between; margin-top: 0.25rem; font-size: 0.775rem; color: color-mix(in oklab, var(--muted-foreground, #71717a) 75%, var(--foreground, #18181b)); }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 0s !important; animation-duration: 0s !important; animation-iteration-count: 1 !important; } }
+</style>
+<range-slider value:model={50} min={0} max={100} step={1} label="Value" unit="" name="" disabled={false}>
+  <div class="range-head"><label for={inputId}>{label}</label><output for={inputId}>{shown}</output></div>
+  <input id={inputId} type="range" name={name || null} min={min} max={max} step={step} disabled={disabled} value={value} aria-valuetext={shown} style:--fill={`${fill}%`} oninput={(event) => (value = Number(event.target.value))}>
+  <div class="range-scale" aria-hidden="true"><span>{min}{unit}</span><span>{max}{unit}</span></div>
+</range-slider>

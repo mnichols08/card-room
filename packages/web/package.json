@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@cardroom/decks": "*",
     "@cardroom/games": "*",
     "@cardroom/palace": "*",
     "@spades/rooms": "*",

@@ -6,14 +6,15 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build -w @spades/rules -w @cardroom/palace -w @cardroom/physics -w @cardroom/games -w @spades/rooms -w @spades/server -w @spades/web",
+    "build": "npm run build -w @spades/rules -w @cardroom/palace -w @cardroom/physics -w @cardroom/games -w @cardroom/decks -w @spades/rooms -w @spades/server -w @spades/web -w @cardroom/designer -w @cardroom/admin -w @cardroom/watch",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present && tsc -p .railway/tsconfig.json",
     "start": "npm start -w @spades/server",
-    "dev": "npm run build -w @spades/rules -w @cardroom/palace -w @cardroom/physics -w @cardroom/games -w @spades/rooms && (npm run dev -w @spades/server & npm run dev -w @spades/web)"
+    "dev": "npm run build -w @spades/rules -w @cardroom/palace -w @cardroom/physics -w @cardroom/games -w @cardroom/decks -w @spades/rooms && (npm run dev -w @spades/server & npm run dev -w @spades/web)"
   },
   "devDependencies": {
-    "railway": "^3.17.0"
+    "railway": "^3.17.0",
+    "vite": "^8.3.8"
   },
   "engines": {
     "node": ">=22.12"

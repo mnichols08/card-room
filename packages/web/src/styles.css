@@ -272,6 +272,11 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; }
 .seat-row em { font-style: normal; font-size: 0.8rem; color: var(--gold); }
 .secondary.small { padding: 6px 14px; font-size: 0.9rem; }
 .banner { text-align: center; font-size: 0.75rem; letter-spacing: 0.06em; color: #cfe2d6; padding: 4px 0; background: rgba(0, 0, 0, 0.2); }
+/* Watching a table of computer players: whose shoulder you're looking over, and a way to change seats. */
+.banner.watching { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 2px 12px; font-size: 0.85rem; letter-spacing: 0; padding: 6px 56px 6px 8px; color: var(--cream); }
+.banner.watching .hint { font-size: 0.75rem; opacity: 0.8; }
+.banner.watching select { font: inherit; font-weight: 700; color: var(--felt-dark, #143628); background: var(--cream); border: 0; border-radius: 6px; padding: 3px 6px; min-height: 28px; }
+.banner.watching select:focus-visible { outline: 3px solid #ffd76a; outline-offset: 2px; }
 
 .sound-toggle {
   position: absolute;
@@ -508,7 +513,8 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; }
 .pile { --fan: calc(var(--trick-w) * 0.28); }
 .pile-stack { position: relative; width: calc(var(--trick-w) + 2 * var(--fan)); height: calc(var(--trick-h) + 6px); }
 .pile-card { position: absolute; left: calc(var(--i) * var(--fan)); top: calc(var(--i) * 2px); rotate: calc((var(--i) - 1) * 3deg); }
-.deck playing-card { filter: drop-shadow(calc(var(--depth, 0) * 1px) calc(var(--depth, 0) * 1px) 0 #4b131b); }
+/* The stack's edge takes the deck's own dark colour. */
+.deck playing-card { filter: drop-shadow(calc(var(--depth, 0) * 1px) calc(var(--depth, 0) * 1px) 0 var(--deck-emblem-ink, #4b131b)); }
 .empty-slot {
   width: var(--trick-w); height: var(--trick-h); border-radius: calc(var(--trick-w) * 0.1); border: 2px dashed rgba(255, 255, 255, 0.3);
   display: grid; place-items: center; text-align: center; font-size: 0.7rem; color: #cfe2d6;
@@ -522,6 +528,16 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; }
 .table-slot .down-card { position: absolute; top: 0; left: 0; }
 .table-slot .up-card { position: absolute; top: calc(var(--trick-h) * 0.16); left: 0; }
 .center-info { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+/* On a phone the pile sits between the players at its sides, and the news gets a row of its own
+   under them, the full width of the table. Inside the middle column a long line ("Waiting for
+   everyone to lay down their cards…") made that column as wide as the line, and ran under the
+   side players' cards. */
+@media (max-width: 1023px) {
+  .palace-felt { grid-template-rows: auto 1fr auto auto; grid-template-areas: "top top top" "left center right" "info info info" "mine mine mine"; }
+  .palace-felt .center { display: contents; }
+  .palace-felt .pile-area { grid-area: center; }
+  .palace-felt .center-info { grid-area: info; min-width: 0; padding: 0 8px; text-wrap: balance; }
+}
 /* Palace buttons live in the felt, not floating over your face-up cards. */
 .felt-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: center; }
 .felt-actions p { margin: 0; width: 100%; text-align: center; }
@@ -1136,6 +1152,11 @@ html[data-motion="off"] .board-grid .piece, html[data-motion="off"] .board-block
 @keyframes clock-pulse { 50% { transform: translate(-70%, -45%) scale(1.12); } }
 @media (prefers-reduced-motion: reduce) { .turn-clock.pulse { animation: none; } }
 
+/* The table's deck in the lobby: the choice, and three of its cards. */
+.deck-choice { display: flex; align-items: flex-end; gap: 12px; }
+.deck-choice > :first-child { flex: 1; min-width: 0; }
+.deck-preview { display: inline-flex; gap: 4px; flex: none; }
+.deck-line { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 0; color: var(--cream); }
 /* Report a problem: a small bug in the corner of every screen, and its sheet above everything. */
 .report-toggle {
   position: fixed; left: max(8px, env(safe-area-inset-left)); bottom: max(8px, env(safe-area-inset-bottom)); z-index: 30;

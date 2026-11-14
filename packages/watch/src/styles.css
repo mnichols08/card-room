@@ -1,0 +1,55 @@
+/* zubra-ui's default theme (shadcn/ui's variables), light or dark with the system; the components
+   read these. The page adds the card room's felt green as the primary colour. */
+@import "../../ui/src/zubra-ui/themes/default.css";
+@import "../../ui/src/zubra-ui/themes/system.css";
+
+:root {
+  --felt: #1f4d3a;
+  --felt-dark: #143628;
+  --felt-light: #2b6a50;
+  --primary: var(--felt);
+  --primary-foreground: #fbf6ec;
+  --ring: color-mix(in oklab, var(--felt) 60%, white);
+  color-scheme: light dark;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --primary: #7fc8a4;
+    --primary-foreground: #0f2a1f;
+    --ring: #7fc8a4;
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body { background: var(--background); color: var(--foreground); }
+h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; line-height: 1.2; margin: 0; text-wrap: balance; }
+p { margin: 0; }
+a { color: inherit; }
+[hidden] { display: none !important; }
+segmented-control { max-width: 100%; }
+
+.page { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.75rem; width: min(64rem, 100%); margin: 0 auto; padding: 1.25rem clamp(1rem, 3vw, 2rem) 5rem; }
+.quiet { color: var(--muted-foreground); font-size: 0.925rem; }
+.top { display: grid; gap: 0.25rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }
+.home { font-size: 0.9rem; color: var(--muted-foreground); text-decoration: none; justify-self: start; }
+.home:hover { text-decoration: underline; }
+h1 { font-size: clamp(1.6rem, 4vw, 2rem); }
+h2 { font-size: 1.2rem; margin-bottom: 0.3rem; }
+.note { margin-bottom: 0.9rem; }
+.waiting { display: grid; place-items: center; min-height: 30vh; }
+
+.panel { padding: 1.25rem; border: 1px solid var(--border); border-radius: calc(var(--radius) * 1.4); background: var(--card); }
+.deal { display: grid; gap: 1rem; margin-top: 1rem; justify-items: start; }
+.deal select-field { width: min(22rem, 100%); }
+.group { display: grid; gap: 0.4rem; justify-items: start; max-width: 100%; }
+.label { font-size: 0.9rem; font-weight: 600; }
+
+section > auto-grid, section > empty-state { margin-top: 0.9rem; }
+.seats { list-style: none; margin: 0.8rem 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 0.4rem 0.9rem; }
+.seats li { display: inline-flex; align-items: center; gap: 0.4rem; font-weight: 600; font-size: 0.925rem; }
+.standing { margin-top: 0.75rem; font-variant-numeric: tabular-nums; }

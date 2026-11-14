@@ -10,6 +10,8 @@ export interface TableSource {
   seat: Seat;
   /** Resolves to an error message when the move is refused. */
   act: (move: Move) => Promise<string | null>;
+  /** Nobody's playing this seat from here: the table is being watched. */
+  watching?: boolean;
 }
 
 export const TRICK_HOLD_MS = 1200;
@@ -55,11 +57,13 @@ export function useTable(source: TableSource) {
   const paused = heldTrick !== null || summary !== null || view?.phase === "finished";
   // Cards stay face down while blind nil is still possible, until you choose to look.
   const hidden =
+    !source.watching &&
     !!view && view.phase === "bidding" && view.bids[seat] === null && lookedAtHand !== view.handNumber && blindNilAllowed(view, seat);
 
   return {
     view,
     seat,
+    watching: !!source.watching,
     hand: view && !hidden ? view.hand : null,
     trickOnTable: heldTrick?.plays ?? view?.trick ?? [],
     trickWinner: heldTrick?.winner ?? null,

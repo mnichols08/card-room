@@ -1,19 +1,25 @@
-// The card room as one handler: houses, rooms and the sync log. index.ts serves it with the web app.
+// The card room as one handler: houses, rooms, card designs, moderation and the sync log. index.ts
+// serves it with the web app, the card designer and the admin app.
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Log } from "@zubra/sync/server";
 import { createRooms, type RoomDoc } from "@spades/rooms/server";
+import { createCatalogue } from "./catalogue.js";
 import { createChallenges } from "./challenges.js";
+import { createSpectate } from "./spectate.js";
+import { createDesigns } from "./designs.js";
+import { BLOCKED_MESSAGE, createModeration } from "./moderation.js";
 import { createHouses } from "./houses.js";
 import { createAi, type AiOptions } from "./ai.js";
 import { personaFor } from "@spades/rules";
-import { createAdmin, type AdminOptions } from "./admin.js";
 import { createBugs, REPORT_LIMIT, type BugOptions } from "./bugs.js";
 import { createLobby, type LobbyOptions } from "./lobby.js";
 import { createPush, type PushOptions } from "./push.js";
 import { playerOf } from "@spades/rooms/server";
 import { gameName, gameOfOptions, tableRoom, talk, type GameId, type Remark } from "./games.js";
 
-export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: boolean; push?: PushOptions; ai?: AiOptions; lobby?: LobbyOptions; admin?: AdminOptions; bugs?: BugOptions } = {}) {
+export function createCardRoom(
+  options: { log?: Log; botDelay?: number; talk?: boolean; push?: PushOptions; ai?: AiOptions; lobby?: LobbyOptions; /** Turns moderation on (see moderation.ts). */ adminToken?: string; bugs?: BugOptions } = {},
+) {
   const talking = options.talk ?? true;
   const timers = new Set<ReturnType<typeof setTimeout>>();
   const lastWord = new Map<string, number>();
@@ -103,6 +109,10 @@ export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: b
   const rooms = createRooms(tableRoom, {
     log: options.log,
     botDelay: options.botDelay,
+    // A game the host has switched off takes no new tables.
+    // Whether people's tables can be watched is the host's call.
+    spectators: () => catalogue.watching(),
+    allow: async (given) => ((await catalogue.isOn(gameOfOptions(given))) ? null : `${gameName(gameOfOptions(given))} is switched off in this card room.`),
     onStart: ({ id, state, room }) => {
       speak(id, talk.greet(state, castOf(room)));
       lobby.started(id);
@@ -122,21 +132,17 @@ export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: b
   });
   const push = createPush(rooms.sync, options.push);
   const ai = createAi(options.ai);
-  const houses = createHouses(rooms, { push, ai });
-  const challenges = createChallenges(rooms, push);
-  // Whoever runs the card room: they can block a player from all of it, and act as host at any open table.
-  const admin = createAdmin(rooms, { ...options.admin, evict: (id, seat) => lobby.evict(id, seat) });
-  const lobby = createLobby(rooms, { push, isAdmin: admin.isAdmin, ...options.lobby });
+  const catalogue = createCatalogue(rooms.sync);
+  const houses = createHouses(rooms, { push, ai, gameOn: catalogue.isOn });
+  const challenges = createChallenges(rooms, push, { gameOn: catalogue.isOn });
+  const lobby = createLobby(rooms, { push, gameOn: catalogue.isOn, ...options.lobby });
+  const designs = createDesigns(rooms.sync, { tables: rooms });
+  const spectate = createSpectate(rooms, catalogue);
+  const moderation = createModeration(rooms, designs, { token: options.adminToken, houses, catalogue });
   // "Report a problem": a player's report becomes an issue on GitHub.
   const bugs = createBugs(rooms, options.bugs);
 
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
-  /** A blocked player's browser can look, but can't do anything (the admin's own pages aside). */
-  async function refused(request: { method?: string; url: string; headers: { get(name: string): string | null } }): Promise<Response | null> {
-    if (request.method !== "POST" || new URL(request.url, "http://localhost").pathname.startsWith("/admin/")) return null;
-    const player = playerOf(new Request("http://localhost", { headers: { cookie: request.headers.get("cookie") ?? "" } }));
-    return (await admin.isBlocked(player)) ? json({ error: "You've been blocked from this card room." }, 403) : null;
-  }
   /** /push: the public key, and saying yes (or no) to notifications on this phone. */
   async function pushRoutes(request: Request): Promise<Response | null> {
     const { pathname } = new URL(request.url);
@@ -160,31 +166,39 @@ export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: b
     return json({ error: "Not found" }, 404);
   }
 
+  /** Everything a blocked player may not do: sit, move, talk, make houses, challenges or designs. Reading is left alone. */
+  const ACTS = ["/rooms", "/houses", "/challenges", "/lobby", "/designs", "/push", "/spectate", "/bugs"];
+  const under = (pathname: string, mounts: string[]) => mounts.some((m) => pathname === m || pathname.startsWith(`${m}/`));
+  async function refusal(request: Request): Promise<Response | null> {
+    if (request.method === "GET" || request.method === "HEAD" || !under(new URL(request.url).pathname, ACTS)) return null;
+    return (await moderation.blocked(request)) ? json({ error: BLOCKED_MESSAGE }, 403) : null;
+  }
+  /** The routes that aren't the rooms kit's own. */
+  const ours = async (request: Request) =>
+    (await refusal(request)) ?? (await moderation.fetch(request)) ?? (await pushRoutes(request)) ?? (await bugs.fetch(request)) ?? (await designs.fetch(request)) ?? (await catalogue.fetch(request)) ?? (await spectate.fetch(request)) ?? (await challenges.fetch(request)) ?? (await lobby.fetch(request)) ?? (await houses.fetch(request));
+
   return {
     rooms,
     houses,
     lobby,
-    admin,
+    designs,
+    moderation,
+    catalogue,
     bugs,
-    /** Answers houses, rooms and sync requests; null for anything else. */
     push,
+    /** Answers houses, designs, moderation, rooms and sync requests; null for anything else. */
     async fetch(request: Request): Promise<Response | null> {
-      return (
-        (await refused(request)) ??
-        (await admin.fetch(request)) ??
-        (await pushRoutes(request)) ??
-        (await bugs.fetch(request)) ??
-        (await challenges.fetch(request)) ??
-        (await lobby.fetch(request)) ??
-        (await houses.fetch(request)) ??
-        (await rooms.fetch(request))
-      );
+      return (await ours(request)) ?? (await rooms.fetch(request));
     },
     /** For Node's http: answers and resolves true, or resolves false for anything else. */
     async handle(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
       const url = new URL(req.url ?? "/", "http://localhost");
-      const ours = ["/houses", "/challenges", "/push", "/lobby", "/admin", "/bugs"].some((m) => url.pathname === m || url.pathname.startsWith(`${m}/`));
-      if (ours) {
+      const headers = req.headers as Record<string, string>;
+      const answer = (response: Response) => {
+        res.writeHead(response.status, Object.fromEntries(response.headers));
+        return response.arrayBuffer().then((body) => (res.end(Buffer.from(body)), true));
+      };
+      if (under(url.pathname, ["/houses", "/challenges", "/lobby", "/push", "/designs", "/moderation", "/catalogue", "/spectate", "/bugs"])) {
         const chunks: Buffer[] = [];
         let size = 0;
         for await (const chunk of req) {
@@ -198,21 +212,14 @@ export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: b
         }
         const request = new Request(url, {
           method: req.method,
-          headers: req.headers as Record<string, string>,
+          headers,
           body: req.method === "GET" || req.method === "HEAD" ? undefined : Buffer.concat(chunks),
         });
-        const response = (await refused(request)) ?? (await admin.fetch(request)) ?? (await pushRoutes(request)) ?? (await bugs.fetch(request)) ?? (await challenges.fetch(request)) ?? (await lobby.fetch(request)) ?? (await houses.fetch(request))!;
-        res.writeHead(response.status, Object.fromEntries(response.headers));
-        res.end(Buffer.from(await response.arrayBuffer()));
-        return true;
+        return answer((await ours(request))!);
       }
-      // The rooms' own endpoints (sit, say, play): the same answer for a blocked player.
-      const no = await refused({ method: req.method, url: req.url ?? "/", headers: { get: (name) => (req.headers[name] as string | undefined) ?? null } });
-      if (no) {
-        res.writeHead(no.status, Object.fromEntries(no.headers));
-        res.end(await no.text());
-        return true;
-      }
+      // The rooms kit reads the request itself; a blocked player is turned away before it does.
+      const blocked = await refusal(new Request(url, { method: req.method === "GET" || req.method === "HEAD" ? "GET" : "POST", headers }));
+      if (blocked) return answer(blocked);
       return rooms.handle(req, res);
     },
     close: () => {
