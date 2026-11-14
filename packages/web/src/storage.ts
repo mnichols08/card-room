@@ -110,3 +110,8 @@ export const loadKitSeats = (game: KitGameId): number => {
   return n >= g.seats.min && n <= g.seats.max ? n : g.seats.default;
 };
 export const saveKitSeats = (game: KitGameId, n: number) => write(`cardroom:${game}:seats`, n);
+
+// ---- Find players: any table for the game, or only one with exactly your rules -----------------
+const SAME_RULES_KEY = "cardroom:lobby:sameRules";
+export const loadSameRules = () => read<boolean>(SAME_RULES_KEY, false) === true;
+export const saveSameRules = (only: boolean) => write(SAME_RULES_KEY, only);

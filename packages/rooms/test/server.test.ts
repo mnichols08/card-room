@@ -80,6 +80,79 @@ describe("rooms", () => {
     expect(info.seats.map((s: { name: string }) => s.name)).toEqual(["brokennil", "Rick", "Jimmy"]);
   });
 
+  it("lets a player stand up before the deal, and tells the app whenever the seats change", async () => {
+    const changes: (string | null)[][] = [];
+    const rooms = createRooms(counting, { log: memoryLog({ keep: "latest" }), id: () => "abc123", onSeats: ({ room }) => changes.push(room.seats.map((s) => s.name)) });
+    open.push(rooms);
+    const browser = () => {
+      let cookie = "";
+      return async (path: string, body: unknown = {}) => {
+        const r = (await rooms.fetch(new Request(BASE + path, { method: "POST", body: JSON.stringify(body), headers: { "content-type": "application/json", cookie } })))!;
+        const set = r.headers.get("set-cookie");
+        if (set) cookie = set.split(";")[0]!;
+        return { status: r.status, body: await r.json() };
+      };
+    };
+    const a = browser();
+    const b = browser();
+    await a("/rooms", { options: { start: 0 } });
+    expect((await a("/rooms/abc123/stand")).status).toBe(403); // not seated
+    await a("/rooms/abc123/sit", { seat: 0, name: "A" });
+    await b("/rooms/abc123/sit", { seat: 1, name: "B" });
+    await a("/rooms/abc123/bot", { seat: 2, name: "Bot" });
+    expect((await b("/rooms/abc123/stand")).status).toBe(200);
+    expect(changes).toEqual([["A", null, null], ["A", "B", null], ["A", "B", "Bot"], ["A", null, "Bot"]]);
+    expect(await rooms.holders("abc123")).toEqual([expect.any(String), null, null]);
+    expect((await b("/rooms/abc123/act", { move: { add: 1 } })).status).toBe(403); // B no longer holds a seat
+
+    // The seat is free for someone else; once the game starts nobody can stand.
+    await b("/rooms/abc123/sit", { seat: 1, name: "B again" });
+    await a("/rooms/abc123/start");
+    expect((await b("/rooms/abc123/stand")).status).toBe(409);
+    expect(await rooms.unseat("abc123", 1)).toBe(false);
+  });
+
+  it("a bot can take over a person's seat mid-game, and chat can be checked on the way in", async () => {
+    const rooms = createRooms(counting, {
+      log: memoryLog({ keep: "latest" }),
+      botDelay: 5,
+      id: () => "abc123",
+      beforeSay: ({ seat, text }) => (seat === 1 ? { error: "Muted." } : text.replace("darn", "****")),
+    });
+    open.push(rooms);
+    const browser = () => {
+      let cookie = "";
+      return async (path: string, body?: unknown) => {
+        const r = (await rooms.fetch(new Request(BASE + path, { method: body ? "POST" : "GET", body: body ? JSON.stringify(body) : undefined, headers: { "content-type": "application/json", cookie } })))!;
+        const set = r.headers.get("set-cookie");
+        if (set) cookie = set.split(";")[0]!;
+        return { status: r.status, body: await r.json() };
+      };
+    };
+    const a = browser();
+    const b = browser();
+    const c = browser();
+    await a("/rooms", { options: { start: 0 } });
+    await a("/rooms/abc123/sit", { seat: 0, name: "A" });
+    await b("/rooms/abc123/sit", { seat: 1, name: "B" });
+    await c("/rooms/abc123/sit", { seat: 2, name: "C" });
+    await a("/rooms/abc123/start", {});
+    expect((await a("/rooms/abc123/say", { text: "well darn" })).body).toMatchObject({ text: "well ****" });
+    expect((await b("/rooms/abc123/say", { text: "hello" })).body).toEqual({ error: "Muted." });
+
+    // It's B's turn after A; B is replaced, and the bot makes B's move.
+    await a("/rooms/abc123/act", { move: { add: 5 } });
+    expect(await rooms.replaceWithBot("abc123", 1, "Robo")).toBe(true);
+    await wait(60);
+    const info = (await b("/rooms/abc123")).body;
+    expect(info).toMatchObject({ seat: null, summary: { total: 6 } });
+    expect(info.seats[1]).toEqual({ name: "Robo", bot: true });
+    expect((await b("/rooms/abc123/act", { move: { add: 1 } })).status).toBe(403);
+    expect((await b("/rooms/abc123/sit", { seat: 1, name: "B" })).status).toBe(409);
+    expect((await c("/rooms/abc123/act", { move: { add: 1 } })).status).toBe(200);
+    expect(await rooms.replaceWithBot("abc123", 1, "Again")).toBe(false);
+  });
+
   it("a browser can read only its own seat's view, and never the server's documents", async () => {
     const { browser } = setup();
     const a = browser();

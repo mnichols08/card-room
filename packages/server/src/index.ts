@@ -34,11 +34,16 @@ const cardRoom = createCardRoom({
     privateKey: setting("VAPID_PRIVATE_KEY"),
     subject: setting("VAPID_SUBJECT"),
   },
+  // Whoever has this key is the card room's admin: they can block players and act as host at open tables.
+  admin: { key: setting("ADMIN_KEY") },
+  // Words that names on open tables may not contain, on top of the built-in list.
+  lobby: { blockedNames: (setting("BLOCKED_NAMES") ?? "").split(",").map((w) => w.trim()).filter(Boolean) },
   // Houses can connect their own AI key for their bots' table talk; this seals those keys at rest.
   // CARDROOM_AI_KEY is the card room's own key: with it, every table's bots talk through a model.
   ai: { secret: setting("SECRET"), shared: { key: setting("AI_KEY"), provider: setting("AI_PROVIDER"), model: setting("AI_MODEL"), daily: Number(setting("AI_DAILY")) || undefined } },
 });
 if (!setting("SECRET")) console.log("houses' AI keys are stored unsealed: set CARDROOM_SECRET to encrypt them");
+if (!cardRoom.admin.enabled) console.log("there is no admin: set CARDROOM_ADMIN_KEY (8 characters or more) to be able to block players");
 if (!cardRoom.push.enabled) console.log("push notifications are off: set CARDROOM_VAPID_PUBLIC_KEY and CARDROOM_VAPID_PRIVATE_KEY to turn them on");
 
 /**

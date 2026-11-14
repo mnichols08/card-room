@@ -4,6 +4,7 @@ import type { RoomDoc } from "@spades/rooms/server";
 import { cleanSettings, personaFor, pickPersonas, type Seat, type SeatView, type TableSettings } from "@spades/rules";
 import TextField from "@spades/ui/zubra-ui/text-field.zb";
 import { useEffect, useMemo, useState } from "react";
+import { lobby } from "./lobbyApi";
 import { loadSavedName, saveName, saveTableSettings } from "./storage";
 import { Table } from "./Table";
 import { useTable, type Move } from "./useTable";
@@ -12,7 +13,8 @@ import { PalaceTable } from "./palace/PalaceTable";
 import { isBoardGame, isKitGame, kitGame, type BoardView, type KitView } from "@cardroom/games";
 import { GAME_LIST } from "./GamePicker";
 import { GameTable } from "./kit/GameTable";
-import { OnlineTable, TableSettingsFields, TurnTimerField } from "./TableSettings";
+import { OnlineTable, TablePlayers, TableSettingsFields, TurnTimerField, type TablePlayersValue } from "./TableSettings";
+import { admin } from "./adminApi";
 import { TurnClock } from "./TurnClock";
 
 type Summary = { game?: string; rules: string; scores?: { points: number }[]; hand?: number; finished?: number[] };
@@ -37,6 +39,10 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
   const [problem, setProblem] = useState<string | null>(null);
   const [missing, setMissing] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // Seats whose chat this device has hidden, and whether this device is the card room's admin.
+  const [hidden, setHidden] = useState<number[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => void admin.amI().then(setIsAdmin), []);
 
   useEffect(() => {
     room
@@ -64,6 +70,48 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
     return room.onView(mySeat, (doc) => setView(doc.view));
   }, [room, mySeat]);
 
+  // Your seat can be taken away before the deal (the host removed you, or you went quiet at an open
+  // table). The public seats say so; check with the server before believing it.
+  const seatGone = mySeat !== null && doc !== null && (doc.started ? Boolean(doc.seats[mySeat]?.bot) : !doc.seats[mySeat]?.name);
+  useEffect(() => {
+    if (!seatGone) return;
+    room.info().then((info) => {
+      if (info.seat !== null) return;
+      setMySeat(null);
+      setProblem("You're no longer seated at this table.");
+    }, () => undefined);
+  }, [room, seatGone]);
+
+  // At an open table, waiting: keep telling the lobby you're still here, or it frees your seat for
+  // someone else. A phone that slept may have lost its seat, so look again when the page comes back.
+  const waiting = Boolean(doc?.open) && !doc?.started && mySeat !== null;
+  useEffect(() => {
+    if (!waiting) return;
+    const here = () => {
+      if (document.visibilityState === "hidden") return;
+      lobby.here(id).catch(() => undefined);
+    };
+    const back = () => {
+      if (document.visibilityState === "hidden") return;
+      room.info().then((info) => {
+        if (info.seat !== null || info.started) return void here();
+        setMySeat(null);
+        setProblem("You were away a while, so your seat was freed for someone else. Sit back down if one's still open.");
+      }, () => undefined);
+    };
+    // Closing the tab gives the seat back straight away, rather than after the lobby notices the quiet.
+    const gone = () => navigator.sendBeacon?.(`/rooms/${encodeURIComponent(id)}/stand`);
+    here();
+    const timer = setInterval(here, 20_000);
+    document.addEventListener("visibilitychange", back);
+    addEventListener("pagehide", gone);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", back);
+      removeEventListener("pagehide", gone);
+    };
+  }, [room, id, waiting]);
+
   if (missing) {
     return (
       <main className="setup lobby">
@@ -78,7 +126,7 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
   if (!doc) return <main className="setup lobby"><p>Finding the table…</p></main>;
 
   const chat: ChatProps = {
-    messages,
+    messages: hidden.length ? messages.filter((m) => !hidden.includes(m.seat)) : messages,
     mySeat,
     send: (text) =>
       room.say(text).then(
@@ -100,10 +148,22 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
   };
   // Every table gets the same countdown, on whichever seat the server's deadline names, and its
   // settings offer the turn timer.
+  // The other players, for the ⚙︎ sheet. Anyone can hide someone's chat on their own device. At a
+  // table that is or was open to everyone, its host (and the card room's admin) can mute and remove.
+  const hosting = doc.host != null && (doc.host === mySeat || isAdmin);
+  const players: TablePlayersValue = {
+    players: doc.seats.flatMap((s, i) => (i === mySeat || !s.name ? [] : [{ seat: i, name: s.name, bot: s.bot, hidden: hidden.includes(i), muted: Boolean(doc.muted?.includes(i)) }])),
+    hide: (seat, hide) => setHidden((was) => (hide ? [...was, seat] : was.filter((s) => s !== seat))),
+    mute: hosting ? (seat, muted) => lobby.mute(id, seat, muted) : undefined,
+    remove: hosting ? (seat) => lobby.remove(id, seat) : undefined,
+    block: isAdmin ? (seat) => admin.block(id, seat) : undefined,
+  };
   const online = (table: React.ReactNode) => (
     <OnlineTable.Provider value={true}>
-      {table}
-      <TurnClock deadline={doc.deadline} mySeat={mySeat} now={room.serverNow} />
+      <TablePlayers.Provider value={players}>
+        {table}
+        <TurnClock deadline={doc.deadline} mySeat={mySeat} now={room.serverNow} />
+      </TablePlayers.Provider>
     </OnlineTable.Provider>
   );
 
@@ -138,7 +198,12 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
     return online(<PlayingTable room={room as unknown as SpadesRoom} view={view as SeatView} seat={mySeat} names={names} onLeave={onLeave} code={id} chat={chat} settings={tableSettings} />);
   }
 
-  return <Lobby room={room} doc={doc} mySeat={mySeat} onSat={setMySeat} problem={problem} setProblem={setProblem} onLeave={onLeave} chat={chat} settings={tableSettings} />;
+  // Leaving an open table before the deal gives the seat back, so nobody waits on an empty chair.
+  const leave = () => {
+    if (waiting) void room.stand().catch(() => undefined);
+    onLeave();
+  };
+  return <Lobby room={room} doc={doc} mySeat={mySeat} onSat={setMySeat} problem={problem} setProblem={setProblem} onLeave={leave} chat={chat} settings={tableSettings} isAdmin={isAdmin} />;
 }
 
 function PlayingTable(props: {
@@ -182,6 +247,8 @@ function Lobby(props: {
   onLeave: () => void;
   chat: ChatProps;
   settings?: { value: TableSettings; change: (next: TableSettings) => Promise<void> };
+  /** This device is the card room's admin: it may remove at open tables and block anywhere. */
+  isAdmin: boolean;
 }) {
   const { room, doc, mySeat } = props;
   const game = gameOf(doc);
@@ -221,6 +288,7 @@ function Lobby(props: {
         </div>
         <h1>{doc.label ?? `${about.name} · Table ${room.id}`}</h1>
         <p>
+          {doc.open && !doc.started ? "An open table: anyone in the card room can take a seat, and it deals as soon as every seat is taken. " : ""}
           {doc.started ? "This game has started." : doc.locked ? (mySeat !== null ? "Your tournament match. Deal when you're ready; the game waits for whoever's turn it is." : "A tournament match. The seats are set.") : game === "palace" ? "First one out wins. Fill empty seats with bots." : partners ? "Partners sit across from each other." : `${about.blurb}. Fill empty seats with bots.`}
           {info?.rules ? ` ${info.rules}.` : ""}
         </p>
@@ -243,6 +311,30 @@ function Lobby(props: {
                 {game === "spades" && s.bot && s.name && personaFor(s.name).blurb && <small className="blurb">{personaFor(s.name).blurb}</small>}
               </strong>
               {mine && <em>you</em>}
+              {!mine && doc.open && !doc.started && doc.host === i && <em>host</em>}
+              {doc.muted?.includes(i) && <em>muted</em>}
+              {props.isAdmin && !mine && !s.bot && s.name && (
+                <button
+                  type="button"
+                  className="link danger"
+                  onClick={() => {
+                    if (window.confirm(`Block ${s.name} from the whole card room?`)) attempt(() => admin.block(room.id, i));
+                  }}
+                >
+                  Block
+                </button>
+              )}
+              {doc.open && !doc.started && ((mySeat !== null && doc.host === mySeat) || props.isAdmin) && !mine && !s.bot && s.name && (
+                <button
+                  type="button"
+                  className="link danger"
+                  onClick={() => {
+                    if (window.confirm(`Remove ${s.name} from the table? They won't be able to sit back down here.`)) attempt(() => lobby.remove(room.id, i));
+                  }}
+                >
+                  Remove
+                </button>
+              )}
               {!doc.started && !doc.locked && empty && mySeat === null && (
                 <button
                   type="button"
@@ -300,9 +392,14 @@ function Lobby(props: {
               {copied ? "Link copied" : "Invite people"}
             </button>
           )}
+          {mySeat !== null && !doc.locked && doc.seats.length > 1 && !full && (
+            <button type="button" className="secondary" aria-pressed={Boolean(doc.open)} onClick={() => attempt(() => lobby.setOpen(room.id, !doc.open))}>
+              {doc.open ? "Close the table (invited people only)" : "Open the table to everyone"}
+            </button>
+          )}
           {mySeat !== null && (
             <button type="button" className="primary deal" disabled={!full} onClick={() => attempt(() => room.start())}>
-              {full ? (isBoardGame(game) ? "Start the game" : "Deal") : "Waiting for every seat"}
+              {full ? (isBoardGame(game) ? "Start the game" : "Deal") : doc.open ? "Waiting for players…" : "Waiting for every seat"}
             </button>
           )}
         </>

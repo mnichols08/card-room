@@ -1,5 +1,6 @@
 <!--
-  The Card Room's front door: every game as a tile, a "who's playing?" filter, and your houses.
+  The Card Room's front door: every game as a tile, a "who's playing?" filter, your houses, and the
+  tables that are waiting for players right now.
   A Vue island inside the React app. The cards and the select are Zubra components: in a .vue file a
   .zb import is a Vue component (Zubra's Vue adapter), with props, events and v-model.
 -->
@@ -27,8 +28,12 @@ const props = defineProps<{
   /** The game played last on this device, if any. */
   last: string | null;
   name: string;
+  /** Tables waiting for players, longest wait first. */
+  open: { id: string; game: string; who: string; free: number }[];
 }>();
-const emit = defineEmits<{ pick: [id: string]; house: [slug: string] }>();
+const emit = defineEmits<{ pick: [id: string]; house: [slug: string]; lobby: [] }>();
+const gameOf = (id: string) => props.games.find((g) => g.id === id);
+const waitingAt = computed(() => props.open.slice(0, 4));
 
 // Who's playing: any number, or exactly this many people at the table.
 const players = ref("any");
@@ -68,6 +73,25 @@ const hello = computed(() => (props.name ? `Welcome back, ${props.name}.` : "Spa
       </ul>
     </section>
 
+    <section class="open" aria-label="Open tables">
+      <div class="games-head">
+        <h2>Open tables</h2>
+        <button type="button" class="house" @click="emit('lobby')">{{ open.length ? `See all ${open.length}` : "See open tables" }}</button>
+      </div>
+      <ul v-if="open.length">
+        <li v-for="t in waitingAt" :key="t.id">
+          <button type="button" class="waiting" @click="emit('lobby')">
+            <span class="waiting-emoji" aria-hidden="true">{{ gameOf(t.game)?.emoji }}</span>
+            <span class="waiting-text">
+              <strong>{{ gameOf(t.game)?.name ?? "A game" }}</strong>
+              <span>{{ t.who }} · {{ t.free === 1 ? "1 seat open" : `${t.free} seats open` }}</span>
+            </span>
+          </button>
+        </li>
+      </ul>
+      <p v-else class="quiet">Nobody's waiting right now. Pick a game and choose “Find players” to be first at the table.</p>
+    </section>
+
     <section class="games" aria-label="Games">
       <div class="games-head">
         <h2>Pick a game</h2>
@@ -97,7 +121,7 @@ const hello = computed(() => (props.name ? `Welcome back, ${props.name}.` : "Spa
       <p v-if="!shown.length" class="none">No games for that many players yet.</p>
     </section>
 
-    <p class="fine">Pick a game to practice against the computer, start a family table, or take on a challenger.</p>
+    <p class="fine">Pick a game to practice against the computer, start a family table, find players, or take on a challenger.</p>
   </div>
 </template>
 
@@ -124,6 +148,18 @@ h2 { margin: 0; font-size: clamp(1.3rem, 2vw, 1.7rem); color: var(--gold); }
   color: var(--cream); font: inherit; font-weight: 600; padding: 10px 18px; cursor: pointer;
 }
 .house:hover, .house:focus-visible { border-color: var(--gold); background: rgba(232, 196, 106, 0.14); }
+
+.open ul { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); }
+.waiting {
+  width: 100%; height: 100%; display: flex; align-items: center; gap: 12px; text-align: left; cursor: pointer;
+  padding: 12px 16px; border: 2px solid rgba(255, 255, 255, 0.12); border-radius: 14px;
+  background: rgba(0, 0, 0, 0.24); color: var(--cream); font: inherit;
+}
+.waiting:hover, .waiting:focus-visible { border-color: var(--gold); outline: none; }
+.waiting-emoji { font-size: 1.6rem; line-height: 1; }
+.waiting-text { display: flex; flex-direction: column; min-width: 0; }
+.waiting-text span { color: #d6e6dc; font-size: 0.9rem; }
+.quiet { margin: 10px 0 0; color: #b9d0c2; }
 
 .games-head { display: flex; align-items: end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .filter { min-width: 220px; --background: var(--cream); --foreground: var(--ink); --border: rgba(255, 255, 255, 0.18); --muted-foreground: #cfe2d6; --ring: var(--gold); }

@@ -1,6 +1,6 @@
 # Card Room
 
-Family card and board games online: forty-six games with house rules saved as presets, family
+Family card and board games online: forty-nine games with house rules saved as presets, family
 **houses** with their own tables, leaderboards and tournaments, computer players with personalities,
 challenge links, and a widget that puts a game on any site, including [open.blog](https://github.com/journey-to-code-org/open.blog) ones.
 
@@ -9,7 +9,7 @@ yourself (Docker or Railway), and practice games work anywhere, including the Gi
 
 ## The games
 
-Spades and Palace have tables of their own; the other forty-four are built on a shared game kit
+Spades and Palace have tables of their own; the other forty-seven are built on a shared game kit
 (`packages/games`), so they all get the same setup screen, house rules editor, computer players,
 houses, challenges and tournaments. The kit has two tables: one that draws any card game, and one
 that draws any board game (Tic-Tac-Toe is the first).
@@ -30,16 +30,20 @@ that draws any board game (Tic-Tac-Toe is the first).
 | Hand and Foot | 4, partners | Partners, books of seven, and a foot |
 | Gin Rummy | 2 | Two players, melds and knocking |
 | Rummy 500 | 2 to 6 | Melds, lay-offs and a pile to dig into |
+| Contract Rummy | 3 to 8 | Seven rounds, seven contracts to lay down |
 | Cribbage | 2 | Fifteen two, fifteen four, and a pair is six |
 | Crazy Eights | 2 to 6 | Match the card; eights are wild |
 | Switch (Last Card) | 2 to 6 | Uno's ancestor, with an ordinary deck |
 | Fruit Salad | 2 to 8 | Our own colour-card game: match the fruit |
 | Thirty-One | 2 to 8 | Three cards, one suit, as close to 31 as you dare |
 | Durak | 2 to 6 | Attack, defend, and don't be the fool |
+| Sevens | 3 to 7 | Build out from the 7s |
+| Cuckoo | 3 to 10 | One card each; don't get stuck with the lowest |
 | President | 3 to 7 | Climb from Scum to President |
 | Golf | 2 to 6 | Swap your way to the lowest score |
 | Go Fish | 2 to 6 | Ask for cards, make books |
 | Old Maid | 2 to 6 | Pairs, and don't get stuck with her |
+| Memory | 1 to 6 | Find the pairs (great for grandkids) |
 | War | 2 to 4 | Flip, and the highest card takes all |
 | Slapjack | 2 to 6 | Flip, and slap the jacks first |
 | Speed | 2 | No turns: play faster than the other player |
@@ -47,9 +51,6 @@ that draws any board game (Tic-Tac-Toe is the first).
 | Cuckoo | 3 to 10 | One card each; don't get stuck with the lowest |
 | Contract Rummy | 3 to 8 | Seven rounds, seven contracts to lay down |
 | Memory | 1 to 6 | Find the pairs (great for grandkids) |
-| Ride the Bus | 2 to 8 | Drinking game: guess, match, and don't ride the bus |
-| Kings Cup | 2 to 10 | Drinking game: every card has a rule |
-| Horse Race | 2 to 10 | Drinking game: bet sips on an ace and watch them run |
 | Kings in the Corner | 2 to 4 | Solitaire for the whole table |
 | Spite and Malice | 2 to 4 | Race to play off your pile; kings are wild |
 | Five Card Draw | 2 to 6 | Poker for chips: bet, swap, bet, show |
@@ -61,10 +62,18 @@ that draws any board game (Tic-Tac-Toe is the first).
 | FreeCell | 1 | Solitaire where every card is face up, with numbered deals |
 | Spider | 1 | Two-deck solitaire: build runs from king to ace |
 | Pyramid | 1 | Solitaire: clear pairs that make 13 |
+| Ride the Bus 🍺 | 2 to 8 | Drinking game: guess, match, and don't ride the bus |
+| Kings Cup 🍺 | 2 to 10 | Drinking game: every card has a rule |
+| Horse Race 🍺 | 2 to 10 | Drinking game: bet sips on an ace |
+| Drinking Pyramid 🍺 | 2 to 8 | Drinking game: remember your cards, match, bluff |
 | Tic-Tac-Toe | 2 | A board game: three in a row, Ultimate's nine boards, or Gomoku's five in a row on 15×15 |
 
 Poker and Blackjack are for chips only: everyone starts with the same stack, and the chips are
 just for keeping score.
+
+The 🍺 games are drinking games for adults (water counts). Party games (Thirty-One, President,
+Bluff, Liar's Poker, Durak, Slapjack, Sevens, Cuckoo) also have a drinking-mode house rule, off
+unless a table turns it on. Kids' games have none.
 
 ## The turn timer
 
@@ -85,16 +94,60 @@ before the end.
   "A day" is for games played a move at a time over a week.
 - Practice games on your own device have no timer: nobody is waiting on you.
 
+## Finding people to play with
+
+A family table is private: only people with its link can sit down. Two things make a table public.
+
+- **Find players**, on any game's setup screen, seats you at an open table that's waiting for that
+  game (tables with your rules first, then whichever has waited longest). If nobody's waiting, it
+  opens a table with your rules and you wait there. Turn on **Only tables with my rules** and it
+  takes a seat only where the rules and the table size are exactly yours. Anyone seated at a family
+  table can also open it to everyone, or close it again.
+- **Open tables**, from the front page, lists every table that's waiting, whatever the game: who's
+  there, how many seats are left, the rules, and how long it's waited. Jump into any of them.
+
+An open table deals itself when its last seat is taken (add bots if you're tired of waiting).
+Leaving before the deal gives your seat back, and a seat whose player has gone quiet for a minute
+and a half is freed, so the list only shows tables somebody is really waiting at.
+
+Open tables are where strangers meet, so:
+
+- **The host can remove a player**, before the deal or after it (the host is whoever opened the
+  table, or the first seat once they've left). Before the deal the seat is free again; after it, a
+  computer player takes the seat and plays on. Either way that player can't come back to the table.
+- **The host can mute a player**, and anyone can hide someone's chat on their own device. Both are
+  under ⚙︎ at the table. Crude words in an open table's chat are covered up.
+- **Names are filtered.** The crudest names are turned away from open tables, and one that came in
+  by a table's link shows as "Player". The list is short on purpose; add your own words with
+  `CARDROOM_BLOCKED_NAMES`.
+- **A buzz when someone's waiting.** On the Open tables page, pick a game (or any game) and turn
+  notifications on: your phone buzzes when a table opens for it, at most once every ten minutes.
+
+### The card room's admin
+
+Whoever runs the server can block a player from the whole card room. Set `CARDROOM_ADMIN_KEY`
+(8 characters or more), open `/?admin=1` and enter it once: that device is an admin from then on.
+
+- At any table, an admin sees **Block** next to each player (before the deal, in the seat list;
+  during a game, under ⚙︎). Blocking takes the player out of their seat, as removing does, and from
+  then on their browser can look but can't sit, chat, play, open tables or send challenges.
+- At a table that is or was open to everyone, an admin can also remove and mute, as its host can.
+- `/?admin=1` lists who's blocked and lets them back in.
+
+A block follows the player's browser, not a person: it stops a casual pest, and someone who clears
+their cookies comes back as a new player. Family tables that were never opened to everyone have no
+host, no chat filter and no mute; an admin can still block there.
+
 ## Packages
 
 | Package | |
 | --- | --- |
-| [`packages/games`](packages/games) | The game kit and the forty-four games built on it: `table.ts` (the `TableGame` engine contract every game shares), `kit.ts` (the card kit: `CardGame`, cards, decks, `KitView`) and `board.ts` (the board kit: `BoardGame`, grids, pieces, `BoardView`) |
+| [`packages/games`](packages/games) | The game kit and the forty-seven games built on it: `table.ts` (the `TableGame` engine contract every game shares), `kit.ts` (the card kit: `CardGame`, cards, decks, `KitView`) and `board.ts` (the board kit: `BoardGame`, grids, pieces, `BoardView`) |
 | [`packages/rules`](packages/rules) | Spades rules engine, bots, and the personas who play every game |
 | [`packages/palace`](packages/palace) | Palace rules engine: house-rule presets, seat views, bots and table talk |
 | [`packages/physics`](packages/physics) | A small deterministic 2D physics core for the ball games to come: the same shot gives the same table on the server and in every browser |
 | [`packages/rooms`](packages/rooms) | Turn-based rooms over `@zubra/sync`: seats, server-decided moves, private views, bots |
-| [`packages/server`](packages/server) | The server: every game's rooms, houses, challenges, tournaments, the sync log and the web app |
+| [`packages/server`](packages/server) | The server: every game's rooms, houses, challenges, tournaments, the lobby, the sync log and the web app |
 | [`packages/web`](packages/web) | The app (React, with the game chooser in Vue): the card table and the board table, setup screens, houses, practice |
 | [`packages/ui`](packages/ui) | Table components in Zubra (cards, seats, fields), and the `<card-room>` embed |
 
@@ -259,6 +312,8 @@ docker run -p 8787:8787 -v spades:/data cardroom
 | `CARDROOM_AI_PROVIDER` | `anthropic` or `openai`, if the key doesn't say (a key starting `sk-ant-` is Anthropic's) |
 | `CARDROOM_AI_MODEL` | The model for that key. Default: `claude-haiku-5-5` or `gpt-5.6-luna`. |
 | `CARDROOM_AI_DAILY` | The most lines a day on that key, everyone together. Default 3000. |
+| `CARDROOM_ADMIN_KEY` | Optional: makes any device that enters it at `/?admin=1` the card room's admin, who can block players. 8 characters or more; keep it secret. |
+| `CARDROOM_BLOCKED_NAMES` | Optional: more words that names and chat at open tables may not contain, comma-separated |
 | `CARDROOM_BOT_DELAY` | Fixed thinking time for computer players, in milliseconds (handy for testing) |
 | `CARDROOM_WEB` | Where the built web app is, if not `packages/web/dist` |
 | `PORT` | The port to listen on (8787; Railway sets its own) |

@@ -124,6 +124,12 @@ export interface RoomDoc<Summary = unknown> {
   locked?: boolean;
   /** A name for the table, set by the server, for pages to show. */
   label?: string;
+  /** Set by an app that lists the table somewhere public (a lobby), so its page can say so. */
+  open?: boolean;
+  /** The seat of whoever runs a listed table (they can remove players), set by the app. */
+  host?: number | null;
+  /** Seats that may not chat, set by the app. */
+  muted?: number[];
   summary: Summary | null;
   /** The clock that's running, if the game has one (see RoomDefinition.deadline). */
   deadline?: DeadlineDoc | null;
@@ -197,8 +203,15 @@ export interface RoomsOptions {
   deadlineGrace?: number;
   /** After every move is published. */
   onMove?(event: MoveEvent<any, any, any>): void;
+  /** After the seats change before a game starts: someone sat, stood up, or a bot was added or removed. */
+  onSeats?(event: { id: string; room: RoomDoc<any> }): void;
   /** After a game starts. */
   onStart?(event: { id: string; state: any; room: RoomDoc<any> }): void;
+  /**
+   * Before a person's message is added to the chat: return the text to post (changed, perhaps), or
+   * `{ error }` to turn it away with a reason.
+   */
+  beforeSay?(event: { id: string; seat: number; text: string; room: RoomDoc<any> }): string | { error: string } | Promise<string | { error: string }>;
   /** After a person (not a bot) says something. */
   onSay?(event: { id: string; message: ChatMessage; room: RoomDoc<any> }): void;
   /** Seeds for new games. Default: random. */
@@ -454,6 +467,7 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     seats[seat] = { name: name.trim().slice(0, 20) || "Player", bot: false };
     await sync.write("games", id, { holders });
     await sync.write("rooms", id, { seats });
+    await seatsChanged(id);
   }
   async function seatBot(id: string, seat: number, name: string): Promise<void> {
     const r = await room(id);
@@ -461,6 +475,58 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     const seats = [...r.seats];
     seats[seat] = { name, bot: true };
     await sync.write("rooms", id, { seats });
+    await seatsChanged(id);
+  }
+  /** Free a person's seat before the game starts (they left, say). Resolves to whether anyone was there. */
+  async function unseat(id: string, seat: number): Promise<boolean> {
+    const g = await game(id);
+    const r = await room(id);
+    if (!g || !r || r.started || !g.holders[seat]) return false;
+    const holders = [...g.holders];
+    holders[seat] = null;
+    const seats = [...r.seats];
+    seats[seat] = { name: null, bot: false };
+    await sync.write("games", id, { holders });
+    await sync.write("rooms", id, { seats });
+    await seatsChanged(id);
+    return true;
+  }
+  /**
+   * Take a person's seat away and sit a bot there, at any point. In a game that's been dealt, the bot
+   * plays on from where they were. Resolves to whether anyone was there.
+   */
+  async function replaceWithBot(id: string, seat: number, name: string): Promise<boolean> {
+    const g = await game(id);
+    const r = await room(id);
+    if (!g || !r || !g.holders[seat]) return false;
+    const holders = [...g.holders];
+    holders[seat] = null;
+    const seats = [...r.seats];
+    seats[seat] = { name, bot: true };
+    await sync.write("games", id, { holders });
+    await sync.write("rooms", id, { seats });
+    if (!r.started) return await seatsChanged(id), true;
+    const entry = await stateOf(id);
+    entry.table = { ...entry.table, seats };
+    if (entry.timer) {
+      clearTimeout(entry.timer);
+      entry.timer = null;
+    }
+    // A clock that was running on the person isn't the bot's: work it out again.
+    if (def.deadline && entry.state !== null) {
+      const before = deadlineDoc(entry);
+      arm(id, entry, true);
+      const now = deadlineDoc(entry);
+      if (before?.at !== now?.at || before?.seat !== now?.seat) void sync.write("rooms", id, { deadline: now });
+    }
+    void driveBots(id);
+    return true;
+  }
+  /** Tell the app the seats changed. */
+  async function seatsChanged(id: string) {
+    if (!options.onSeats) return;
+    const r = await room(id);
+    if (r) safely(() => options.onSeats!({ id, room: r }));
   }
   /** Deal: from a seated player's request, or from server code. Resolves to a problem, or null. */
   async function start(id: string): Promise<string | null> {
@@ -630,10 +696,19 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
       await sync.write("rooms", id, { seats });
       const entry = live.get(id);
       if (entry) entry.table = { ...entry.table, seats };
+      await seatsChanged(id);
       return json({ seat }, 200, player ? {} : { "set-cookie": playerCookie(me, request) });
     }
 
     if (mySeat < 0) return json({ error: "Take a seat first." }, 403);
+
+    // POST /rooms/:id/stand → give up your seat, before the game starts
+    if (action === "stand") {
+      if (r.started) return json({ error: "This game has started." }, 409);
+      if (r.locked) return json({ error: "The seats at this table are already set." }, 409);
+      await unseat(id, mySeat);
+      return json({ ok: true });
+    }
 
     // POST /rooms/:id/settings { settings } → anyone seated changes the table's settings, mid-game too.
     // A bot already waiting to move starts over at the new pace.
@@ -669,6 +744,7 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
       const seats = [...r.seats];
       seats[seat] = add ? { name: String(input.name ?? `Bot ${seat + 1}`), bot: true } : { name: null, bot: false };
       await sync.write("rooms", id, { seats });
+      await seatsChanged(id);
       return json({ ok: true });
     }
 
@@ -682,7 +758,9 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
       const key = `${id}/${mySeat}`;
       const now = Date.now();
       if (now - (lastSaid.get(key) ?? 0) < CHAT_GAP_MS) return json({ error: "Slow down a little." }, 429);
-      const result = await say(id, mySeat, String(input.text ?? ""));
+      const checked = options.beforeSay ? await options.beforeSay({ id, seat: mySeat, text: String(input.text ?? ""), room: r }) : String(input.text ?? "");
+      if (typeof checked !== "string") return json({ error: checked.error }, 403);
+      const result = await say(id, mySeat, checked);
       if (typeof result === "string") return json({ error: result }, 400);
       lastSaid.set(key, now); // only a message that was sent counts toward the pace
       if (options.onSay) {
@@ -724,6 +802,8 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     say,
     seatPlayer,
     seatBot,
+    unseat,
+    replaceWithBot,
     start,
     lock,
     holders,

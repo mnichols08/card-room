@@ -112,7 +112,7 @@ packages/
 8. **More games: Palace** — a second game on the same rooms, houses, challenges, bots and chat: Palace (Castle) with house-rule presets, a Palace table, Palace house rules and a Palace leaderboard. ✅
 9. **Embed** — a `<card-room>` widget for any site (practice in the page, challenges and family tables in the card room), and the same widget as an open.blog theme component an owner places from Admin. ✅
 10. **Tournaments** — a bracket with one locked set of house rules, feeding the leaderboard.
-11. *(Later)* Public lobby.
+11. **Public lobby** — find players for a game, or browse every open table and jump in; open tables deal themselves when they fill. ✅
 
 ## Open questions
 
