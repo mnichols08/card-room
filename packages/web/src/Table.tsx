@@ -1,4 +1,4 @@
-import { type TableSettings, cardId, passingSeats, sameCard, teamOf, type Bid, type Card, type GameState, type HandRecord, type Seat, type SeatView, type Team } from "@spades/rules";
+import { type TableSettings, cardId, cardPower, effectiveSuit, passingSeats, sameCard, teamOf, type Bid, type Card, type GameState, type HandRecord, type Seat, type SeatView, type Team } from "@spades/rules";
 import BidPad from "@spades/ui/bid-pad.zb";
 import HandSummary from "@spades/ui/hand-summary.zb";
 import PlayingCard from "./PlayingCard";
@@ -12,6 +12,7 @@ import { useTableSounds } from "./feedback/useTableSounds";
 import { Bubble, TableChat, useBubbles, type ChatProps } from "./Chat";
 import { TRICK_HOLD_MS, type TableState } from "./useTable";
 import { TableSettingsButton } from "./TableSettings";
+import { HandSortBar, useHandOrder } from "./HandSort";
 
 interface Props {
   table: TableState;
@@ -26,6 +27,8 @@ interface Props {
 }
 
 const SIDES = ["bottom", "left", "top", "right"] as const;
+const NO_CARDS: Card[] = [];
+const SUIT_PLACE = { spades: 0, hearts: 1, clubs: 2, diamonds: 3 } as const;
 
 export function Table({ table: t, names, onLeave, banner, chat, settings }: Props) {
   const view = t.view!;
@@ -43,6 +46,14 @@ export function Table({ table: t, names, onLeave, banner, chat, settings }: Prop
   const root = useRef<HTMLElement>(null);
   const scale = motionScale(settings?.value.pace);
   useCardFlip(root, scale);
+  // Dealt by suit, high first; each player can hold them another way, or drag them about.
+  const mine = useHandOrder(
+    "spades",
+    t.hand ?? NO_CARDS,
+    cardId,
+    (c) => ({ suit: SUIT_PLACE[effectiveSuit(c, preset)], rank: cardPower(c, preset) }),
+    { groups: ["suit", "rank"] },
+  );
 
   function toggleSound() {
     const next = { ...loadFeedbackSettings(), sound: !soundOn };
@@ -161,17 +172,19 @@ export function Table({ table: t, names, onLeave, banner, chat, settings }: Prop
       <section className="me">
         {chat && <TableChat {...chat} />}
         <div className="me-badge">{seat(me, "row")}</div>
+        <HandSortBar {...mine.bar} />
         <div
-          className={`hand ${handMotion} ${breathe && !dealing ? "breathe" : ""}`}
+          {...mine.hand}
+          className={`hand sortable ${handMotion} ${breathe && !dealing ? "breathe" : ""}`}
           role="group"
           aria-label="Your hand"
           style={{ "--n": t.hand?.length ?? view.handCounts[me] ?? 13 } as React.CSSProperties}
         >
           {t.hand === null
             ? Array.from({ length: view.handCounts[me] ?? 13 }, (_, i) => <PlayingCard key={i} back style={{ "--i": i } as React.CSSProperties} />)
-            : t.hand.map((card, i) => (
+            : mine.held.map(({ card, key }, i) => (
                 <PlayingCard
-                  key={cardId(card)}
+                  key={key}
                   data-flip={cardId(card)}
                   style={{ "--i": i } as React.CSSProperties}
                   card={card}
@@ -184,10 +197,10 @@ export function Table({ table: t, names, onLeave, banner, chat, settings }: Prop
         </div>
       </section>
 
-      {/* Bubbles float above everything, near the seat that spoke. */}
+      {/* Bubbles float above everything, beside the seat that spoke. */}
       <div className="bubble-layer" aria-live="polite">
         {[...bubbles.entries()].map(([s, m]) => (
-          <Bubble key={`${s}-${m.at}`} message={m} side={side(s as Seat)} />
+          <Bubble key={`${s}-${m.at}`} message={m} seat={s} />
         ))}
       </div>
 

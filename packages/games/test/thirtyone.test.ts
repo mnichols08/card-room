@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classicThirtyOne, newThirtyOne, plainThirtyOne, score31, thirtyOne, type KCard, type ThirtyOneState } from "../src/index.js";
+import { classicThirtyOne, explain31, newThirtyOne, noSuitsThirtyOne, plainThirtyOne, score31, thirtyOne, type KCard, type ThirtyOneState } from "../src/index.js";
 
 const card = (id: string): KCard => {
   const rank = { J: 11, Q: 12, K: 13, A: 14 }[id.slice(0, -1)] ?? Number(id.slice(0, -1));
@@ -16,6 +16,40 @@ describe("Thirty-One", () => {
     expect(score31(hand("A♥ K♠ 9♠"))).toBe(19);
     expect(score31(hand("7♥ 7♠ 7♦"))).toBe(30.5);
     expect(score31(hand("7♥ 7♠ 7♦"), false)).toBe(7);
+  });
+
+  it("only one suit counts, and the score says which cards didn't (issue #104)", () => {
+    // An ace, a ten and a queen are 31 only when they share a suit.
+    expect(score31(hand("A♦ 10♦ Q♦"))).toBe(31);
+    expect(score31(hand("A♥ 10♦ Q♦"))).toBe(20);
+    expect(explain31(hand("A♦ 10♦ Q♦"))).toBe("31 in ♦");
+    expect(explain31(hand("A♥ 10♦ Q♦"))).toBe("20 in ♦ (A♥ doesn't count)");
+    expect(explain31(hand("A♥ 10♦ 9♠"))).toBe("11 in ♥ (10♦ and 9♠ don't count)");
+    expect(explain31(hand("7♥ 7♠ 7♦"))).toBe("30½ (three of a kind)");
+    // The table tells the player so, on their own line.
+    const s = newThirtyOne(classicThirtyOne, 2, 5);
+    s.hands[0] = hand("A♥ 10♦ Q♦");
+    expect(thirtyOne.view(s, 0).info[0]).toBe("Your hand: 20 in ♦ (A♥ doesn't count)");
+  });
+
+  it("a house can play that every card counts, whatever its suit", () => {
+    expect(score31(hand("A♥ 10♦ Q♦"), true, true)).toBe(31);
+    expect(score31(hand("7♥ 7♠ 7♦"), true, true)).toBe(30.5);
+    expect(score31(hand("9♥ 8♠ 2♦"), true, true)).toBe(19);
+    expect(explain31(hand("A♥ 10♦ Q♦"), true, true)).toBe("31");
+    const rules = thirtyOne.normalize({ ...noSuitsThirtyOne });
+    expect(rules.anySuit).toBe(true);
+    expect(thirtyOne.normalize({ id: "31-classic" }).anySuit).toBe(false); // rules saved before the option: suits count
+    // Throwing the right card to reach a mixed-suit 31 shows it at once.
+    const s = newThirtyOne(rules, 2, 5);
+    s.turn = 0;
+    s.phase = "discard";
+    s.taken = null;
+    s.hands[0] = hand("A♥ 10♦ Q♦ 2♣");
+    expect(thirtyOne.view(s, 0).info[0]).toBe("Your best three: 31");
+    const after = thirtyOne.apply(s, 0, { type: "discard", card: "2♣" });
+    expect(after.phase).toBe("reveal");
+    expect(thirtyOne.describe(rules)[0]).toMatch(/whatever their suits/);
   });
 
   it("deals three each and turns one card up", () => {

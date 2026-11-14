@@ -3,7 +3,8 @@
 // house rules, how a game starts, what a move does, what each seat may see, what a computer player
 // does, and a summary for lobbies and leaderboards. What a seat sees is the one part that differs:
 // card games describe hands, tricks and piles (a `KitView`, in kit.ts) and board games a grid and
-// its pieces (a `BoardView`, in board.ts). Everything else (the room on the server, the setup
+// its pieces (a `BoardView`, in board.ts), and table sports a physics world and whose shot it is
+// (a `SportView`, in sport.ts). Everything else (the room on the server, the setup
 // screen, the rules editor, houses, challenges, tournaments, practice) only needs this file.
 import { mulberry32, type PlayStyle } from "@spades/rules";
 
@@ -11,8 +12,10 @@ import { mulberry32, type PlayStyle } from "@spades/rules";
 export type CardGameId = "hearts" | "ohhell" | "euchre" | "crazy8" | "gin" | "pinochle" | "canasta" | "gofish" | "oldmaid" | "war" | "whist" | "golf" | "rummy500" | "president" | "klondike" | "freecell" | "handfoot" | "cribbage" | "fivedraw" | "holdem" | "bluff" | "liarspoker" | "switch" | "thirtyone" | "kingscorner" | "blackjack" | "spite" | "pitch" | "fivehundred" | "durak" | "bridge" | "fruitsalad" | "slapjack" | "speed" | "memory" | "sevens" | "cuckoo" | "contractrummy" | "spider" | "pyramid" | "ridethebus" | "kingscup" | "horserace" | "drinkingpyramid";
 /** The games that are played on a board. */
 export type BoardGameId = "tictactoe" | "dropfour" | "combat" | "reversi" | "checkers";
+/** The games that are played by striking a ball across a table. */
+export type SportGameId = "minigolf";
 /** Every game on the kit. (Rooms, houses and saved rules have always called these "kit" games.) */
-export type KitGameId = CardGameId | BoardGameId;
+export type KitGameId = CardGameId | BoardGameId | SportGameId;
 
 /** A move that isn't allowed. The message is shown to the player as is. */
 export class GameError extends Error {}
@@ -123,7 +126,7 @@ export interface GameDeadline<M = Record<string, unknown>> {
 
 /**
  * A game, apart from what its table looks like: `View` is what one seat sees (a `KitView` for a
- * card game, a `BoardView` for a board game).
+ * card game, a `BoardView` for a board game, a `SportView` for a table sport).
  */
 export interface TableGame<R extends BaseRules = BaseRules, S = unknown, M = Record<string, unknown>, View = unknown> {
   id: KitGameId;

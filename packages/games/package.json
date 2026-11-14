@@ -13,6 +13,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@cardroom/physics": "*",
     "@spades/rules": "*"
   },
   "devDependencies": {

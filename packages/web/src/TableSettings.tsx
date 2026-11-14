@@ -182,13 +182,15 @@ export function DisplayFields() {
   );
 }
 
-/** The ⚙︎ at the table: change opponents and speed mid-game. */
+/** The ⚙︎ at the table: change opponents and speed mid-game. A solo game has only this device's look. */
 export function TableSettingsButton({
   settings,
   onChange,
+  solo = false,
 }: {
   settings: TableSettings;
   onChange: (next: TableSettings) => Promise<void> | void;
+  solo?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -197,7 +199,7 @@ export function TableSettingsButton({
       <button
         type="button"
         className="settings-toggle"
-        aria-label="Table settings: opponents, speed and animations"
+        aria-label={solo ? "Table settings: animations and suit colours" : "Table settings: opponents, speed and animations"}
         aria-expanded={open}
         onClick={() => setOpen(true)}
       >
@@ -216,20 +218,22 @@ export function TableSettingsButton({
               aria-label="Table settings"
             >
               <h2>Table settings</h2>
-              <TableSettingsFields
-                settings={settings}
-                onChange={async (next) => {
-                  setProblem(null);
-                  try {
-                    await onChange(next);
-                  } catch (e) {
-                    setProblem((e as Error).message);
-                  }
-                }}
-              />
+              {!solo && (
+                <TableSettingsFields
+                  settings={settings}
+                  onChange={async (next) => {
+                    setProblem(null);
+                    try {
+                      await onChange(next);
+                    } catch (e) {
+                      setProblem((e as Error).message);
+                    }
+                  }}
+                />
+              )}
               {problem && <p className="error">{problem}</p>}
               <PlayersFields />
-              <h3>On this device</h3>
+              {!solo && <h3>On this device</h3>}
               <DisplayFields />
               <ReportLink before={() => setOpen(false)} />
               <button
@@ -257,21 +261,26 @@ function SettingsEscape({ onClose }: { onClose: () => void }) {
   return null;
 }
 
-/** On a setup screen: the opponents and speed new tables start with, remembered in this browser. */
-export function OpponentSettings() {
+/**
+ * On a setup screen: the opponents and speed new tables start with, remembered in this browser.
+ * A solo game (a solitaire) has no computer players, so it only gets the look of the table.
+ */
+export function OpponentSettings({ solo = false }: { solo?: boolean }) {
   const [settings, setSettings] = useState(loadTableSettings);
   return (
     <section
       className="feedback"
-      aria-label="Computer players and the look of the table"
+      aria-label={solo ? "The look of the table" : "Computer players and the look of the table"}
     >
-      <TableSettingsFields
-        settings={settings}
-        onChange={(next) => {
-          saveTableSettings(next);
-          setSettings(next);
-        }}
-      />
+      {!solo && (
+        <TableSettingsFields
+          settings={settings}
+          onChange={(next) => {
+            saveTableSettings(next);
+            setSettings(next);
+          }}
+        />
+      )}
       <DisplayFields />
     </section>
   );

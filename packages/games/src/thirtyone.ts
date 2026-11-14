@@ -33,6 +33,8 @@ export interface ThirtyOneRules extends BaseRules {
   trips: boolean;
   /** A knocker with the lowest hand loses two lives. */
   knockerPays: boolean;
+  /** A house rule: suits don't matter, all three cards count together. Missing on older saved rules: off. */
+  anySuit?: boolean;
   /** Drinking mode, a house rule: see the game's describe(). */
   drinking?: boolean;
 }
@@ -40,6 +42,7 @@ export interface ThirtyOneRules extends BaseRules {
 export const classicThirtyOne: ThirtyOneRules = { id: "31-classic", name: "Thirty-One (3 lives)", lives: 3, trips: true, knockerPays: true };
 export const longThirtyOne: ThirtyOneRules = { ...classicThirtyOne, id: "31-long", name: "Longer (4 lives)", lives: 4 };
 export const plainThirtyOne: ThirtyOneRules = { ...classicThirtyOne, id: "31-plain", name: "Suits only", trips: false, knockerPays: false };
+export const noSuitsThirtyOne: ThirtyOneRules = { ...classicThirtyOne, id: "31-nosuits", name: "Every card counts (no suits)", anySuit: true };
 
 export interface ThirtyOneState {
   game: "thirtyone";
@@ -71,21 +74,38 @@ const rank = (c: KCard) => (c as { rank: number }).rank;
 const suitOf = (c: KCard) => (c as { suit: Suit }).suit;
 const value = (c: KCard) => (rank(c) === 14 ? 11 : Math.min(rank(c), 10));
 
-/** The hand's score: the best suit total, or 30½ for three of a kind. */
-export function score31(cards: KCard[], trips = true): number {
-  let best = 0;
+/**
+ * The hand's score: the best suit total, or 30½ for three of a kind. Only cards of one suit count
+ * together, unless the house plays `anySuit`: then every card counts.
+ */
+export function score31(cards: KCard[], trips = true, anySuit = false): number {
+  let best = anySuit ? cards.reduce((n, c) => n + value(c), 0) : 0;
   for (const suit of SUITS) best = Math.max(best, cards.filter((c) => suitOf(c) === suit).reduce((n, c) => n + value(c), 0));
   if (trips && cards.length === 3 && cards.every((c) => rank(c) === rank(cards[0]!))) best = Math.max(best, 30.5);
   return best;
 }
+
+/**
+ * A hand's score in words, saying which cards made it: "20 in ♦ (A♥ doesn't count)". The number alone
+ * leaves a player with A♥ 10♦ Q♦ wondering why it isn't 31.
+ */
+export function explain31(cards: KCard[], trips = true, anySuit = false): string {
+  const total = score31(cards, trips, anySuit);
+  if (total === 30.5) return "30½ (three of a kind)";
+  if (anySuit || !cards.length) return String(total);
+  const suit = SUITS.find((x) => cards.filter((c) => suitOf(c) === x).reduce((n, c) => n + value(c), 0) === total)!;
+  const out = cards.filter((c) => suitOf(c) !== suit);
+  if (!out.length) return `${total} in ${SYMBOL[suit]}`;
+  return `${total} in ${SYMBOL[suit]} (${out.map(label).join(" and ")} ${out.length > 1 ? "don't" : "doesn't"} count)`;
+}
 const show = (n: number) => (n === 30.5 ? "30½" : String(n));
 
 /** The best three of four cards: the score and the card to throw away. */
-function bestDiscard(cards: KCard[], trips: boolean, keep: string | null): { score: number; card: KCard } {
+function bestDiscard(cards: KCard[], trips: boolean, keep: string | null, anySuit = false): { score: number; card: KCard } {
   let best = { score: -1, card: cards[0]! };
   for (const c of cards) {
     if (c.id === keep) continue;
-    const sc = score31(cards.filter((x) => x.id !== c.id), trips) - value(c) / 100; // on a tie, throw the lower card
+    const sc = score31(cards.filter((x) => x.id !== c.id), trips, anySuit) - value(c) / 100; // on a tie, throw the lower card
     if (sc > best.score) best = { score: sc, card: c };
   }
   return { score: Math.round(best.score * 2) / 2, card: best.card };
@@ -112,7 +132,7 @@ function deal(s: ThirtyOneState) {
   s.ready = s.lives.map((l) => l <= 0);
   s.narration = null;
   // Dealt 31: show it at once.
-  const blitz = alive(s).find((i) => score31(s.hands[i]!, s.rules.trips) === 31);
+  const blitz = alive(s).find((i) => score31(s.hands[i]!, s.rules.trips, s.rules.anySuit) === 31);
   if (blitz !== undefined) showdown(s, blitz);
 }
 
@@ -127,7 +147,7 @@ export function newThirtyOne(rules: ThirtyOneRules, seats: number, seed: number)
 /** Everyone shows. With `blitz`, that seat has 31 and everyone else loses a life. */
 function showdown(s: ThirtyOneState, blitz?: number) {
   const living = alive(s);
-  const scores = s.hands.map((h) => score31(h, s.rules.trips));
+  const scores = s.hands.map((h) => score31(h, s.rules.trips, s.rules.anySuit));
   const lost = Array(s.seats).fill(0) as number[];
   if (blitz !== undefined) {
     for (const i of living) if (i !== blitz) lost[i] = 1;
@@ -227,7 +247,7 @@ function apply(state: ThirtyOneState, seat: number, move: Move): ThirtyOneState 
       if (card.id === s.taken) throw new GameError("You can't throw back the card you just took.");
       s.hands[seat] = s.hands[seat]!.filter((c) => c.id !== card.id);
       s.discard.push(card);
-      if (score31(s.hands[seat]!, s.rules.trips) === 31) {
+      if (score31(s.hands[seat]!, s.rules.trips, s.rules.anySuit) === 31) {
         showdown(s, seat);
         return s;
       }
@@ -256,9 +276,11 @@ function view(s: ThirtyOneState, seat: number): KitView {
   const mine = s.turn === seat && !shown;
   const hearts = (n: number) => (n > 0 ? "♥".repeat(n) : "Out");
   const melds: Meld[] = shown
-    ? s.hands.flatMap((h, i) => (h.length && i !== seat ? [{ owner: i, label: `${show(score31(h, s.rules.trips))}${s.lost[i] ? ` · −${s.lost[i] > 1 ? "2 lives" : "1 life"}` : ""}`, cards: h }] : []))
+    ? s.hands.flatMap((h, i) => (h.length && i !== seat ? [{ owner: i, label: `${show(score31(h, s.rules.trips, s.rules.anySuit))}${s.lost[i] ? ` · −${s.lost[i] > 1 ? "2 lives" : "1 life"}` : ""}`, cards: h }] : []))
     : [];
-  const myScore = s.hands[seat]!.length ? score31(s.hands[seat]!.length === 4 ? s.hands[seat]!.filter((c) => c.id !== bestDiscard(s.hands[seat]!, s.rules.trips, s.taken).card.id) : s.hands[seat]!, s.rules.trips) : 0;
+  // With four cards in hand, what counts is the best three: the hand as it would be after the best throw.
+  const mineNow = s.hands[seat]!;
+  const kept = mineNow.length === 4 ? mineNow.filter((c) => c.id !== bestDiscard(mineNow, s.rules.trips, s.taken, s.rules.anySuit).card.id) : mineNow;
   let choices: KitView["choices"] = null;
   if (mine && s.phase === "draw" && s.knocker === null) choices = { prompt: "", options: [{ label: "Knock", move: { type: "knock" } }] };
   if (s.phase === "reveal" && !s.ready[seat]) choices = { prompt: "", options: [{ label: "Next round", move: { type: "next" }, primary: true }] };
@@ -291,7 +313,7 @@ function view(s: ThirtyOneState, seat: number): KitView {
     },
     melds,
     info: [
-      ...(s.hands[seat]!.length ? [`Your hand: ${show(myScore)}`] : []),
+      ...(mineNow.length ? [`${mineNow.length === 4 ? "Your best three" : "Your hand"}: ${explain31(kept, s.rules.trips, s.rules.anySuit)}`] : []),
       ...(s.knocker !== null && !shown ? [`${who(s.knocker)} knocked`] : []),
     ],
     narration: s.narration ?? (mine ? (s.phase === "draw" ? "Draw, take the discard, or knock" : "Throw one card away") : null),
@@ -308,23 +330,24 @@ function bot(s: ThirtyOneState, seat: number, style: PlayStyle): Move | null {
   if (s.turn !== seat) return null;
   const hand = s.hands[seat]!;
   const trips = s.rules.trips;
+  const anySuit = s.rules.anySuit;
   const sloppy = Math.random() < (style.sloppy ?? 0) + (1 - (style.skill ?? 1)) * 0.25;
   if (s.phase === "discard") {
     if (sloppy) {
       const can = hand.filter((c) => c.id !== s.taken);
       return { type: "discard", card: can[Math.floor(Math.random() * can.length)]!.id };
     }
-    return { type: "discard", card: bestDiscard(hand, trips, s.taken).card.id };
+    return { type: "discard", card: bestDiscard(hand, trips, s.taken, anySuit).card.id };
   }
   if (s.phase !== "draw") return null;
-  const now = score31(hand, trips);
+  const now = score31(hand, trips, anySuit);
   // Knock sooner as the round drags on, and later in a big game where somebody always beats you.
   const round = s.turns / Math.max(1, alive(s).length);
   const bar = 27 + Math.min(2, alive(s).length / 3) - round * 1.2 - (style.bold ?? 0.3) * 2;
   if (s.knocker === null && round >= 1 && now >= bar) return { type: "knock" };
   const top = s.discard[s.discard.length - 1];
   if (top) {
-    const withTop = bestDiscard([...hand, top], trips, top.id).score;
+    const withTop = bestDiscard([...hand, top], trips, top.id, anySuit).score;
     if (withTop >= now + 4 || (withTop > now && withTop >= 25)) return { type: "take" };
   }
   if (!s.stock.length && s.discard.length <= 1) return { type: "take" };
@@ -339,24 +362,27 @@ const thirtyOneGame: CardGame<ThirtyOneRules, ThirtyOneState, Move> = {
   tagline: "Draw and throw away to build the best suit. Knock when you're happy; the lowest hand loses a life.",
   seats: { min: 2, max: 8, default: 4 },
   teams: false,
-  presets: [classicThirtyOne, longThirtyOne, plainThirtyOne],
+  presets: [classicThirtyOne, longThirtyOne, plainThirtyOne, noSuitsThirtyOne],
   fields: [
     { key: "lives", label: "Lives", kind: "choice", options: [[2, "2"], [3, "3"], [4, "4"], [5, "5"]] },
+    { key: "anySuit", label: "Every card counts", hint: "Suits don't matter: all three cards add up, whatever their suits.", kind: "toggle" },
     { key: "trips", label: "Three of a kind counts 30½", kind: "toggle" },
     { key: "knockerPays", label: "Knocker pays double", hint: "Knock and finish lowest: lose two lives.", kind: "toggle" },
   ],
   normalize(rules) {
     const given = (rules && typeof rules === "object" ? rules : {}) as Partial<ThirtyOneRules>;
-    const base = [classicThirtyOne, longThirtyOne, plainThirtyOne].find((p) => p.id === given.id) ?? classicThirtyOne;
+    const base = [classicThirtyOne, longThirtyOne, plainThirtyOne, noSuitsThirtyOne].find((p) => p.id === given.id) ?? classicThirtyOne;
     const r = { ...base, ...given };
-    return { ...r, lives: Number(r.lives) };
+    return { ...r, lives: Number(r.lives), anySuit: r.anySuit === true };
   },
   validate(r) {
     return r.lives >= 1 && r.lives <= 9 ? [] : ["Pick between 1 and 9 lives."];
   },
   describe(r) {
     return [
-      "Three cards each. Your hand is worth the total of its best suit: aces 11, faces 10, the rest face value. 31 is perfect.",
+      r.anySuit
+        ? "Three cards each. Your hand is worth all three cards added up, whatever their suits: aces 11, faces 10, the rest face value. 31 is perfect."
+        : "Three cards each. Only cards of one suit count together, and your hand is worth its best suit: aces 11, faces 10, the rest face value. A♥ K♥ 10♥ is a perfect 31; A♥ 10♦ Q♦ is 20, because the ace is on its own.",
       ...(r.trips ? ["Three of a kind is worth 30½."] : []),
       "On your turn draw from the stock or take the top discard, then throw one card away (not the one you just took).",
       `Happy with your hand? Knock instead of drawing. Everyone else gets one more turn, then all hands show and the lowest loses a life. A knocker who ties for lowest is safe${r.knockerPays ? "; a knocker who is lowest alone loses two" : ""}.`,

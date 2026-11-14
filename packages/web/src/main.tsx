@@ -4,6 +4,7 @@ import { App } from "./App";
 import { noteError, openReport, watchForErrors } from "./bugReport";
 import { unlockAudioOnFirstTap } from "./feedback/sounds";
 import { registerServiceWorker } from "./notifications";
+import { GameRequest } from "./GameRequest";
 import { ReportProblem } from "./ReportProblem";
 import { applyDisplay } from "./display";
 import { DECK_KEY, applyDeck, savedDeck } from "@cardroom/decks";
@@ -59,5 +60,6 @@ createRoot(document.getElementById("root")!).render(
       <App />
     </Crashed>
     <ReportProblem />
+    <GameRequest />
   </StrictMode>,
 );

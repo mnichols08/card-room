@@ -52,5 +52,8 @@ export * from "./reversi.js";
 export * from "./checkers.js";
 export * from "./horserace.js";
 export * from "./drinkingpyramid.js";
+export * from "./sport.js";
+export * from "./minigolfcourse.js";
+export * from "./minigolf.js";
 export * from "./registry.js";
 export * from "./talk.js";

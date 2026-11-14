@@ -13,6 +13,7 @@
     "@cardroom/decks": "*",
     "@cardroom/games": "*",
     "@cardroom/palace": "*",
+    "@cardroom/physics": "*",
     "@spades/rooms": "*",
     "@spades/rules": "*",
     "@vitejs/plugin-vue": "^6.0.11",

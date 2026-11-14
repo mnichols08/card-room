@@ -1,6 +1,6 @@
 # Card Room
 
-Family card and board games online: fifty-three games with house rules saved as presets, family
+Family card and board games online: fifty-four games with house rules saved as presets, family
 **houses** with their own tables, leaderboards and tournaments, computer players with personalities,
 challenge links, and a widget that puts a game on any site, including [open.blog](https://github.com/journey-to-code-org/open.blog) ones.
 
@@ -9,10 +9,11 @@ yourself (Docker or Railway), and practice games work anywhere, including the Gi
 
 ## The games
 
-Spades and Palace have tables of their own; the other fifty-one are built on a shared game kit
+Spades and Palace have tables of their own; the other fifty-two are built on a shared game kit
 (`packages/games`), so they all get the same setup screen, house rules editor, computer players,
-houses, challenges and tournaments. The kit has two tables: one that draws any card game, and one
-that draws any board game (Tic-Tac-Toe was the first).
+houses, challenges and tournaments. The kit has three tables: one that draws any card game, one
+that draws any board game (Tic-Tac-Toe is the first), and one that draws any table sport on a
+canvas (Mini Golf is the first).
 
 | Game | Players | |
 | --- | --- | --- |
@@ -67,6 +68,7 @@ that draws any board game (Tic-Tac-Toe was the first).
 | Combat | 2 | A board game: hide your fleet, then take turns calling shots. Classic, Admirals (ten ships that can't touch), Salvo, or a quick 7×7 |
 | Reversi | 2 | A board game: trap their discs between yours and flip them, on 6×6, 8×8 or 10×10 |
 | Checkers | 2 | A board game: American, International on 10×10 with flying kings, Russian, or friendly with no forced jumps |
+| Mini Golf | 1 to 6 | A table sport: nine holes of putting, in turn or everyone at once |
 
 Poker and Blackjack are for chips only: everyone starts with the same stack, and the chips are
 just for keeping score.
@@ -76,6 +78,19 @@ Bluff, Liar's Poker, Durak, Slapjack, Sevens, Cuckoo) also have a drinking-mode 
 unless a table turns it on. Kids' games have none. Drop Four's drinking mode is a shot clock: once
 the other player's disc lands you have three seconds to drop yours, or you take a drink and lose
 your turn.
+
+## Holding your hand
+
+Above your cards is a small sort bar. **Suits** groups them by suit and **Ranks** lines them up
+in one run with the suits mixed; the button beside them flips between high to low (A → 2) and low
+to high (2 → A). **Auto** (every game but Spades, which already deals by suit) is the game's own
+order. The choice is remembered on the device, one per game.
+
+Or drag a card to wherever you want it: that's **Mine**, your own order for the hand. On a phone,
+drag sideways; in a hand too big for the screen (which scrolls), hold a card for a moment first.
+With a keyboard, Alt + ← / → moves the card you're on. New cards join at the right-hand end, and
+the next deal goes back to the sort you chose. It's only how your screen shows your hand; nobody
+else sees it.
 
 ## The turn timer
 
@@ -91,7 +106,7 @@ before the end.
   everyone moves at once (passing cards in Hearts, Palace's swap, "Deal the next hand"), the first
   person who still owes a move. In those phases it counts from the last move anyone made.
 - Computer players keep their own time, a race (Speed, a slap in Slapjack) has no clock, and
-  neither does a game for one.
+  neither does a game for one. In Mini Golf the timer's move is a putt: the computer player's aim.
 - The server keeps the time, and it survives a restart (see [Clocks and deadlines](#clocks-and-deadlines)).
   "A day" is for games played a move at a time over a week.
 - Practice games on your own device have no timer: nobody is waiting on you.
@@ -157,17 +172,22 @@ server).
 - One browser can send 3 reports in ten minutes, and the whole card room 40 a day. A blocked player
   can't send any. A player's words can't mention people or link other issues.
 
+**Ask for a game.** With the same token, the front page's footer shows “Don't see your game? Ask
+for it”: a game's name and an optional note become an issue labelled `enhancement` and
+`game request`. Asking for a game that already has an open request adds a comment to it instead, so
+an issue's comments count how many want it. Requests share the reports' limits.
+
 ## Packages
 
 | Package | |
 | --- | --- |
-| [`packages/games`](packages/games) | The game kit and the fifty-one games built on it: `table.ts` (the `TableGame` engine contract every game shares), `kit.ts` (the card kit: `CardGame`, cards, decks, `KitView`) and `board.ts` (the board kit: `BoardGame`, grids, pieces, `BoardView`) |
+| [`packages/games`](packages/games) | The game kit and the fifty-two games built on it: `table.ts` (the `TableGame` engine contract every game shares), `kit.ts` (the card kit: `CardGame`, cards, decks, `KitView`), `board.ts` (the board kit: `BoardGame`, grids, pieces, `BoardView`) and `sport.ts` (the table-sports kit: `SportGame`, shots, `SportView`) |
 | [`packages/rules`](packages/rules) | Spades rules engine, bots, and the personas who play every game |
 | [`packages/palace`](packages/palace) | Palace rules engine: house-rule presets, seat views, bots and table talk |
-| [`packages/physics`](packages/physics) | A small deterministic 2D physics core for the ball games to come: the same shot gives the same table on the server and in every browser |
+| [`packages/physics`](packages/physics) | A small deterministic 2D physics core for the table sports: the same shot gives the same table on the server and in every browser, which is how Mini Golf's server decides a putt and every browser animates it |
 | [`packages/rooms`](packages/rooms) | Turn-based rooms over `@zubra/sync`: seats, server-decided moves, private views, bots |
 | [`packages/server`](packages/server) | The server: every game's rooms, houses, challenges, tournaments, the lobby, the sync log and the web app |
-| [`packages/web`](packages/web) | The app (React, with the game chooser in Vue): the card table and the board table, setup screens, houses, practice |
+| [`packages/web`](packages/web) | The app (React, with the game chooser in Vue): the card table, the board table and the canvas table for table sports, setup screens, houses, practice |
 | [`packages/designer`](packages/designer) | The card designer (Svelte): draw a deck, keep it or share it, play with it |
 | [`packages/watch`](packages/watch) | The watch page (Solid): the tables playing now, and tables of computer players to learn from |
 | [`packages/admin`](packages/admin) | The admin app (Angular): the host moderates tables, players and shared designs |
@@ -265,8 +285,8 @@ players at the table, houses, challenges and tournaments for free. Every kit gam
 `TableGame` (`packages/games/src/table.ts`): presets and rule fields, `newGame` (a deterministic
 start from a seed), `apply` (never changes the state it's given, and throws a `GameError` for a
 move the rules don't allow), `view` (what one seat may see and do), `bot`, `thinkingTime` and
-`summary`. The only thing that differs between a card game and a board game is what `view`
-returns.
+`summary`. The only thing that differs between a card game, a board game and a table sport is
+what `view` returns.
 
 ### A card game
 
@@ -333,9 +353,52 @@ returns.
 4. **Its tile on the front page:** a little board position in `BOARDS` in
    `packages/web/src/home/Home.tsx`.
 
-Nothing else needs touching: `KIT_GAMES` is both lists together, and the room on the server, the
-setup screen, the rules editor, houses, challenges, leaderboards, tournaments and practice all go
-by it. The web app's `GameTable` picks the card table or the board table from the game.
+### A table sport
+
+A game played by striking a ball: mini golf, and next billiards, Carrom and bowling. These stay
+turn-based. A move is a shot in the whole numbers of [`packages/physics`](packages/physics)
+(`{ type: "shot", body, angle, power }`: hundredths of a degree, and 0 to 1000); `apply` plays it
+to rest with `simulate` and keeps where everything stopped; every browser steps the same
+simulation to animate it and lands on the same table, because the physics is deterministic to the
+bit.
+
+1. **The engine:** `packages/games/src/<game>.ts`, a `SportGame<Rules, State, Move>` (see
+   `packages/games/src/sport.ts`), whose `view` returns a `SportView`: the physics world at rest
+   (walls, pockets, regions, any number of bodies of any size), a `look` that says what each part
+   is drawn as, `ghosts` (things drawn that this world's physics doesn't know, like the other
+   players' balls in mini golf), `shoot` (the body this seat may strike and the range of power,
+   or null), `last` (the shot just taken, the bodies it started from and where the physics came
+   to rest, so the table can replay it), a score `card`, buttons and scores. `minigolf.ts` is the
+   worked example, with a computer player that tries a few hundred putts in its head and then
+   hits the best one about as well as its persona can.
+2. **Register it:** add its id to `SportGameId` in `table.ts`, add it to `SPORT_GAMES` in
+   `registry.ts`, and export it from `index.ts`.
+3. **Tests:** `packages/games/test/<game>.test.ts` for its rules. The shared sport tests
+   (`test/sport.test.ts`) play every registered table sport automatically: computer players finish
+   whole games with every preset at every table size, the shot every view carries really does end
+   where the view says it did, a seat is offered a shot exactly when the engine will take one,
+   the same seed and dice give the same game, and refused shots change nothing.
+4. **Its tile on the front page:** a little table seen from above in `TABLES` in
+   `packages/web/src/home/Home.tsx`.
+
+The table screen (`packages/web/src/sport/`) needs nothing: it fits any `SportView` to the screen,
+aims (pull back and let go, or the arrow keys, or the buttons), and plays each shot with its
+sounds. Keep the state safe to replay: the room rebuilds a table after a restart by running its
+logged shots through `apply` again, which gives the same table under the same `PHYSICS_VERSION`
+and the same table data (the header of `minigolf.ts` says what that does and doesn't promise).
+
+**Adding a mini golf hole** is adding data: a `hole({ … })` in
+`packages/games/src/minigolfcourse.ts` with a name, a par, a tip, the tee, the cup, the outline
+of the green as one closed wall, and any blocks, slopes, sand and water, appended to a course's
+`holes` (or a new course added to `COURSES`). Use whole numbers, make water at least 1000 units
+thick so a hard shot can't jump it, and run the tests: `test/minigolfcourse.test.ts` checks every
+hole of every course without being told about it (the world validates, the tee and cup are on
+the green and clear of walls, sand and water, and a search over shots holes out within par + 2).
+
+Nothing else needs touching: `KIT_GAMES` is all three lists together, and the room on the server,
+the setup screen, the rules editor, houses, challenges, leaderboards, tournaments and practice all
+go by it. The web app's `GameTable` picks the card table, the board table or the sport table from
+the game.
 
 A game the kit can't express (Spades and Palace predate it) gets its own engine package, a room
 definition in [`packages/server/src/games.ts`](packages/server/src/games.ts) and a table in the

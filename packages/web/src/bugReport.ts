@@ -160,6 +160,21 @@ export const bugs = {
   },
 };
 
+/** "Ask for a game", from the front page's footer: the server files it, or adds to the request already open. */
+export async function askForGame(game: string, note: string): Promise<SentReport & { again: boolean }> {
+  let response: Response;
+  try {
+    response = await fetch("/bugs/game", { method: "POST", credentials: "same-origin", headers: { "content-type": "application/json" }, body: JSON.stringify({ game, note }) });
+  } catch {
+    throw new Error("Couldn't reach the card room. Check your connection and try again.");
+  }
+  const data = (await response.json().catch(() => ({}))) as Partial<SentReport> & { error?: string; again?: boolean };
+  if (!response.ok || typeof data.number !== "number") throw new Error(data.error ?? "The request couldn't be sent just now. Try again in a minute.");
+  return { number: data.number, url: data.url ?? "", again: data.again === true };
+}
+export const ASK_EVENT = "cardroom:ask-for-game";
+export const openGameRequest = () => dispatchEvent(new Event(ASK_EVENT));
+
 /** Open the report sheet from anywhere (the screen shown when the app crashes, say). */
 export const REPORT_EVENT = "cardroom:report-problem";
 export const openReport = () => dispatchEvent(new Event(REPORT_EVENT));

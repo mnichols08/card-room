@@ -20,6 +20,8 @@ export interface ChooserGame {
   fan: Record<string, unknown>[];
   /** A board game shows a little board instead of cards. */
   board?: { cols: number; cells: ({ glyph: string; tone: string; shade?: string } | null)[]; shade?: string };
+  /** A table sport shows a little table from above: its surface, a hole, a ball or two (in a 100 × 100 box). */
+  table?: { surface: string; cup?: [number, number]; balls: { x: number; y: number; tone: string }[] };
 }
 
 const props = defineProps<{
@@ -30,8 +32,10 @@ const props = defineProps<{
   name: string;
   /** Tables waiting for players, longest wait first. */
   open: { id: string; game: string; who: string; free: number }[];
+  /** Whether this card room takes requests for games it doesn't have. */
+  canAsk?: boolean;
 }>();
-const emit = defineEmits<{ pick: [id: string]; house: [slug: string]; lobby: [] }>();
+const emit = defineEmits<{ pick: [id: string]; house: [slug: string]; lobby: []; ask: [] }>();
 const gameOf = (id: string) => props.games.find((g) => g.id === id);
 const waitingAt = computed(() => props.open.slice(0, 4));
 
@@ -50,6 +54,13 @@ const fits = (g: ChooserGame) => {
   return n >= 5 ? g.seats[1] >= 5 : g.seats[0] <= n && n <= g.seats[1];
 };
 const shown = computed(() => props.games.filter(fits));
+/** "Surprise me": any game that fits who's playing, other than the one played last when there's a choice. */
+function surprise() {
+  const fresh = shown.value.filter((g) => g.id !== props.last);
+  const from = fresh.length ? fresh : shown.value;
+  const game = from[Math.floor(Math.random() * from.length)];
+  if (game) emit("pick", game.id);
+}
 const seatsLabel = (g: ChooserGame) => (g.teams ? "4 players · partners" : g.seats[0] === g.seats[1] ? `${g.seats[0]} players` : `${g.seats[0]}–${g.seats[1]} players`);
 const hello = computed(() => (props.name ? `Welcome back, ${props.name}.` : "Spades, Palace, Hearts and more, with the family."));
 </script>
@@ -95,8 +106,11 @@ const hello = computed(() => (props.name ? `Welcome back, ${props.name}.` : "Spa
     <section class="games" aria-label="Games">
       <div class="games-head">
         <h2>Pick a game</h2>
-        <div class="filter">
-          <SelectField v-model="players" label="Who's playing?" :options="sizes" />
+        <div class="choosing">
+          <div class="filter">
+            <SelectField v-model="players" label="Who's playing?" :options="sizes" />
+          </div>
+          <button type="button" class="house surprise" :disabled="!shown.length" @click="surprise"><span aria-hidden="true">🎲</span> Surprise me</button>
         </div>
       </div>
       <ul class="grid">
@@ -104,6 +118,19 @@ const hello = computed(() => (props.name ? `Welcome back, ${props.name}.` : "Spa
           <button type="button" class="tile" :class="{ last: g.id === last }" :aria-label="`${g.name}: ${g.blurb}, ${seatsLabel(g)}`" @click="emit('pick', g.id)">
             <span v-if="g.board" class="mini-board" :class="g.board.shade ? `shade-${g.board.shade}` : ''" aria-hidden="true" :style="{ '--cols': g.board.cols }">
               <span v-for="(c, i) in g.board.cells" :key="i" class="mini-cell" :class="c ? [`tone-${c.tone}`, c.shade ? `shade-${c.shade}` : ''] : ''">{{ c?.glyph }}</span>
+            </span>
+            <span v-else-if="g.table" class="mini-table" :class="`surface-${g.table.surface}`" aria-hidden="true">
+              <svg viewBox="0 0 100 100">
+                <rect class="rail" x="4" y="4" width="92" height="92" rx="17" />
+                <rect class="cloth" x="10" y="10" width="80" height="80" rx="12" />
+                <line v-if="g.table.cup && g.table.balls[0]" class="aim" :x1="g.table.balls[0].x" :y1="g.table.balls[0].y" :x2="g.table.cup[0]" :y2="g.table.cup[1]" />
+                <g v-if="g.table.cup">
+                  <circle class="cup" :cx="g.table.cup[0]" :cy="g.table.cup[1]" r="7.5" />
+                  <line class="pole" :x1="g.table.cup[0]" :y1="g.table.cup[1]" :x2="g.table.cup[0]" :y2="g.table.cup[1] - 30" />
+                  <path class="flag" :d="`M${g.table.cup[0]} ${g.table.cup[1] - 30} l14 5 l-14 6 z`" />
+                </g>
+                <circle v-for="(b, i) in g.table.balls" :key="i" class="ball" :class="`tone-${b.tone}`" :cx="b.x" :cy="b.y" r="6.5" />
+              </svg>
             </span>
             <span v-else class="fan" aria-hidden="true">
               <PlayingCard v-for="(c, i) in g.fan" :key="i" class="fan-card" :style="{ '--i': i }" :card="c" size="table" />
@@ -125,6 +152,7 @@ const hello = computed(() => (props.name ? `Welcome back, ${props.name}.` : "Spa
     <p class="fine links">
       <a class="design" href="watch/">👀 Watch a game</a>
       <a class="design" href="designer/">🎨 Design your own deck of cards</a>
+      <button v-if="canAsk" type="button" class="design" @click="emit('ask')">💡 Don't see your game? Ask for it</button>
     </p>
   </div>
 </template>
@@ -167,6 +195,9 @@ h2 { margin: 0; font-size: clamp(1.3rem, 2vw, 1.7rem); color: var(--gold); }
 
 .games-head { display: flex; align-items: end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .filter { min-width: 220px; --background: var(--cream); --foreground: var(--ink); --border: rgba(255, 255, 255, 0.18); --muted-foreground: #cfe2d6; --ring: var(--gold); }
+.choosing { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; }
+.surprise { white-space: nowrap; }
+.surprise:disabled { opacity: 0.45; cursor: default; }
 .grid { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: clamp(12px, 1.6vw, 20px); grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); }
 @media (max-width: 560px) { .grid { grid-template-columns: 1fr 1fr; } }
 
@@ -216,15 +247,35 @@ h2 { margin: 0; font-size: clamp(1.3rem, 2vw, 1.7rem); color: var(--gold); }
 .mini-board.shade-green { background: #17402c; }
 .mini-board.shade-green .mini-cell { background: #2f8a5b; font-size: calc(var(--tile-card) * 1.5 / var(--cols) * 0.95); }
 .tile:hover .mini-board, .tile:focus-visible .mini-board { rotate: 0deg; scale: 1.06; }
+/* A table sport's tile: a little table seen from above, where the fan would be. */
+.mini-table {
+  position: absolute; right: calc(var(--tile-card) * 0.3); top: 50%; translate: 0 -50%; rotate: 5deg;
+  width: calc(var(--tile-card) * 1.5); aspect-ratio: 1; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35));
+  transition: rotate 220ms var(--ease-back, ease-out), scale 220ms var(--ease-back, ease-out);
+}
+.mini-table svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.mini-table .rail { fill: #e9dcc3; stroke: #5b3d22; stroke-width: 2; }
+.mini-table .cloth { fill: #3f9c58; }
+.mini-table.surface-felt .cloth { fill: #2f8a5b; }
+.mini-table.surface-lane .cloth { fill: #e0b877; }
+.mini-table .aim { stroke: rgba(255, 255, 255, 0.8); stroke-width: 2.5; stroke-dasharray: 1 6; stroke-linecap: round; }
+.mini-table .cup { fill: #1d1a16; stroke: rgba(255, 255, 255, 0.7); stroke-width: 1.5; }
+.mini-table .pole { stroke: #fbf6ec; stroke-width: 2.5; stroke-linecap: round; }
+.mini-table .flag { fill: #e0453a; }
+.mini-table .ball { fill: #fdfdf8; stroke: rgba(0, 0, 0, 0.45); stroke-width: 1.2; }
+.mini-table .ball.tone-red { fill: #e0453a; } .mini-table .ball.tone-blue { fill: #3d7fe6; } .mini-table .ball.tone-gold { fill: #f2c230; } .mini-table .ball.tone-black { fill: #2a2622; }
+.tile:hover .mini-table, .tile:focus-visible .mini-table { rotate: 0deg; scale: 1.06; }
 @media (max-width: 560px) {
   .tile { padding-right: clamp(14px, 1.8vw, 22px); padding-top: calc(var(--tile-card) * 1.2); }
   .fan { top: 14px; right: 14px; translate: none; --tile-card: 34px; }
   .mini-board { top: 12px; right: 14px; translate: none; --tile-card: 32px; }
+  .mini-table { top: 12px; right: 14px; translate: none; --tile-card: 32px; }
   .emoji { display: none; }
 }
-@media (prefers-reduced-motion: reduce) { .tile, .fan-card, .mini-board { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .tile, .fan-card, .mini-board, .mini-table { transition: none; } }
 .none, .fine { text-align: center; color: #b9d0c2; margin: 0; }
 .links { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem 1.5rem; }
 .design { color: var(--gold); font-weight: 600; text-underline-offset: 3px; }
+button.design { background: none; border: 0; padding: 0; font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
 .design:focus-visible { outline: 3px solid #ffd76a; outline-offset: 3px; border-radius: 4px; }
 </style>

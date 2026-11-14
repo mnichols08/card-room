@@ -2,7 +2,7 @@
 // when a game ends. (Answers to people's chat come from the shared reply lines.)
 import { personaFor, type Voice } from "@spades/rules";
 import type { KitGameId, KitSummary } from "./kit.js";
-import { isBoardGame } from "./registry.js";
+import { isBoardGame, isSportGame } from "./registry.js";
 
 type Event = "hello" | "won" | "lost" | "someoneWon";
 
@@ -16,7 +16,7 @@ const LINES: Record<Voice, Partial<Record<Event, string[]>>> = {
   dramatic: { hello: ["Let the games BEGIN 🎭"], won: ["VICTORY IS MINE 🏆✨"], lost: ["Betrayed by the cards 😩"], someoneWon: ["A worthy champion 👑"] },
 };
 
-/** At a board there are no cards to deal or blame: these stand in for the lines that mention them. */
+/** At a board or on a green there are no cards to deal or blame: these stand in for the lines that mention them. */
 const BOARD_LINES: Partial<Record<Voice, Partial<Record<Event, string[]>>>> = {
   dry: { hello: ["Your move.", "Let's go."] },
   goofy: { hello: ["Game time! 🎉", "Who's ready to lose to me? 😂"] },
@@ -34,7 +34,7 @@ type Rand = () => number;
 function line(seat: number, name: string, event: Event, weight: number, rand: Rand, delay: [number, number], game?: KitGameId): KitRemark | null {
   const persona = personaFor(name);
   const voice = persona.voice ?? "warm";
-  const options = (isBoardGame(game) ? BOARD_LINES[voice]?.[event] : undefined) ?? LINES[voice][event] ?? LINES.warm[event];
+  const options = (isBoardGame(game) || isSportGame(game) ? BOARD_LINES[voice]?.[event] : undefined) ?? LINES[voice][event] ?? LINES.warm[event];
   if (!options?.length || rand() > persona.chatty * weight) return null;
   return { seat, text: options[Math.floor(rand() * options.length)]!, delay: delay[0] + rand() * (delay[1] - delay[0]) };
 }

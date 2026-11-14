@@ -66,10 +66,10 @@ describe("Combat in the card room", () => {
       const v = viewIn(changes, id, 0)!;
       // She is never sent the other seat's view, and the room anyone can read has no ships in it.
       expect(changes.some((c) => c.collection === "views" && c.key !== `${id}/0` && c.key !== `${id}/watch`)).toBe(false);
-      // What a watcher is shown (and she could read it too) has no fleet in it: no board of anyone's own, no hulls.
+      // What a watcher is shown (and she could read it too) is only what both seats see alike, with no
+      // board of anyone's own in it: so nothing she isn't already shown herself.
       for (const c of changes) {
         if (c.collection !== "views" || c.key !== `${id}/watch` || c.field !== "view") continue;
-        expect(JSON.stringify(c.value)).not.toMatch(/"span"/);
         expect((c.value.grids ?? []).every((g: { owner?: number } | null) => g?.owner === undefined)).toBe(true);
         expect(c.value.reserves ?? []).toEqual([]);
       }

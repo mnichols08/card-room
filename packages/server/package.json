@@ -15,6 +15,7 @@
     "@cardroom/decks": "*",
     "@cardroom/games": "*",
     "@cardroom/palace": "*",
+    "@cardroom/physics": "*",
     "@spades/rooms": "*",
     "@spades/rules": "*",
     "@zubra/sync": "^5.9.2",

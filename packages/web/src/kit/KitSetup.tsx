@@ -46,6 +46,8 @@ export function KitSetup({
   onOpenHouse,
 }: Props) {
   const game = kitGame(id)!;
+  // A solitaire: no name to give, nobody to find, no computer players to tune. Rules, then Deal.
+  const solo = game.seats.max === 1;
   const [name, setName] = useState(loadName);
   const [rules, setRules] = useState<Rules>(() => loadKitRules(id));
   const [seats, setSeats] = useState(() => loadKitSeats(id));
@@ -116,16 +118,19 @@ export function KitSetup({
       title={game.name}
       tagline={game.tagline}
       onHome={onHome}
-      houses={houses}
+      houses={solo ? null : houses}
+      solo={solo}
       you={
         <>
-          <TextField
-            label="Your name"
-            value={name}
-            maxlength={20}
-            autocomplete="nickname"
-            onValueChange={(e: CustomEvent<string>) => setName(e.detail)}
-          />
+          {!solo && (
+            <TextField
+              label="Your name"
+              value={name}
+              maxlength={20}
+              autocomplete="nickname"
+              onValueChange={(e: CustomEvent<string>) => setName(e.detail)}
+            />
+          )}
           <SelectField
             label="House rules"
             value={rules.id}
@@ -152,7 +157,7 @@ export function KitSetup({
           )}
         </>
       }
-      table={<OpponentSettings />}
+      table={<OpponentSettings solo={solo} />}
       about={
         <>
           <KitRulesSheet game={game} rules={rules} />
@@ -200,7 +205,7 @@ export function KitSetup({
       }
       actions={
         <>
-          {game.seats.max > 1 && (
+          {!solo && (
             <button
               type="button"
               className="primary deal"
@@ -222,7 +227,7 @@ export function KitSetup({
               Start a family table
             </button>
           )}
-          {game.seats.max > 1 && (
+          {!solo && (
             <>
             <button
               type="button"
@@ -247,24 +252,24 @@ export function KitSetup({
           )}
           <button
             type="button"
-            className={game.seats.max > 1 ? "secondary" : "primary deal"}
+            className={!solo ? "secondary" : "primary deal"}
             disabled={errors.length > 0}
             onClick={() => {
               remember();
               onPractice(name.trim() || "You", rules, game.teams ? 4 : seats);
             }}
           >
-            {game.seats.max > 1 ? "Practice against the computer" : "Deal"}
+            {!solo ? "Practice against the computer" : "Deal"}
           </button>
           {problem && <p className="error">{problem}</p>}
         </>
       }
       more={
         <>
-          {game.seats.max > 1 && (
+          {!solo && (
             <ChallengeLink name={name} kitRules={{ [id]: rules }} />
           )}
-          {game.seats.max > 1 ? (
+          {!solo ? (
             <p className="fine">
               Houses keep {game.name} rules, tables and a leaderboard too. Make
               one from the Spades screen.
