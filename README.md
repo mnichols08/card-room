@@ -1,6 +1,6 @@
 # Card Room
 
-Family card games online: fourteen games with house rules saved as presets, family **houses** with
+Family card games online: twenty-four games with house rules saved as presets, family **houses** with
 their own tables, leaderboards and tournaments, computer players with personalities, challenge
 links, and a widget that puts a game on any site, including [open.blog](https://github.com/journey-to-code-org/open.blog) ones.
 
@@ -9,7 +9,7 @@ yourself (Docker or Railway), and practice games work anywhere, including the Gi
 
 ## The games
 
-Spades and Palace have tables of their own; the other twelve are built on a shared game kit
+Spades and Palace have tables of their own; the other twenty-two are built on a shared game kit
 (`packages/games`), so they all get the same table, setup screen, house rules editor, computer
 players, houses, challenges and tournaments.
 
@@ -23,21 +23,29 @@ players, houses, challenges and tournaments.
 | Whist | 4, partners | Spades' grandparent: partners and tricks |
 | Pinochle | 4, partners | Partners, bidding, meld and tricks |
 | Canasta | 4, partners | Partners, melds and canastas |
+| Hand and Foot | 4, partners | Partners, books of seven, and a foot |
 | Gin Rummy | 2 | Two players, melds and knocking |
+| Rummy 500 | 2 to 6 | Melds, lay-offs and a pile to dig into |
+| Cribbage | 2 | Fifteen two, fifteen four, and a pair is six |
 | Crazy Eights | 2 to 6 | Match the card; eights are wild |
+| President | 3 to 7 | Climb from Scum to President |
 | Golf | 2 to 6 | Swap your way to the lowest score |
 | Go Fish | 2 to 6 | Ask for cards, make books |
 | Old Maid | 2 to 6 | Pairs, and don't get stuck with her |
 | War | 2 to 4 | Flip, and the highest card takes all |
+| Five Card Draw | 2 to 6 | Poker for chips: bet, swap, bet, show |
+| Texas Hold'em | 2 to 6 | Two cards, five on the board, chips only |
+| Klondike Solitaire | 1 | The classic solitaire |
+| FreeCell | 1 | Solitaire where every card is face up, with numbered deals |
 
-More are on the way, a game at a time: Rummy 500 and President next, then solitaire (Klondike,
-FreeCell), Hand and Foot, Cribbage and poker (Five Card Draw, Texas Hold'em), for chips only.
+Poker is for chips only: everyone starts with the same stack, and the chips are just for keeping
+score.
 
 ## Packages
 
 | Package | |
 | --- | --- |
-| [`packages/games`](packages/games) | The game kit (`kit.ts`: the `CardGame` contract, cards, decks, views) and the twelve games built on it |
+| [`packages/games`](packages/games) | The game kit (`kit.ts`: the `CardGame` contract, cards, decks, views) and the twenty-two games built on it |
 | [`packages/rules`](packages/rules) | Spades rules engine, bots, and the personas who play every game |
 | [`packages/palace`](packages/palace) | Palace rules engine: house-rule presets, seat views, bots and table talk |
 | [`packages/rooms`](packages/rooms) | Turn-based rooms over `@zubra/sync`: seats, server-decided moves, private views, bots |
@@ -68,7 +76,7 @@ players at the table, houses, challenges and tournaments for free:
    `packages/games/src/kit.ts`): presets and rule fields, `newGame` (a deterministic deal from a
    seed), `apply` (throws a `GameError` for a move the rules don't allow), `view` (what one seat
    may see and do), `bot`, `thinkingTime` and `summary`. Go Fish, Golf and Whist are short worked
-   examples.
+   examples; `poker.ts` is the shared core for the poker games.
 2. **Register it:** add its id to `KitGameId` in `kit.ts`, add it to `KIT_GAMES` in
    `registry.ts`, and export it from `index.ts`.
 3. **Tests:** `packages/games/test/<game>.test.ts` for its rules. The shared kit tests
