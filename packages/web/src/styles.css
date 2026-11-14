@@ -987,3 +987,4 @@ button.cross-pile.can::after {
 .pyr-side small { font-size: 11px; color: rgba(255, 255, 255, 0.75); }
 @media (min-width: 1024px) { .pyr { --trick-w: min(calc((100vh - 320px) / 4.6 / var(--card-ratio)), 74px); } .pyr-side { flex-direction: column; } }
 .kit-felt .center:has(> .pyr) { flex-direction: column; align-items: center; }
+.house-ai .row-actions { justify-content: center; }

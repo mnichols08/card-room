@@ -1,5 +1,6 @@
 import { validatePreset, type RulePreset } from "@spades/rules";
 import TextField from "@spades/ui/zubra-ui/text-field.zb";
+import { HouseAiBlock } from "./HouseAi";
 import { useCallback, useEffect, useState } from "react";
 import { validatePalaceRules, type PalaceRules } from "@cardroom/palace";
 import { GamePicker } from "./GamePicker";
@@ -316,6 +317,8 @@ function MemberView(props: {
           </button>
         )}
       </section>
+
+      <HouseAiBlock house={house} onChange={(h) => void attempt(async () => h)} />
 
       {isKitGame(game) && <KitHouseRules house={house} game={game} attempt={attempt} canManage={canManage} />}
 
