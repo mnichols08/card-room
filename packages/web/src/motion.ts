@@ -57,6 +57,8 @@ export function useCardFlip(root: RefObject<HTMLElement | null>, scale: number) 
       el.getAnimations().forEach((a) => a.finish());
       const rect = el.getBoundingClientRect();
       now.set(id, { rect, el });
+      // A card the player just dragged into place (data-settled) is already where it belongs.
+      if (el.dataset.settled !== undefined) return;
       const before = last.current.get(id);
       const from = before?.rect ?? rectOf(el.dataset.from, rect);
       if (!from) return;

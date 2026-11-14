@@ -9,6 +9,8 @@ import { loadFeedbackSettings, play, saveFeedbackSettings } from "../feedback/so
 import { Confetti } from "../Confetti";
 import { lift, motionScale, useCardFlip, useFlash } from "../motion";
 import { usePalaceFx } from "./PalaceFx";
+import { HandSortBar, useHandOrder } from "../HandSort";
+import { cardKey } from "../handOrder";
 
 type PCard = Extract<Card, { kind: "pip" }>;
 const WORD: Record<number, [string, string]> = { 11: ["jack", "jacks"], 12: ["queen", "queens"], 13: ["king", "kings"], 14: ["ace", "aces"] };
@@ -113,6 +115,7 @@ export function PalaceTable({ view, seat: me, names, act, onLeave, banner, chat,
   const departed = useCardFlip(root, scale);
   const fx = usePalaceFx(view, me, departed, scale, root);
   const breathe = useFlash(myTurn, 700, false) && myTurn;
+  const holding = useHandOrder("palace", view.hand, cardId, cardKey);
   const last = view.last;
   /** Where a card on the pile came from, if it was just played: someone's seat, or your own table. */
   const pileFrom = (c: Card) => {
@@ -375,15 +378,17 @@ export function PalaceTable({ view, seat: me, names, act, onLeave, banner, chat,
 
       <section className="me">
         {chat && <TableChat {...chat} />}
+        <HandSortBar {...holding.bar} />
         <div
-          className={`hand ${breathe ? "breathe" : ""}`}
+          {...holding.hand}
+          className={`hand sortable ${breathe ? "breathe" : ""}`}
           role="group"
           aria-label="Your hand"
           style={{ "--n": view.hand.length, ...(view.hand.length <= 6 ? { "--strip-max": "calc(var(--card-w) + 8px)" } : {}) } as React.CSSProperties}
         >
-          {view.hand.map((card, i) => (
+          {holding.held.map(({ card, key }, i) => (
             <PlayingCard
-              key={`${cardId(card)}-${i}`}
+              key={key}
               data-flip={cardId(card)}
               data-from={handFrom}
               style={{ "--i": i } as React.CSSProperties}
