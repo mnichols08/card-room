@@ -19,7 +19,9 @@ export interface ChooserGame {
   /** Three cards to fan out on the tile. */
   fan: Record<string, unknown>[];
   /** A board game shows a little board instead of cards. */
-  board?: { cols: number; cells: ({ glyph: string; tone: string } | null)[] };
+  board?: { cols: number; cells: ({ glyph: string; tone: string; shade?: string } | null)[] };
+  /** A table sport shows a little table from above: its surface, a hole, a ball or two (in a 100 × 100 box). */
+  table?: { surface: string; cup?: [number, number]; balls: { x: number; y: number; tone: string }[] };
 }
 
 const props = defineProps<{
@@ -103,7 +105,20 @@ const hello = computed(() => (props.name ? `Welcome back, ${props.name}.` : "Spa
         <li v-for="g in shown" :key="g.id">
           <button type="button" class="tile" :class="{ last: g.id === last }" :aria-label="`${g.name}: ${g.blurb}, ${seatsLabel(g)}`" @click="emit('pick', g.id)">
             <span v-if="g.board" class="mini-board" aria-hidden="true" :style="{ '--cols': g.board.cols }">
-              <span v-for="(c, i) in g.board.cells" :key="i" class="mini-cell" :class="c ? `tone-${c.tone}` : ''">{{ c?.glyph }}</span>
+              <span v-for="(c, i) in g.board.cells" :key="i" class="mini-cell" :class="c ? [`tone-${c.tone}`, c.shade ? `shade-${c.shade}` : ''] : ''">{{ c?.glyph }}</span>
+            </span>
+            <span v-else-if="g.table" class="mini-table" :class="`surface-${g.table.surface}`" aria-hidden="true">
+              <svg viewBox="0 0 100 100">
+                <rect class="rail" x="4" y="4" width="92" height="92" rx="17" />
+                <rect class="cloth" x="10" y="10" width="80" height="80" rx="12" />
+                <line v-if="g.table.cup && g.table.balls[0]" class="aim" :x1="g.table.balls[0].x" :y1="g.table.balls[0].y" :x2="g.table.cup[0]" :y2="g.table.cup[1]" />
+                <g v-if="g.table.cup">
+                  <circle class="cup" :cx="g.table.cup[0]" :cy="g.table.cup[1]" r="7.5" />
+                  <line class="pole" :x1="g.table.cup[0]" :y1="g.table.cup[1]" :x2="g.table.cup[0]" :y2="g.table.cup[1] - 30" />
+                  <path class="flag" :d="`M${g.table.cup[0]} ${g.table.cup[1] - 30} l14 5 l-14 6 z`" />
+                </g>
+                <circle v-for="(b, i) in g.table.balls" :key="i" class="ball" :class="`tone-${b.tone}`" :cx="b.x" :cy="b.y" r="6.5" />
+              </svg>
             </span>
             <span v-else class="fan" aria-hidden="true">
               <PlayingCard v-for="(c, i) in g.fan" :key="i" class="fan-card" :style="{ '--i': i }" :card="c" size="table" />
@@ -208,14 +223,36 @@ h2 { margin: 0; font-size: clamp(1.3rem, 2vw, 1.7rem); color: var(--gold); }
 .mini-cell.tone-red { color: #b3261e; }
 .mini-cell.tone-blue { color: #1f5fbf; }
 .mini-cell.tone-dark { color: #1d1a16; }
+.mini-cell.tone-light { color: #fffdf8; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5); }
+/* The dark squares of a checkered board. */
+.mini-cell.shade-dark { background: #a9794d; }
 .tile:hover .mini-board, .tile:focus-visible .mini-board { rotate: 0deg; scale: 1.06; }
+/* A table sport's tile: a little table seen from above, where the fan would be. */
+.mini-table {
+  position: absolute; right: calc(var(--tile-card) * 0.3); top: 50%; translate: 0 -50%; rotate: 5deg;
+  width: calc(var(--tile-card) * 1.5); aspect-ratio: 1; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.35));
+  transition: rotate 220ms var(--ease-back, ease-out), scale 220ms var(--ease-back, ease-out);
+}
+.mini-table svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.mini-table .rail { fill: #e9dcc3; stroke: #5b3d22; stroke-width: 2; }
+.mini-table .cloth { fill: #3f9c58; }
+.mini-table.surface-felt .cloth { fill: #2f8a5b; }
+.mini-table.surface-lane .cloth { fill: #e0b877; }
+.mini-table .aim { stroke: rgba(255, 255, 255, 0.8); stroke-width: 2.5; stroke-dasharray: 1 6; stroke-linecap: round; }
+.mini-table .cup { fill: #1d1a16; stroke: rgba(255, 255, 255, 0.7); stroke-width: 1.5; }
+.mini-table .pole { stroke: #fbf6ec; stroke-width: 2.5; stroke-linecap: round; }
+.mini-table .flag { fill: #e0453a; }
+.mini-table .ball { fill: #fdfdf8; stroke: rgba(0, 0, 0, 0.45); stroke-width: 1.2; }
+.mini-table .ball.tone-red { fill: #e0453a; } .mini-table .ball.tone-blue { fill: #3d7fe6; } .mini-table .ball.tone-gold { fill: #f2c230; } .mini-table .ball.tone-black { fill: #2a2622; }
+.tile:hover .mini-table, .tile:focus-visible .mini-table { rotate: 0deg; scale: 1.06; }
 @media (max-width: 560px) {
   .tile { padding-right: clamp(14px, 1.8vw, 22px); padding-top: calc(var(--tile-card) * 1.2); }
   .fan { top: 14px; right: 14px; translate: none; --tile-card: 34px; }
   .mini-board { top: 12px; right: 14px; translate: none; --tile-card: 32px; }
+  .mini-table { top: 12px; right: 14px; translate: none; --tile-card: 32px; }
   .emoji { display: none; }
 }
-@media (prefers-reduced-motion: reduce) { .tile, .fan-card, .mini-board { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .tile, .fan-card, .mini-board, .mini-table { transition: none; } }
 .none, .fine { text-align: center; color: #b9d0c2; margin: 0; }
 .links { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem 1.5rem; }
 .design { color: var(--gold); font-weight: 600; text-underline-offset: 3px; }

@@ -91,6 +91,41 @@ describe("board games in the card room", () => {
     expect(board.players[0]).toMatchObject({ name: "brokennil", played: 1 });
   }, 60_000);
 
+  it("Checkers: a house table against a computer player, a hop at a time, to the end", async () => {
+    const { phone } = setup();
+    const grammi = phone();
+    const made = (await grammi("/houses", { name: "Grammi's House", you: "brokennil" })).body;
+    expect(made.kitRules.checkers.presets.map((p: { id: string }) => p.id)).toEqual(["checkers-american", "checkers-international", "checkers-russian", "checkers-friendly"]);
+    // House rules: Russian, but Grammi always moves first. The biggest capture can't be insisted on when none is forced.
+    const saved = await grammi("/houses/grammis-house/presets", { game: "checkers", preset: { ...made.kitRules.checkers.presets[2], id: "", name: "Grammi's Russian", first: "seat1" }, makeDefault: true });
+    expect(saved.status).toBe(200);
+    expect((await grammi("/houses/grammis-house/presets", { game: "checkers", preset: { ...made.kitRules.checkers.presets[3], id: "", name: "Muddle", most: true } })).body.kitRules.checkers.presets.at(-1)).toMatchObject({ name: "Muddle", most: false });
+
+    const { id } = (await grammi("/houses/grammis-house/tables", { game: "checkers" })).body;
+    expect((await grammi(`/rooms/${id}`)).body.info).toEqual({ game: "checkers", rules: "Grammi's Russian" });
+    await grammi(`/rooms/${id}/sit`, { seat: 0, name: "brokennil" });
+    await grammi(`/rooms/${id}/bot`, { seat: 1, name: "Hank" });
+    await grammi(`/rooms/${id}/start`, {});
+
+    // Her view is a board of pieces to pick up; she moves first, from her own side.
+    const first = (await viewOf(grammi, id, 0))!;
+    expect(first.grids[0]).toMatchObject({ rows: 8, cols: 8, shade: "checker", flip: false, select: { type: "move" } });
+    expect(movesOffered(first)).toHaveLength(7);
+    // The server refuses what the rules refuse: a man can't go backwards, or two squares.
+    const from = first.grids[0]!.select!.sources[0]!.from as number;
+    expect((await grammi(`/rooms/${id}/act`, { move: { type: "move", from, to: from + 9 } })).status).not.toBe(200);
+    expect((await grammi(`/rooms/${id}/act`, { move: { type: "move", from, to: from - 18 } })).status).not.toBe(200);
+    expect((await grammi(`/rooms/${id}/act`, { move: { type: "stop" } })).status).not.toBe(200);
+
+    const end = await playBoard(grammi, id, 0);
+    expect(end.over!.winners.length).toBeGreaterThan(0);
+    const summary = (await grammi(`/rooms/${id}`)).body.summary;
+    expect(summary).toMatchObject({ game: "checkers", over: true, teams: false, seats: 2 });
+    const board = (await grammi("/houses/grammis-house/leaderboard?game=checkers")).body;
+    expect(board).toMatchObject({ game: "checkers", games: 1 });
+    expect(board.players[0]).toMatchObject({ name: "brokennil", played: 1 });
+  }, 60_000);
+
   it("each seat is sent only its own view", async () => {
     const { phone } = setup();
     const grammi = phone();

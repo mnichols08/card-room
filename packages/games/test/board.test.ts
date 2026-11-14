@@ -4,7 +4,7 @@
 // game, and refused moves don't change anything.
 import { mulberry32 } from "@spades/rules";
 import { describe, expect, it } from "vitest";
-import { BOARD_GAMES, GameError, KIT_GAMES, cellAt, cellName, chessCoords, colOf, isBoardGame, isCardGame, isKitGame, kitGame, lineThrough, movesOffered, rowOf, type BoardGame, type BoardView } from "../src/index.js";
+import { BOARD_GAMES, GameError, KIT_GAMES, cellAt, cellName, chessCoords, colOf, isBoardGame, isCardGame, isKitGame, isSportGame, kitGame, lineThrough, movesOffered, rowOf, type BoardGame, type BoardView } from "../src/index.js";
 
 const STYLES = [{}, { skill: 0.3, sloppy: 0.3 }, { skill: 1, sloppy: 0 }];
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
@@ -37,6 +37,8 @@ export function checkBoardView(v: BoardView, seat: number) {
       expect(s.to.length).toBeGreaterThan(0);
       for (const to of s.to) expect(on(to)).toBe(true);
     }
+    // What is already in hand is something that can be put down.
+    if (g.select?.held !== undefined) expect(g.select.sources.some((s) => s.from === g.select!.held)).toBe(true);
     for (const piece of g.cells) if (piece) expect(piece.glyph && piece.label && piece.kind).toBeTruthy();
   }
   for (const r of v.reserves) for (const p of r.pieces) expect(p.count).toBeGreaterThanOrEqual(0);
@@ -114,12 +116,12 @@ describe("the board kit's helpers", () => {
 });
 
 describe("the registry", () => {
-  it("lists every game once, as a card game or a board game", () => {
+  it("lists every game once, as a card game, a board game or a table sport", () => {
     const ids = KIT_GAMES.map((g) => g.id);
     expect(new Set(ids).size).toBe(ids.length);
     for (const id of ids) {
       expect(isKitGame(id)).toBe(true);
-      expect(isCardGame(id)).not.toBe(isBoardGame(id));
+      expect([isCardGame(id), isBoardGame(id), isSportGame(id)].filter(Boolean)).toHaveLength(1);
       expect(kitGame(id)!.id).toBe(id);
     }
     expect(isKitGame("spades")).toBe(false);
