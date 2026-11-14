@@ -128,7 +128,13 @@ function restore(s: FreeCellState, snap: string): FreeCellState {
   return { ...s, cells: x.c.split(",").map((id) => (id ? all.get(id)! : null)), foundations: x.f.map(list), columns: x.k.map(list), moves: x.m, idle: x.i };
 }
 
-type Move = { type: "auto"; card: string } | { type: "undo" } | { type: "finish" } | { type: "resign" };
+type Move =
+  | { type: "auto"; card: string }
+  /** The card (and the run on it) to a place you choose: a column or a free cell by its index, or home. */
+  | { type: "move"; card: string; to: "foundation" | "column" | "cell"; index?: number }
+  | { type: "undo" }
+  | { type: "finish" }
+  | { type: "resign" };
 
 function apply(state: FreeCellState, seat: number, mv: Move): FreeCellState {
   if (seat !== 0) throw new GameError("This is a game for one.");
@@ -155,6 +161,35 @@ function apply(state: FreeCellState, seat: number, mv: Move): FreeCellState {
         throw new GameError(n > maxRun(s, false) ? `Not enough room to move ${n} cards: free a cell or empty a column.` : `The ${name(card)} has nowhere to go.`);
       }
       move(s, where, target);
+      return s;
+    }
+    case "move": {
+      const where = locate(s, mv.card);
+      if (!where) throw new GameError("You can't move that card now.");
+      if (where.from === "column" && !isRun(s.columns[where.index]!, where.at)) throw new GameError("Only a run moves together: each card one lower and the other colour.");
+      const cards = where.from === "cell" ? [s.cells[where.index]!] : s.columns[where.index]!.slice(where.at);
+      const first = cards[0]!;
+      const index = Number(mv.index);
+      if (mv.to === "foundation") {
+        if (cards.length > 1) throw new GameError("Only one card goes home at a time.");
+        if (!fitsFoundation(s, first)) throw new GameError(`The ${name(first)} can't go home yet.`);
+        move(s, where, { to: "foundation" });
+        return s;
+      }
+      if (mv.to === "cell") {
+        if (!(index in s.cells)) throw new GameError("That's not a place for a card.");
+        if (where.from === "cell" && where.index === index) throw new GameError(`The ${name(first)} is already there.`);
+        if (cards.length > 1) throw new GameError("Only one card fits in a free cell.");
+        if (s.cells[index]) throw new GameError("That cell is taken.");
+        move(s, where, { to: "cell", index });
+        return s;
+      }
+      const col = mv.to === "column" ? s.columns[index] : undefined;
+      if (!col) throw new GameError("That's not a place for a card.");
+      if (where.from === "column" && where.index === index) throw new GameError(`The ${name(first)} is already there.`);
+      if (!fitsOn(first, col.at(-1))) throw new GameError(`The ${name(first)} doesn't go on the ${name(col.at(-1)!)}.`);
+      if (cards.length > maxRun(s, !col.length)) throw new GameError(`Not enough room to move ${cards.length} cards: free a cell or empty a column.`);
+      move(s, where, { to: "column", index });
       return s;
     }
     case "finish": {
@@ -217,6 +252,7 @@ function view(s: FreeCellState, seat: number): KitView {
       cells: s.cells,
       columns: s.columns.map((c) => ({ down: 0, up: c })),
       tap: over ? null : { type: "auto", cards: tappable },
+      drop: over ? null : { type: "move", foundations: true },
       drawMove: null,
     },
     melds: [],
@@ -281,7 +317,7 @@ export const freeCell: CardGame<FreeCellRules, FreeCellState, Move> = {
       "Every card is dealt face up into eight columns. Four free cells hold a card each, and four foundations build each suit up from the ace.",
       "Build the columns down in alternating colours. Any card can go into an empty column or a free cell.",
       "A run moves together when there's room to have moved it a card at a time: more free cells and empty columns, longer runs.",
-      "Tap a card and it goes to its best place. Undo takes back a move; Finish sends everything home once it's all in order.",
+      "Tap a card and it goes to its best place, or drag it where you want it. Undo takes back a move; Finish sends everything home once it's all in order.",
       "Every deal has a number. Put a number in the rules to play that deal, so the family can all try the same one.",
     ];
   },

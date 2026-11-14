@@ -46,4 +46,21 @@ describe("Spider", () => {
     s = spider.apply(s, 0, { type: "undo" });
     expect(s.columns.map((c) => c.up.length)).toEqual(before);
   });
+
+  it("a dragged run goes onto the column you choose", () => {
+    let s = { ...newSpider(spiderOne, 1, 1), columns: cols("8♠", "8♥", "7♥ 6♥", "10♣ 9♠") } as SpiderState;
+    const seven = s.columns[2]!.up[0]!.id;
+    // A tap would pick the 8♥ (same suit); dragged, the run goes on the 8♠.
+    s = spider.apply(s, 0, { type: "move", card: seven, to: "column", index: 0 });
+    expect(s.columns[0]!.up).toHaveLength(3);
+    expect(s.columns[1]!.up).toHaveLength(1);
+    expect(() => spider.apply(s, 0, { type: "move", card: seven, to: "column", index: 1 })).not.toThrow();
+    expect(() => spider.apply(s, 0, { type: "move", card: seven, to: "column", index: 3 })).toThrow("doesn't go on the 9♠");
+    expect(() => spider.apply(s, 0, { type: "move", card: seven, to: "column", index: 0 })).toThrow("already there");
+    expect(() => spider.apply(s, 0, { type: "move", card: s.columns[3]!.up[0]!.id, to: "column", index: 5 })).toThrow("one suit");
+    // Any run can go into an empty column.
+    s = spider.apply(s, 0, { type: "move", card: seven, to: "column", index: 7 });
+    expect(s.columns[7]!.up).toHaveLength(2);
+    expect(s.moves).toBe(2);
+  });
 });

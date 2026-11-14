@@ -154,6 +154,11 @@ export type Center =
       cells: (KCard | null)[] | null;
       columns: { down: number; up: KCard[] }[];
       tap: { type: string; cards: string[] } | null;
+      /**
+       * Dragging one of `tap.cards` to a place of your choosing sends { type, card, to, index }:
+       * `to` is "column" or "cell" with its index, or "foundation" (only when `foundations` is true).
+       */
+      drop?: { type: string; foundations: boolean } | null;
       drawMove: Record<string, unknown> | null;
       stockLabel?: string;
     }
