@@ -878,6 +878,11 @@ button.spread-card { cursor: pointer; animation: none; }
 button.sol-card { cursor: pointer; border-radius: calc(var(--trick-w) * 0.1); }
 @media (hover: hover) { button.sol-card:hover { filter: brightness(1.04); translate: 0 -2px; } }
 button.sol-card:focus-visible { outline: 3px solid #ffd76a; outline-offset: 1px; }
+/* Dragging a card where you want it: it follows the finger (so the page mustn't scroll under it),
+   rides above everything, and the place it would land lights up. */
+.sol.draggable button.sol-card { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: grab; }
+button.sol-card.dragging, .sol-card.dragging { position: relative; z-index: 20; cursor: grabbing; filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.4)); }
+.sol-slot.drop-over, .sol-card.drop-over, .sol-col.drop-over > :last-child { outline: 3px solid var(--gold); outline-offset: 2px; border-radius: calc(var(--trick-w) * 0.1); }
 .sol-slot {
   width: var(--trick-w); height: var(--trick-h); border-radius: calc(var(--trick-w) * 0.1);
   border: 2px dashed rgba(255, 255, 255, 0.22); display: grid; place-items: center; box-sizing: border-box;
