@@ -17,7 +17,8 @@ export type SoundName =
   | "won"
   | "lost"
   | "nope"
-  | "message";
+  | "message"
+  | "hurry";
 
 type Ctx = BaseAudioContext;
 type Play = (ctx: Ctx, out: AudioNode, t: number) => void;
@@ -155,6 +156,11 @@ export const SOUNDS: Record<SoundName, Play> = {
   },
   /** Someone said something at the table: a soft, round pop. */
   message: (ctx, out, t) => glide(ctx, out, t, 520, 780, { peak: 0.16, decay: 0.09, type: "sine" }),
+  /** Your time is nearly up: two soft ticks, a clock on the mantelpiece and not an alarm. */
+  hurry: (ctx, out, t) => {
+    glide(ctx, out, t, 1100, 900, { peak: 0.12, decay: 0.05, type: "triangle" });
+    glide(ctx, out, t + 0.22, 1100, 900, { peak: 0.12, decay: 0.05, type: "triangle" });
+  },
   /** That move isn't allowed: a short low buzz. */
   nope: (ctx, out, t) => {
     glide(ctx, out, t, 180, 140, { peak: 0.1, decay: 0.12, type: "square" });
@@ -171,12 +177,13 @@ export const BUZZES: Partial<Record<SoundName, number | number[]>> = {
   set: 60,
   won: [30, 60, 30, 60, 80],
   nope: [15, 30, 15],
+  hurry: [12, 200, 12],
 };
 
 /** How long each sound runs, for rendering them offline. */
 export const LENGTHS: Record<SoundName, number> = {
   deal: 0.8, card: 0.2, piece: 0.15, bid: 0.15, yourTurn: 0.7, trickUs: 0.85, trickThem: 0.65, spadesBroken: 0.4,
-  nilMade: 0.9, set: 1.0, handDone: 1.3, won: 2.0, lost: 1.3, nope: 0.35, message: 0.15,
+  nilMade: 0.9, set: 1.0, handDone: 1.3, won: 2.0, lost: 1.3, nope: 0.35, message: 0.15, hurry: 0.35,
 };
 
 /** Overall level, into a limiter. Phone speakers are small: the loudest sound peaks near -3 dB. */

@@ -1,6 +1,6 @@
 # Card Room
 
-Family card and board games online: forty-four games with house rules saved as presets, family
+Family card and board games online: forty-six games with house rules saved as presets, family
 **houses** with their own tables, leaderboards and tournaments, computer players with personalities,
 challenge links, and a widget that puts a game on any site, including [open.blog](https://github.com/journey-to-code-org/open.blog) ones.
 
@@ -9,7 +9,7 @@ yourself (Docker or Railway), and practice games work anywhere, including the Gi
 
 ## The games
 
-Spades and Palace have tables of their own; the other forty-two are built on a shared game kit
+Spades and Palace have tables of their own; the other forty-four are built on a shared game kit
 (`packages/games`), so they all get the same setup screen, house rules editor, computer players,
 houses, challenges and tournaments. The kit has two tables: one that draws any card game, and one
 that draws any board game (Tic-Tac-Toe is the first).
@@ -48,6 +48,8 @@ that draws any board game (Tic-Tac-Toe is the first).
 | Contract Rummy | 3 to 8 | Seven rounds, seven contracts to lay down |
 | Memory | 1 to 6 | Find the pairs (great for grandkids) |
 | Ride the Bus | 2 to 8 | Drinking game: guess, match, and don't ride the bus |
+| Kings Cup | 2 to 10 | Drinking game: every card has a rule |
+| Horse Race | 2 to 10 | Drinking game: bet sips on an ace and watch them run |
 | Kings in the Corner | 2 to 4 | Solitaire for the whole table |
 | Spite and Malice | 2 to 4 | Race to play off your pile; kings are wild |
 | Five Card Draw | 2 to 6 | Poker for chips: bet, swap, bet, show |
@@ -64,13 +66,33 @@ that draws any board game (Tic-Tac-Toe is the first).
 Poker and Blackjack are for chips only: everyone starts with the same stack, and the chips are
 just for keeping score.
 
+## The turn timer
+
+A table on the server can give everyone a time limit for each move: **15 seconds, 30 seconds, 1
+minute, 2 minutes or a day**. It's off unless someone turns it on, in the lobby or under ⚙︎ at the
+table, and anyone seated can change it mid-game. When a person's time runs out, the game's own
+computer player makes that one move for them, at the table's level, so a phone left on the sofa
+doesn't stop the game for everyone else; they play their next move themselves. The seat whose
+clock is running shows the time left, and your own gives a soft tick and a buzz five seconds
+before the end.
+
+- The clock is on whoever the table is waiting for: the player whose turn it is, or, when
+  everyone moves at once (passing cards in Hearts, Palace's swap, "Deal the next hand"), the first
+  person who still owes a move. In those phases it counts from the last move anyone made.
+- Computer players keep their own time, a race (Speed, a slap in Slapjack) has no clock, and
+  neither does a game for one.
+- The server keeps the time, and it survives a restart (see [Clocks and deadlines](#clocks-and-deadlines)).
+  "A day" is for games played a move at a time over a week.
+- Practice games on your own device have no timer: nobody is waiting on you.
+
 ## Packages
 
 | Package | |
 | --- | --- |
-| [`packages/games`](packages/games) | The game kit and the forty-two games built on it: `table.ts` (the `TableGame` engine contract every game shares), `kit.ts` (the card kit: `CardGame`, cards, decks, `KitView`) and `board.ts` (the board kit: `BoardGame`, grids, pieces, `BoardView`) |
+| [`packages/games`](packages/games) | The game kit and the forty-four games built on it: `table.ts` (the `TableGame` engine contract every game shares), `kit.ts` (the card kit: `CardGame`, cards, decks, `KitView`) and `board.ts` (the board kit: `BoardGame`, grids, pieces, `BoardView`) |
 | [`packages/rules`](packages/rules) | Spades rules engine, bots, and the personas who play every game |
 | [`packages/palace`](packages/palace) | Palace rules engine: house-rule presets, seat views, bots and table talk |
+| [`packages/physics`](packages/physics) | A small deterministic 2D physics core for the ball games to come: the same shot gives the same table on the server and in every browser |
 | [`packages/rooms`](packages/rooms) | Turn-based rooms over `@zubra/sync`: seats, server-decided moves, private views, bots |
 | [`packages/server`](packages/server) | The server: every game's rooms, houses, challenges, tournaments, the sync log and the web app |
 | [`packages/web`](packages/web) | The app (React, with the game chooser in Vue): the card table and the board table, setup screens, houses, practice |
@@ -144,6 +166,34 @@ A game the kit can't express (Spades and Palace predate it) gets its own engine 
 definition in [`packages/server/src/games.ts`](packages/server/src/games.ts) and a table in the
 web app; Palace is the worked example (`packages/palace`, `packages/server/src/palace.ts`,
 `packages/web/src/palace/`).
+
+## Clocks and deadlines
+
+Nothing happens in a room unless a seat or a computer player moves, except by a **deadline**: a
+room definition may say what the server does if nobody moves in time
+([`packages/rooms`](packages/rooms#deadlines) has the whole contract).
+
+```ts
+deadline: (state, { settings, seats }) => ({
+  after: 30_000,                 // ms after the last move (or `at`: a server time)
+  seat: state.turn,              // whose clock: pages count down on this seat
+  move: () => ({ type: "pass" }) // made as that seat when time runs out; null for nothing
+}),
+```
+
+The timeout move goes through `act` and into the move log like any other, so a replay gives the
+same game, and a move that arrives as the timer fires is never applied on top of it. `act` gets a
+fourth argument, `{ at, elapsed }` (when the server decided the move, and how long since the one
+before); a game with real clocks keeps them in its state from that alone, never from `Date.now()`,
+which is what makes a chess clock replay: `after: state.bank[state.turn]`, and `act` takes
+`elapsed` off the mover's bank and adds the increment
+(`packages/rooms/test/deadlines.test.ts` has one in forty lines).
+
+Every game in the card room already has one deadline, the [turn timer](#the-turn-timer)
+(`packages/server/src/timer.ts`). A game on the kit gets it for nothing: it needs `view().turn` to
+say whose move it is and `bot()` to give a move for any seat that owes one. A game with a clock of
+its own (a shot clock, a claim window) would return its deadline ahead of the turn timer's in
+`tableRoom.deadline` in [`packages/server/src/games.ts`](packages/server/src/games.ts).
 
 ## Putting a game on a site
 

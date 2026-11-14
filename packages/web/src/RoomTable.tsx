@@ -12,7 +12,8 @@ import { PalaceTable } from "./palace/PalaceTable";
 import { isBoardGame, isKitGame, kitGame, type BoardView, type KitView } from "@cardroom/games";
 import { GAME_LIST } from "./GamePicker";
 import { GameTable } from "./kit/GameTable";
-import { TableSettingsFields } from "./TableSettings";
+import { OnlineTable, TableSettingsFields, TurnTimerField } from "./TableSettings";
+import { TurnClock } from "./TurnClock";
 
 type Summary = { game?: string; rules: string; scores?: { points: number }[]; hand?: number; finished?: number[] };
 type AnyRoom = Room<unknown, unknown, Summary>;
@@ -47,9 +48,13 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
       .catch((e) => (e instanceof RoomError && e.status === 404 ? setMissing(true) : setProblem(String(e.message ?? e))));
     const off = room.onRoom((next) => setDoc((prev) => ({ ...prev, ...next }) as RoomDoc<Summary>));
     const offChat = room.onChat(setMessages);
+    // A phone that slept has a stale idea of the server's clock: ask again when it wakes.
+    const woke = () => document.visibilityState === "visible" && void room.syncClock().catch(() => {});
+    document.addEventListener("visibilitychange", woke);
     return () => {
       off();
       offChat();
+      document.removeEventListener("visibilitychange", woke);
       room.close();
     };
   }, [room]);
@@ -88,14 +93,23 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
   const tableSettings = mySeat === null ? undefined : {
     value: cleanSettings((doc as { settings?: unknown }).settings),
     change: async (next: TableSettings) => {
-      saveTableSettings(next);
+      // Opponents and pace are remembered for the next table; a turn timer belongs to this one.
+      saveTableSettings({ skill: next.skill, pace: next.pace });
       await room.settings(next);
     },
   };
+  // Every table gets the same countdown, on whichever seat the server's deadline names, and its
+  // settings offer the turn timer.
+  const online = (table: React.ReactNode) => (
+    <OnlineTable.Provider value={true}>
+      {table}
+      <TurnClock deadline={doc.deadline} mySeat={mySeat} now={room.serverNow} />
+    </OnlineTable.Provider>
+  );
 
   if (doc.started && mySeat !== null && view) {
     if (isKitGame(game)) {
-      return (
+      return online(
         <GameTable
           view={view as KitView | BoardView}
           names={doc.seats.map((s, i) => s.name ?? seatLabel(game, i))}
@@ -104,11 +118,11 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
           banner={<div className="banner">{(doc as { label?: string }).label ?? `Table ${id}`}</div>}
           chat={chat}
           settings={tableSettings}
-        />
+        />,
       );
     }
     if (game === "palace") {
-      return (
+      return online(
         <PalaceTable
           view={view as PalaceView}
           seat={mySeat}
@@ -118,10 +132,10 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
           banner={<div className="banner">Table {id}</div>}
           chat={chat}
           settings={tableSettings}
-        />
+        />,
       );
     }
-    return <PlayingTable room={room as unknown as SpadesRoom} view={view as SeatView} seat={mySeat} names={names} onLeave={onLeave} code={id} chat={chat} settings={tableSettings} />;
+    return online(<PlayingTable room={room as unknown as SpadesRoom} view={view as SeatView} seat={mySeat} names={names} onLeave={onLeave} code={id} chat={chat} settings={tableSettings} />);
   }
 
   return <Lobby room={room} doc={doc} mySeat={mySeat} onSat={setMySeat} problem={problem} setProblem={setProblem} onLeave={onLeave} chat={chat} settings={tableSettings} />;
@@ -269,6 +283,11 @@ function Lobby(props: {
         })}
       </ol>
 
+      {!doc.started && props.settings && doc.seats.length > 1 && (
+        <section className="house-block" aria-label="Turn timer">
+          <TurnTimerField settings={props.settings.value} onChange={(next) => attempt(() => props.settings!.change(next))} />
+        </section>
+      )}
       {!doc.started && props.settings && doc.seats.some((s) => s.bot) && (
         <section className="house-block" aria-label="Computer players">
           <TableSettingsFields settings={props.settings.value} onChange={(next) => attempt(() => props.settings!.change(next))} />
