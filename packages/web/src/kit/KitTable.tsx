@@ -939,7 +939,7 @@ function CrossArea({
 }) {
   const AREAS = ["n", "e", "s", "w", "nw", "ne", "se", "sw"];
   return (
-    <div className="cross">
+    <div className={`cross${center.layout === "row" ? " row" : ""}`}>
       <div className="cross-stock" aria-label={`${center.stock} to draw`}>
         {center.stock > 0 ? <PlayingCard back size="table" /> : <div className="sol-slot" />}
         <small>{center.stock ? `${center.stock} to draw` : "None to draw"}</small>
@@ -958,6 +958,7 @@ function CrossArea({
               <PlayingCard card={top} size="table" data-flip={top.id} />
             </span>
             {p.cards.length > 2 && <small className="cross-count">{p.cards.length}</small>}
+            {p.note && <small className="cross-count">{p.note}</small>}
           </>
         ) : (
           <div className="sol-slot">
@@ -969,14 +970,14 @@ function CrossArea({
             key={i}
             type="button"
             className={`cross-pile can${bottom ? " deep" : ""}`}
-            style={{ gridArea: AREAS[i] }}
+            style={center.layout === "row" ? undefined : { gridArea: AREAS[i] }}
             aria-label={p.label}
             onClick={() => send(p.move!)}
           >
             {body}
           </button>
         ) : (
-          <div key={i} className={`cross-pile${bottom ? " deep" : ""}`} style={{ gridArea: AREAS[i] }} aria-label={p.label}>
+          <div key={i} className={`cross-pile${bottom ? " deep" : ""}`} style={center.layout === "row" ? undefined : { gridArea: AREAS[i] }} aria-label={p.label}>
             {body}
           </div>
         );
@@ -1025,7 +1026,7 @@ function CardGrid({
   tap,
   send,
 }: {
-  grid: { cols: number; cards: (KCard | null)[] };
+  grid: { cols: number; cards: (KCard | null)[]; empty?: number[] };
   size: "mini" | "table";
   tap?: { type: string; cells: number[] } | null;
   send?: (move: Record<string, unknown>) => void;
@@ -1037,7 +1038,10 @@ function CardGrid({
       aria-label="Cards on the table"
     >
       {grid.cards.map((c, i) => {
-        const face = c ? (
+        const blank = grid.empty?.includes(i);
+        const face = blank ? (
+          <span className={`grid-empty ${size}`} />
+        ) : c ? (
           <PlayingCard card={c} size={size} data-flip={c.id} />
         ) : (
           <PlayingCard back size={size} />
@@ -1048,7 +1052,7 @@ function CardGrid({
             type="button"
             className="grid-cell pile-button"
             aria-label={
-              c ? `Your card ${i + 1}` : `Your face-down card ${i + 1}`
+              blank ? `Empty space ${i + 1}` : c ? `Your card ${i + 1}` : `Your face-down card ${i + 1}`
             }
             onClick={() => send({ type: tap.type, index: i })}
           >

@@ -27,5 +27,6 @@ export * from "./switch.js";
 export * from "./thirtyone.js";
 export * from "./kingscorner.js";
 export * from "./blackjack.js";
+export * from "./spite.js";
 export * from "./registry.js";
 export * from "./talk.js";
