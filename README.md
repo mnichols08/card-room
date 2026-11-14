@@ -104,6 +104,34 @@ An open table deals itself when its last seat is taken (add bots if you're tired
 Leaving before the deal gives your seat back, and a seat whose player has gone quiet for a minute
 and a half is freed, so the list only shows tables somebody is really waiting at.
 
+Open tables are where strangers meet, so:
+
+- **The host can remove a player**, before the deal or after it (the host is whoever opened the
+  table, or the first seat once they've left). Before the deal the seat is free again; after it, a
+  computer player takes the seat and plays on. Either way that player can't come back to the table.
+- **The host can mute a player**, and anyone can hide someone's chat on their own device. Both are
+  under ⚙︎ at the table. Crude words in an open table's chat are covered up.
+- **Names are filtered.** The crudest names are turned away from open tables, and one that came in
+  by a table's link shows as "Player". The list is short on purpose; add your own words with
+  `CARDROOM_BLOCKED_NAMES`.
+- **A buzz when someone's waiting.** On the Open tables page, pick a game (or any game) and turn
+  notifications on: your phone buzzes when a table opens for it, at most once every ten minutes.
+
+### The card room's admin
+
+Whoever runs the server can block a player from the whole card room. Set `CARDROOM_ADMIN_KEY`
+(8 characters or more), open `/?admin=1` and enter it once: that device is an admin from then on.
+
+- At any table, an admin sees **Block** next to each player (before the deal, in the seat list;
+  during a game, under ⚙︎). Blocking takes the player out of their seat, as removing does, and from
+  then on their browser can look but can't sit, chat, play, open tables or send challenges.
+- At a table that is or was open to everyone, an admin can also remove and mute, as its host can.
+- `/?admin=1` lists who's blocked and lets them back in.
+
+A block follows the player's browser, not a person: it stops a casual pest, and someone who clears
+their cookies comes back as a new player. Family tables that were never opened to everyone have no
+host, no chat filter and no mute; an admin can still block there.
+
 ## Packages
 
 | Package | |
@@ -246,6 +274,8 @@ docker run -p 8787:8787 -v spades:/data cardroom
 | `CARDROOM_AI_PROVIDER` | `anthropic` or `openai`, if the key doesn't say (a key starting `sk-ant-` is Anthropic's) |
 | `CARDROOM_AI_MODEL` | The model for that key. Default: `claude-haiku-5-5` or `gpt-5.6-luna`. |
 | `CARDROOM_AI_DAILY` | The most lines a day on that key, everyone together. Default 3000. |
+| `CARDROOM_ADMIN_KEY` | Optional: makes any device that enters it at `/?admin=1` the card room's admin, who can block players. 8 characters or more; keep it secret. |
+| `CARDROOM_BLOCKED_NAMES` | Optional: more words that names and chat at open tables may not contain, comma-separated |
 | `CARDROOM_BOT_DELAY` | Fixed thinking time for computer players, in milliseconds (handy for testing) |
 | `CARDROOM_WEB` | Where the built web app is, if not `packages/web/dist` |
 | `PORT` | The port to listen on (8787; Railway sets its own) |

@@ -42,6 +42,13 @@ export const lobby = {
   sit: (id: string, name: string) => call<{ id: string; seat: number }>(at(id, "sit"), { name }),
   /** Open your table to everyone, or close it to people with the link again. */
   setOpen: (id: string, open: boolean) => call<{ open: boolean }>(at(id, "open"), { open }),
+  /** The host takes a player's seat away, before the deal; they can't sit back down at this table. */
+  remove: (id: string, seat: number) => call<{ ok: true }>(at(id, "remove"), { seat }),
+  /** The host stops a player chatting at this table, or lets them again. */
+  mute: (id: string, seat: number, muted: boolean) => call<{ muted: boolean }>(at(id, "mute"), { seat, muted }),
+  /** The games this player gets a buzz about when a table opens ("any" for every game). */
+  alerts: () => call<{ games: string[]; notifications: boolean }>("/lobby/alerts"),
+  setAlerts: (games: string[]) => call<{ games: string[]; notifications: boolean }>("/lobby/alerts", { games }),
   /** Still waiting at this table. */
   here: (id: string) => call<{ ok: true; open: boolean }>(at(id, "here"), {}),
 };

@@ -16,6 +16,89 @@ import {
  */
 export const OnlineTable = createContext(false);
 
+/** One other seat at a table on the server, and what this device may do about it. */
+export interface TablePlayer {
+  seat: number;
+  name: string;
+  bot: boolean;
+  /** Their chat is hidden on this device. */
+  hidden: boolean;
+  /** The host has muted them for everyone. */
+  muted: boolean;
+}
+export interface TablePlayersValue {
+  players: TablePlayer[];
+  /** Hide or show someone's chat, on this device only. */
+  hide: (seat: number, hidden: boolean) => void;
+  /** For the table's host (and the card room's admin) at a table that is or was open to everyone. */
+  mute?: (seat: number, muted: boolean) => Promise<unknown>;
+  remove?: (seat: number) => Promise<unknown>;
+  /** For the card room's admin, at any table. */
+  block?: (seat: number) => Promise<unknown>;
+}
+/** The other players at a table on the server, for the ⚙︎ sheet. Null at a table on this device. */
+export const TablePlayers = createContext<TablePlayersValue | null>(null);
+
+/** The people (and bots) you're playing with: hide someone's chat; the host can mute or remove them. */
+export function PlayersFields() {
+  const table = useContext(TablePlayers);
+  const [problem, setProblem] = useState<string | null>(null);
+  if (!table || table.players.length === 0) return null;
+  const attempt = (work: () => Promise<unknown>) => {
+    setProblem(null);
+    work().catch((e: Error) => setProblem(e.message));
+  };
+  return (
+    <>
+      <h3>Players</h3>
+      <ul className="player-tools">
+        {table.players.map((p) => (
+          <li key={p.seat}>
+            <strong>
+              {p.name}
+              {p.bot && <small> (bot)</small>}
+              {p.muted && <small> · muted</small>}
+            </strong>
+            <span>
+              <button type="button" className="link" onClick={() => table.hide(p.seat, !p.hidden)}>
+                {p.hidden ? "Show chat" : "Hide chat"}
+              </button>
+              {!p.bot && table.mute && (
+                <button type="button" className="link" onClick={() => attempt(() => table.mute!(p.seat, !p.muted))}>
+                  {p.muted ? "Unmute" : "Mute"}
+                </button>
+              )}
+              {!p.bot && table.remove && (
+                <button
+                  type="button"
+                  className="link danger"
+                  onClick={() => {
+                    if (window.confirm(`Remove ${p.name} from the table? A computer player takes their seat, and they can't come back to this table.`)) attempt(() => table.remove!(p.seat));
+                  }}
+                >
+                  Remove
+                </button>
+              )}
+              {!p.bot && table.block && (
+                <button
+                  type="button"
+                  className="link danger"
+                  onClick={() => {
+                    if (window.confirm(`Block ${p.name} from the whole card room?`)) attempt(() => table.block!(p.seat));
+                  }}
+                >
+                  Block
+                </button>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {problem && <p className="error">{problem}</p>}
+    </>
+  );
+}
+
 /** The turn timer: how long a person has for a move before the computer makes it for them. */
 export function TurnTimerField({
   settings,
@@ -157,6 +240,7 @@ export function TableSettingsButton({
                 }}
               />
               {problem && <p className="error">{problem}</p>}
+              <PlayersFields />
               <h3>On this device</h3>
               <DisplayFields />
               <button

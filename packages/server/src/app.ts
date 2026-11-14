@@ -6,12 +6,13 @@ import { createChallenges } from "./challenges.js";
 import { createHouses } from "./houses.js";
 import { createAi, type AiOptions } from "./ai.js";
 import { personaFor } from "@spades/rules";
+import { createAdmin, type AdminOptions } from "./admin.js";
 import { createLobby, type LobbyOptions } from "./lobby.js";
 import { createPush, type PushOptions } from "./push.js";
 import { playerOf } from "@spades/rooms/server";
 import { gameName, gameOfOptions, tableRoom, talk, type GameId, type Remark } from "./games.js";
 
-export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: boolean; push?: PushOptions; ai?: AiOptions; lobby?: LobbyOptions } = {}) {
+export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: boolean; push?: PushOptions; ai?: AiOptions; lobby?: LobbyOptions; admin?: AdminOptions } = {}) {
   const talking = options.talk ?? true;
   const timers = new Set<ReturnType<typeof setTimeout>>();
   const lastWord = new Map<string, number>();
@@ -111,7 +112,10 @@ export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: b
       speak(id, talk.react(before, after, castOf(room)), talk.finished(after));
       // A tournament match that just ended moves its winner on.
       if (talk.finished(after) && !talk.finished(before)) void houses.tableFinished(id, tableRoom.summary!(after)).catch((e) => console.error("tournament", e));
+      if (talk.finished(after)) lobby.finished(id);
     },
+    // At a table that is or was open to everyone: muted players can't chat, and crude words are covered.
+    beforeSay: ({ id, seat, text }) => lobby.beforeSay(id, seat, text),
     // Someone spoke to the table: an answer is never dropped for being close to other talk.
     onSay: ({ id, message, room }) => void answer(id, message, room).catch((e) => console.error("talk", e)),
   });
@@ -119,9 +123,17 @@ export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: b
   const ai = createAi(options.ai);
   const houses = createHouses(rooms, { push, ai });
   const challenges = createChallenges(rooms, push);
-  const lobby = createLobby(rooms, options.lobby);
+  // Whoever runs the card room: they can block a player from all of it, and act as host at any open table.
+  const admin = createAdmin(rooms, { ...options.admin, evict: (id, seat) => lobby.evict(id, seat) });
+  const lobby = createLobby(rooms, { push, isAdmin: admin.isAdmin, ...options.lobby });
 
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  /** A blocked player's browser can look, but can't do anything (the admin's own pages aside). */
+  async function refused(request: { method?: string; url: string; headers: { get(name: string): string | null } }): Promise<Response | null> {
+    if (request.method !== "POST" || new URL(request.url, "http://localhost").pathname.startsWith("/admin/")) return null;
+    const player = playerOf(new Request("http://localhost", { headers: { cookie: request.headers.get("cookie") ?? "" } }));
+    return (await admin.isBlocked(player)) ? json({ error: "You've been blocked from this card room." }, 403) : null;
+  }
   /** /push: the public key, and saying yes (or no) to notifications on this phone. */
   async function pushRoutes(request: Request): Promise<Response | null> {
     const { pathname } = new URL(request.url);
@@ -149,15 +161,24 @@ export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: b
     rooms,
     houses,
     lobby,
+    admin,
     /** Answers houses, rooms and sync requests; null for anything else. */
     push,
     async fetch(request: Request): Promise<Response | null> {
-      return (await pushRoutes(request)) ?? (await challenges.fetch(request)) ?? (await lobby.fetch(request)) ?? (await houses.fetch(request)) ?? (await rooms.fetch(request));
+      return (
+        (await refused(request)) ??
+        (await admin.fetch(request)) ??
+        (await pushRoutes(request)) ??
+        (await challenges.fetch(request)) ??
+        (await lobby.fetch(request)) ??
+        (await houses.fetch(request)) ??
+        (await rooms.fetch(request))
+      );
     },
     /** For Node's http: answers and resolves true, or resolves false for anything else. */
     async handle(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
       const url = new URL(req.url ?? "/", "http://localhost");
-      const ours = ["/houses", "/challenges", "/push", "/lobby"].some((m) => url.pathname === m || url.pathname.startsWith(`${m}/`));
+      const ours = ["/houses", "/challenges", "/push", "/lobby", "/admin"].some((m) => url.pathname === m || url.pathname.startsWith(`${m}/`));
       if (ours) {
         const chunks: Buffer[] = [];
         for await (const chunk of req) chunks.push(chunk as Buffer);
@@ -166,9 +187,16 @@ export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: b
           headers: req.headers as Record<string, string>,
           body: req.method === "GET" || req.method === "HEAD" ? undefined : Buffer.concat(chunks),
         });
-        const response = (await pushRoutes(request)) ?? (await challenges.fetch(request)) ?? (await lobby.fetch(request)) ?? (await houses.fetch(request))!;
+        const response = (await refused(request)) ?? (await admin.fetch(request)) ?? (await pushRoutes(request)) ?? (await challenges.fetch(request)) ?? (await lobby.fetch(request)) ?? (await houses.fetch(request))!;
         res.writeHead(response.status, Object.fromEntries(response.headers));
         res.end(Buffer.from(await response.arrayBuffer()));
+        return true;
+      }
+      // The rooms' own endpoints (sit, say, play): the same answer for a blocked player.
+      const no = await refused({ method: req.method, url: req.url ?? "/", headers: { get: (name) => (req.headers[name] as string | undefined) ?? null } });
+      if (no) {
+        res.writeHead(no.status, Object.fromEntries(no.headers));
+        res.end(await no.text());
         return true;
       }
       return rooms.handle(req, res);

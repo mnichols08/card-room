@@ -5,6 +5,7 @@ import TextField from "@spades/ui/zubra-ui/text-field.zb";
 import { useEffect, useState } from "react";
 import { GAME_LIST } from "./GamePicker";
 import { lobby, lobbyProblem, waited, whoIsThere, type OpenTable } from "./lobbyApi";
+import { NotifyButton } from "./NotifyButton";
 import { loadSavedName, saveName } from "./storage";
 
 const REFRESH_MS = 4000;
@@ -16,6 +17,13 @@ export function LobbyPage({ onOpenTable, onLeave }: { onOpenTable: (id: string) 
   const [game, setGame] = useState("all");
   const [problem, setProblem] = useState<string | null>(null);
   const [joining, setJoining] = useState<string | null>(null);
+  // "Buzz me when a table opens": off, any game, or one game. Hidden when the server has no push.
+  const [alerts, setAlerts] = useState<{ games: string[]; notifications: boolean } | null>(null);
+  useEffect(() => {
+    lobby.alerts().then(setAlerts, () => undefined);
+  }, []);
+  const buzzFor = alerts?.games[0] ?? "off";
+  const buzzChoices = [{ value: "off", label: "Don't buzz me" }, { value: "any", label: "Any game" }, ...GAME_LIST.map((g) => ({ value: g.id, label: g.name }))];
 
   useEffect(() => {
     let live = true;
@@ -108,6 +116,19 @@ export function LobbyPage({ onOpenTable, onLeave }: { onOpenTable: (id: string) 
         </ul>
       )}
       {problem && <p className="error">{problem}</p>}
+      {alerts?.notifications && (
+        <section className="house-block" aria-label="Notifications">
+          <SelectField
+            label="Buzz me when a table opens for"
+            value={buzzFor}
+            options={buzzChoices}
+            onValueChange={(e: CustomEvent<string>) => {
+              lobby.setAlerts(e.detail === "off" ? [] : [e.detail]).then(setAlerts, (err) => setProblem(lobbyProblem(err)));
+            }}
+          />
+          {buzzFor !== "off" && <NotifyButton what="someone's looking for players" />}
+        </section>
+      )}
       <button type="button" className="link" onClick={onLeave}>
         ← All games
       </button>
