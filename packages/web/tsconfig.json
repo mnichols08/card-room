@@ -17,6 +17,9 @@
       "@cardroom/games": [
         "../games/src/index.ts"
       ],
+      "@cardroom/physics": [
+        "../physics/src/index.ts"
+      ],
       "@spades/ui/*": [
         "../ui/src/*"
       ],

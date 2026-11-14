@@ -1,7 +1,7 @@
-// The games on the kit, card games and board games alike, in the card room: one room definition
+// The games on the kit, card games, board games and table sports alike, in the card room: one room definition
 // serves them all. A room's options say which game, its house rules and how many seats. Nothing
 // here looks inside a view, so it doesn't matter what a game's table is made of.
-import { kitGame, type BoardView, type KitGameId, type KitSummary, type KitView, type TableGame } from "@cardroom/games";
+import { kitGame, SPORT_GAMES, type BoardView, type KitGameId, type KitSummary, type KitView, type SportView, type TableGame } from "@cardroom/games";
 import { paceDelay, personaFor, styleFor, type TableSettings } from "@spades/rules";
 import type { RoomDefinition } from "@spades/rooms/server";
 
@@ -30,7 +30,7 @@ const gameFor = (id: unknown) => {
   return game;
 };
 
-export const kitRoom: RoomDefinition<{ game: KitGameId } & Record<string, unknown>, Record<string, unknown>, KitView | BoardView, KitOptions, KitSummary> = {
+export const kitRoom: RoomDefinition<{ game: KitGameId } & Record<string, unknown>, Record<string, unknown>, KitView | BoardView | SportView, KitOptions, KitSummary> = {
   seats: (options) => kitOptions(gameFor(options.game), options.rules, options.seats).seats,
   setup: (options, seed) => {
     const game = gameFor(options.game);
@@ -46,3 +46,14 @@ export const kitRoom: RoomDefinition<{ game: KitGameId } & Record<string, unknow
     paceDelay(settings?.pace ?? "natural", () => Math.round(gameFor(state.game).thinkingTime(state, seat) * personaFor(name).pace * (0.8 + Math.random() * 0.5))),
   bot: (state, seat, name, settings?: TableSettings) => gameFor(state.game).bot(state, seat, styleFor(personaFor(name).style, settings?.skill)),
 };
+
+/**
+ * The table sports simulate their shots, and a computer player simulates hundreds to choose one.
+ * That is quick once the JavaScript engine has warmed to it and slow the first time, so the server
+ * does the first time itself as it starts. Returns how long it took, in ms.
+ */
+export function warmSports(): number {
+  const began = performance.now();
+  for (const game of SPORT_GAMES) game.warmUp?.();
+  return Math.round(performance.now() - began);
+}

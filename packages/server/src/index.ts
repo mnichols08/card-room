@@ -8,6 +8,7 @@ import { createServer } from "node:http";
 import { extname, join, normalize, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createCardRoom } from "./app.js";
+import { warmSports } from "./kit.js";
 
 /** A setting: CARDROOM_<name>, or the older SPADES_<name>. */
 function setting(name: string): string | undefined {
@@ -98,4 +99,8 @@ createServer(async (req, res) => {
     if (!res.headersSent) res.writeHead(500);
     res.end();
   }
-}).listen(port, () => console.log(`Card Room on http://localhost:${port}`));
+}).listen(port, () => {
+  console.log(`Card Room on http://localhost:${port}`);
+  // Once the door is open: the first putt of the day shouldn't be the one that waits for the physics to warm up.
+  setImmediate(() => console.log(`table sports warmed up in ${warmSports()} ms`));
+});
