@@ -68,4 +68,33 @@ describe("FreeCell", () => {
     expect(done.won).toBe(true);
     expect(freeCell.summary(freeCell.apply(table(["5♠"]), 0, { type: "resign" }))).toMatchObject({ over: true, winners: [] });
   });
+
+  it("a dragged card goes to the column, free cell or foundation you choose", () => {
+    let s = table(["9♠ 5♥", "6♠", "6♣", ""]);
+    const five = s.columns[0]![1]!.id;
+    // A tap would take the first black 6; dragged, the 5♥ goes on the second.
+    s = freeCell.apply(s, 0, { type: "move", card: five, to: "column", index: 2 });
+    expect(named(s.columns[2]!)).toEqual(["6♣", "5♥"]);
+    // Into the free cell you pick, and not one that's taken.
+    s = freeCell.apply(s, 0, { type: "move", card: five, to: "cell", index: 3 });
+    expect(named(s.cells)).toEqual([null, null, null, "5♥"]);
+    const six = s.columns[1]![0]!.id;
+    expect(() => freeCell.apply(s, 0, { type: "move", card: six, to: "cell", index: 3 })).toThrow("taken");
+    expect(() => freeCell.apply(s, 0, { type: "move", card: six, to: "foundation" })).toThrow("can't go home yet");
+    expect(() => freeCell.apply(s, 0, { type: "move", card: six, to: "column", index: 0 })).toThrow("doesn't go on the 9♠");
+    // From a cell to an empty column.
+    s = freeCell.apply(s, 0, { type: "move", card: five, to: "column", index: 3 });
+    expect(named(s.columns[3]!)).toEqual(["5♥"]);
+    expect(named(s.cells)).toEqual([null, null, null, null]);
+  });
+
+  it("a dragged run needs the same room a tapped one does", () => {
+    const s = table(["9♠ 8♥ 7♠ 6♥", "10♦", "K♣", "K♠", "K♥", "K♦", "Q♣", "8♦"], { cells: [...cards("2♣ 3♣ 4♣"), null] });
+    const nine = s.columns[0]![0]!.id;
+    // One free cell and no empty column: two cards at most.
+    expect(() => freeCell.apply(s, 0, { type: "move", card: nine, to: "column", index: 1 })).toThrow("Not enough room");
+    expect(() => freeCell.apply(s, 0, { type: "move", card: nine, to: "cell", index: 3 })).toThrow("Only one card");
+    const moved = freeCell.apply(s, 0, { type: "move", card: s.columns[0]![2]!.id, to: "column", index: 7 });
+    expect(named(moved.columns[7]!)).toEqual(["8♦", "7♠", "6♥"]);
+  });
 });
