@@ -14,6 +14,8 @@ import {
   shuffled,
   SYMBOL,
   who,
+  withDrinking,
+  withDrinks,
   type BaseRules,
   type CardGame,
   type KCard,
@@ -27,6 +29,8 @@ export interface SlapjackRules extends BaseRules {
   doubles: boolean;
   /** Flips before the game ends (most cards wins); 0 plays until someone has every card. */
   limit: number;
+  /** Drinking mode, a house rule: see the game's describe(). */
+  drinking?: boolean;
 }
 
 export const classicSlap: SlapjackRules = { id: "slap-classic", name: "Slapjack", speed: "quick", doubles: false, limit: 150 };
@@ -136,7 +140,7 @@ function apply(state: SlapjackState, seat: number, move: Move): SlapjackState {
     const gone = s.hanging.flatMap((h, i) => (h && i !== seat ? [i] : []));
     for (const i of gone) s.out[i] = true;
     s.hanging = Array(s.seats).fill(false);
-    if (gone.length) s.narration += ` ${gone.map(who).join(" and ")} ${gone.length > 1 ? "are" : "is"} out`;
+    if (gone.length) s.narration = withDrinks(!!s.rules.drinking, `${s.narration} ${gone.map(who).join(" and ")} ${gone.length > 1 ? "are" : "is"} out`, gone, 99);
     s.phase = "flipping";
     s.turn = seat;
     checkEnd(s);
@@ -146,7 +150,7 @@ function apply(state: SlapjackState, seat: number, move: Move): SlapjackState {
   const lost = s.decks[seat]!.shift();
   if (!lost) throw new GameError("No jack there!");
   s.pile.unshift(lost);
-  s.narration = `${who(seat)} slapped a ${label(s.pile.at(-1)!)}: no jack! A card goes to the pile`;
+  s.narration = withDrinks(!!s.rules.drinking, `${who(seat)} slapped a ${label(s.pile.at(-1)!)}: no jack! A card goes to the pile`, [seat], 1);
   if (!s.decks[seat]!.length && s.turn === seat) s.turn = nextFlipper(s, seat);
   checkEnd(s);
   return s;
@@ -205,7 +209,7 @@ function bot(s: SlapjackState, seat: number, _style: PlayStyle): Move | null {
 
 const REACTION: Record<SlapjackRules["speed"], number> = { relaxed: 1500, quick: 950, lightning: 620 };
 
-export const slapjack: CardGame<SlapjackRules, SlapjackState, Move> = {
+const slapjackGame: CardGame<SlapjackRules, SlapjackState, Move> = {
   id: "slapjack",
   name: "Slapjack",
   emoji: "👋",
@@ -262,3 +266,5 @@ export const slapjack: CardGame<SlapjackRules, SlapjackState, Move> = {
     };
   },
 };
+
+export const slapjack = withDrinking(slapjackGame, "Adults only. Slap at nothing and drink 1; knocked out, finish your drink (or sip water).", "slap at nothing and drink 1; knocked out of the game, finish your drink.");

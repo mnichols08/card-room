@@ -17,6 +17,8 @@ import {
   SYMBOL,
   thinkFor,
   who,
+  withDrinking,
+  withDrinks,
   type BaseRules,
   type CardGame,
   type KCard,
@@ -28,6 +30,8 @@ export interface DurakRules extends BaseRules {
   deck: 36 | 52;
   /** No more than five cards in the very first attack. */
   firstFive: boolean;
+  /** Drinking mode, a house rule: see the game's describe(). */
+  drinking?: boolean;
 }
 
 export const classicDurak: DurakRules = { id: "durak-classic", name: "Durak (36 cards)", deck: 36, firstFive: true };
@@ -170,7 +174,7 @@ function settleOuts(s: DurakState): boolean {
   if (left.length <= 1) {
     s.durak = left[0] ?? null;
     s.phase = "finished";
-    s.narration = s.durak === null ? "Everyone got out together: no durak this time!" : `${who(s.durak)} is the durak! 🤡`;
+    s.narration = s.durak === null ? "Everyone got out together: no durak this time!" : withDrinks(!!s.rules.drinking, `${who(s.durak)} is the durak! 🤡`, [s.durak], 99);
     return true;
   }
   return false;
@@ -223,7 +227,7 @@ function apply(state: DurakState, seat: number, move: Move): DurakState {
     }
     case "take": {
       if (seat !== s.defender || !unbeaten(s)) throw new GameError("Only the defender can pick up, with a card still to beat.");
-      s.narration = `${who(seat)} picks up ${s.table.reduce((n, p) => n + 1 + (p.defense ? 1 : 0), 0)} cards`;
+      s.narration = withDrinks(!!s.rules.drinking, `${who(seat)} picks up ${s.table.reduce((n, p) => n + 1 + (p.defense ? 1 : 0), 0)} cards`, [seat], 1);
       endRound(s, true);
       return s;
     }
@@ -317,7 +321,7 @@ function bot(s: DurakState, seat: number, style: PlayStyle): Move | null {
   return { type: "done" };
 }
 
-export const durak: CardGame<DurakRules, DurakState, Move> = {
+const durakGame: CardGame<DurakRules, DurakState, Move> = {
   id: "durak",
   name: "Durak",
   emoji: "🤡",
@@ -373,3 +377,5 @@ export const durak: CardGame<DurakRules, DurakState, Move> = {
     };
   },
 };
+
+export const durak = withDrinking(durakGame, "Adults only. Pick up and drink 1; the durak finishes their drink (or sips of water).", "pick up the attack and drink 1; the durak finishes their drink.");

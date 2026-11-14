@@ -18,6 +18,8 @@ import {
   SUITS,
   thinkFor,
   who,
+  withDrinking,
+  withDrinks,
   type BaseRules,
   type CardGame,
   type KCard,
@@ -31,6 +33,8 @@ export interface PresidentRules extends BaseRules {
   twosHigh: boolean;
   /** The Scum and Vice Scum give their best cards to the President and Vice President. */
   swap: boolean;
+  /** Drinking mode, a house rule: see the game's describe(). */
+  drinking?: boolean;
 }
 
 export const classicPresident: PresidentRules = { id: "president-classic", name: "President (5 hands)", hands: 5, twosHigh: true, swap: true };
@@ -178,6 +182,8 @@ function endHand(s: PresidentState) {
   s.scores = s.scores.map((n, seat) => n + (s.seats - 1 - s.places![seat]!));
   s.ready = Array.from({ length: s.seats }, () => false);
   s.narration = `${who(s.finished[0]!)} is President; ${who(s.finished.at(-1)!)} is Scum`;
+  s.narration = withDrinks(!!s.rules.drinking, s.narration, [s.finished.at(-1)!], 3);
+  if (s.seats >= 4) s.narration = withDrinks(!!s.rules.drinking, s.narration, [s.finished.at(-2)!], 1);
   s.phase = s.hand + 1 >= s.rules.hands ? "finished" : "scored";
 }
 
@@ -340,7 +346,7 @@ function bot(s: PresidentState, seat: number, style: PlayStyle): Move | null {
   return { type: "play", cards: choice.slice(0, need).map((c) => c.id) };
 }
 
-export const president: CardGame<PresidentRules, PresidentState, Move> = {
+const presidentGame: CardGame<PresidentRules, PresidentState, Move> = {
   id: "president",
   name: "President",
   emoji: "🎖️",
@@ -389,3 +395,5 @@ export const president: CardGame<PresidentRules, PresidentState, Move> = {
     };
   },
 };
+
+export const president = withDrinking(presidentGame, "Adults only. The Scum drinks 3 and the Vice Scum 1 (or sips of water).", "at the end of each hand the Scum drinks 3 and the Vice Scum drinks 1.");

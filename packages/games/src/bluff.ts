@@ -3,11 +3,13 @@
 // or not. Anyone else can call "Bluff!": if you lied, you pick up the whole pile; if you didn't, they
 // do. First to get rid of every card wins.
 import type { PlayStyle } from "@spades/rules";
-import { clone, FULL, GameError, makeDeck, nextRandom, rankLabel, rankSeats, shuffled, SUITS, thinkFor, who, type BaseRules, type CardGame, type KCard, type KitView, type Meld, type PipCard } from "./kit.js";
+import { clone, FULL, GameError, makeDeck, nextRandom, rankLabel, rankSeats, shuffled, SUITS, thinkFor, who, withDrinking, withDrinks, type BaseRules, type CardGame, type KCard, type KitView, type Meld, type PipCard } from "./kit.js";
 
 export interface BluffRules extends BaseRules {
   /** Ranks go in order (A, 2, 3 …); otherwise you may claim the same rank, one up or one down. */
   strictOrder: boolean;
+  /** Drinking mode, a house rule: see the game's describe(). */
+  drinking?: boolean;
 }
 
 export const classicBluff: BluffRules = { id: "bluff-classic", name: "Bluff (A, 2, 3…)", strictOrder: true };
@@ -84,6 +86,7 @@ function settle(s: BluffState) {
     s.reveal = { seat: claim.seat, caller, cards: claim.cards, rank: claim.rank, honest };
     const cardsWord = `${s.pile.length} card${s.pile.length === 1 ? "" : "s"}`;
     s.narration = honest ? `${who(caller)} called bluff, but it was true: ${who(caller)} picks up ${cardsWord}` : `${who(caller)} called bluff, and it was! ${who(claim.seat)} picks up ${cardsWord}`;
+    s.narration = withDrinks(!!s.rules.drinking, s.narration, [taker], 2);
     s.pile = [];
   } else s.narration = `Nobody doubted ${who(claim.seat)}`;
   // Out of cards and believed (or proved honest): out.
@@ -217,7 +220,7 @@ function bot(s: BluffState, seat: number, style: PlayStyle): Move | null {
   return { type: "play", cards: liars.map((c) => c.id), rank: can[0]! };
 }
 
-export const bluff: CardGame<BluffRules, BluffState, Move> = {
+const bluffGame: CardGame<BluffRules, BluffState, Move> = {
   id: "bluff",
   name: "Bluff",
   emoji: "🤥",
@@ -264,3 +267,5 @@ export const bluff: CardGame<BluffRules, BluffState, Move> = {
     };
   },
 };
+
+export const bluff = withDrinking(bluffGame, "Adults only. Whoever picks up the pile drinks 2 (or sips of water).", "whoever picks up the pile drinks 2.");

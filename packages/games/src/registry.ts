@@ -39,12 +39,14 @@ import { sevens } from "./sevens.js";
 import { cuckoo } from "./cuckoo.js";
 import { contractRummy } from "./contractrummy.js";
 import { spider } from "./spider.js";
+import { pyramid } from "./pyramid.js";
+import { rideTheBus } from "./ridethebus.js";
 import { ticTacToe } from "./tictactoe.js";
 import type { BoardGame } from "./board.js";
 import type { CardGame } from "./kit.js";
 import type { BoardGameId, CardGameId, KitGameId, TableGame } from "./table.js";
 
-export const CARD_GAMES: CardGame<any, any, any>[] = [hearts, ohHell, euchre, crazy8, gin, pinochle, canasta, goFish, oldMaid, war, whist, golf, rummy500, president, klondike, freeCell, handFoot, cribbage, fiveDraw, holdem, bluff, liarsPoker, switchGame, thirtyOne, kingsCorner, blackjack, spite, pitch, fiveHundred, durak, bridge, fruitSalad, slapjack, speed, memory, sevens, cuckoo, contractRummy, spider];
+export const CARD_GAMES: CardGame<any, any, any>[] = [hearts, ohHell, euchre, crazy8, gin, pinochle, canasta, goFish, oldMaid, war, whist, golf, rummy500, president, klondike, freeCell, handFoot, cribbage, fiveDraw, holdem, bluff, liarsPoker, switchGame, thirtyOne, kingsCorner, blackjack, spite, pitch, fiveHundred, durak, bridge, fruitSalad, slapjack, speed, memory, sevens, cuckoo, contractRummy, spider, pyramid, rideTheBus];
 
 export const BOARD_GAMES: BoardGame<any, any, any>[] = [ticTacToe];
 
