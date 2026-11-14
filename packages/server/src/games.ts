@@ -3,7 +3,7 @@
 // A room's options say which game it is. Spades rooms keep the options they always had (the house
 // rules themselves), so tables and logs from before there were other games still work; any other
 // game's options carry `game`.
-import { KIT_GAMES, isBoardGame, isKitGame, kitGame, kitGreet, reactToKit, type KitGameId } from "@cardroom/games";
+import { KIT_GAMES, isBoardGame, isKitGame, isSportGame, kitGame, kitGreet, reactToKit, type KitGameId } from "@cardroom/games";
 import { palaceGreet, palaceReplyTo, reactToPalace, type PalaceState } from "@cardroom/palace";
 import { sharedView, type RoomDefinition } from "@spades/rooms/server";
 import { cleanSettings, greet, reactToMove, replyTo, type GameState, type RulePreset, type Seat } from "@spades/rules";
@@ -79,6 +79,11 @@ export function watchView(game: GameId, views: unknown[]): unknown {
   const seats = views as Any[];
   if (game === "spades") return sharedView(seats, { blank: { hand: [], legal: [], myPass: null }, from: { seat: 0, keys: ["seat", "team", "partner", "teamSeats"] } });
   if (game === "palace") return sharedView(seats, { blank: { hand: [], can: null }, from: { seat: 0, keys: ["you"] } });
+  // A table sport hides nothing, but each seat's table is its own: its world holds that seat's ball
+  // and the others are drawn around it, and the shot it replays may be its own. Compared part by
+  // part those come out as a world with nothing in it, which no table can draw. So the watcher is
+  // given the first seat's table and shot whole, and nothing to strike.
+  if (isSportGame(game)) return sharedView(seats, { blank: { shoot: null, choices: null }, from: { seat: 0, keys: ["me", "table", "last"] } });
   // A board that belongs to one seat (a fleet in Combat) is nobody else's, and neither is what that
   // seat holds off the board. Left in, two fleets that happened to overlap would show where: the
   // seats' views are compared part by part, and a watcher can be someone sitting at the table.

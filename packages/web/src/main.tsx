@@ -5,7 +5,7 @@ import { noteError, openReport, watchForErrors } from "./bugReport";
 import { unlockAudioOnFirstTap } from "./feedback/sounds";
 import { registerServiceWorker } from "./notifications";
 import { GameRequest } from "./GameRequest";
-import { ReportProblem } from "./ReportProblem";
+import { ReportProblem, useReports } from "./ReportProblem";
 import { applyDisplay } from "./display";
 import { DECK_KEY, applyDeck, savedDeck } from "@cardroom/decks";
 import "./styles.css";
@@ -21,6 +21,16 @@ window.addEventListener("storage", (event) => {
 });
 unlockAudioOnFirstTap();
 registerServiceWorker();
+
+/** The crash screen's way to the report sheet: only where this card room takes reports, so it is never a button that does nothing. */
+function ReportCrash() {
+  if (!useReports()) return null;
+  return (
+    <button type="button" className="secondary" onClick={openReport}>
+      Report this problem
+    </button>
+  );
+}
 
 /**
  * If a screen crashes, say so instead of leaving a blank page, and offer to report it. "Report a
@@ -46,9 +56,7 @@ class Crashed extends Component<{ children: ReactNode }, { crashed: boolean }> {
         <button type="button" className="primary" onClick={() => location.reload()}>
           Reload
         </button>
-        <button type="button" className="secondary" onClick={openReport}>
-          Report this problem
-        </button>
+        <ReportCrash />
       </main>
     );
   }
