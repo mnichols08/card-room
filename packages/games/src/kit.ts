@@ -5,7 +5,7 @@
 // scores. One table screen draws every game from that, and one room runs them all on the server.
 import { mulberry32, type Card, type PlayStyle, type Suit } from "@spades/rules";
 
-export type KitGameId = "hearts" | "ohhell" | "euchre" | "crazy8" | "gin" | "pinochle" | "canasta" | "gofish" | "oldmaid" | "war" | "whist" | "golf" | "rummy500" | "president" | "klondike" | "freecell" | "handfoot" | "cribbage" | "fivedraw" | "holdem" | "bluff" | "liarspoker" | "switch" | "thirtyone" | "kingscorner" | "blackjack" | "spite" | "pitch" | "fivehundred" | "durak" | "bridge" | "fruitsalad" | "slapjack" | "speed" | "memory" | "sevens" | "cuckoo" | "contractrummy" | "spider";
+export type KitGameId = "hearts" | "ohhell" | "euchre" | "crazy8" | "gin" | "pinochle" | "canasta" | "gofish" | "oldmaid" | "war" | "whist" | "golf" | "rummy500" | "president" | "klondike" | "freecell" | "handfoot" | "cribbage" | "fivedraw" | "holdem" | "bluff" | "liarspoker" | "switch" | "thirtyone" | "kingscorner" | "blackjack" | "spite" | "pitch" | "fivehundred" | "durak" | "bridge" | "fruitsalad" | "slapjack" | "speed" | "memory" | "sevens" | "cuckoo" | "contractrummy" | "spider" | "pyramid";
 
 /** A move that isn't allowed. The message is shown to the player as is. */
 export class GameError extends Error {}
@@ -168,6 +168,17 @@ export type Center =
       piles: { cards: KCard[]; empty?: string; move: Record<string, unknown> | null; label: string; note?: string }[];
       /** In a row beside the stock instead (Spite and Malice's building piles). */
       layout?: "row";
+    }
+  /** Pyramid solitaire: rows of cards (null once cleared), the stock and the turned-up card. */
+  | {
+      kind: "pyramid";
+      rows: (KCard | null)[][];
+      tap: { type: string; cards: string[] } | null;
+      held: string | null;
+      stock: number;
+      waste: KCard | null;
+      drawMove: Record<string, unknown> | null;
+      stockLabel: string;
     }
   /** Cards in a grid in the middle (Memory); null is face down. Tapping a cell sends { type, index }. */
   | { kind: "board"; cols: number; cards: (KCard | null)[]; empty: number[]; tap: { type: string; cells: number[] } | null }

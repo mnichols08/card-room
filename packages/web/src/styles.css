@@ -968,3 +968,22 @@ button.cross-pile.can::after {
 .kit-sevens .board-area .card-grid.table { --trick-w: min(calc(11vh / var(--card-ratio)), 54px); }
 .kit-spider .sol-waste { display: none; }
 .kit-spider .sol-found { grid-column: -9 / -1; grid-template-columns: repeat(8, var(--trick-w)); }
+
+/* Pyramid solitaire: overlapping rows, the stock and turned-up card beside (below, on phones). */
+.pyr {
+  --trick-w: min(calc((100vw - 40px) / 7.6), 66px);
+  --trick-h: calc(var(--trick-w) * var(--card-ratio));
+  display: flex; gap: 18px; align-items: flex-start; justify-content: center; flex-wrap: wrap;
+}
+.pyr-rows { display: grid; justify-items: center; }
+.pyr-row { display: flex; gap: 4px; }
+.pyr-row + .pyr-row { margin-top: calc(var(--trick-h) * -0.55); }
+.pyr-card, .pyr-gap { display: block; width: var(--trick-w); height: var(--trick-h); padding: 0; border: 0; background: none; line-height: 0; border-radius: 6px; }
+.pyr-card.can { cursor: pointer; }
+.pyr-card.can > .card, .pyr-card.can > * { transition: translate 120ms; }
+.pyr-card.held { outline: 3px solid var(--gold); outline-offset: 1px; translate: 0 -4px; }
+@media (hover: hover) { .pyr-card.can:hover { translate: 0 -3px; } }
+.pyr-side { display: flex; gap: 8px; align-items: center; }
+.pyr-side small { font-size: 11px; color: rgba(255, 255, 255, 0.75); }
+@media (min-width: 1024px) { .pyr { --trick-w: min(calc((100vh - 320px) / 4.6 / var(--card-ratio)), 74px); } .pyr-side { flex-direction: column; } }
+.kit-felt .center:has(> .pyr) { flex-direction: column; align-items: center; }
