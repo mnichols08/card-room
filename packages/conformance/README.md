@@ -54,6 +54,11 @@ list (and any workaround for it out of the card room's apps).
 | An element the page puts in a slot stays the page's own | plain elements, React, Vue, Svelte, Solid | [zubra#267](https://github.com/journey-to-code-org/zubra/issues/267) |
 | Elements taken away again are gone from every slot | Vue, Svelte, Solid | [zubra#269](https://github.com/journey-to-code-org/zubra/issues/269) |
 
+The suite also turned up one thing outside the browser: Zubra types a prop from its default value
+and has no way to say otherwise ([zubra#270](https://github.com/journey-to-code-org/zubra/issues/270)).
+The card room's React code had 21 type errors hidden by it; `packages/web/src/PlayingCard.ts`
+gives `<playing-card>` its real prop type until components can.
+
 Until they're fixed, in the card room's own apps:
 
 - Wrap text a framework fills in in an element, and not a `<span>` inside a component whose own
