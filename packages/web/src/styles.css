@@ -1140,6 +1140,33 @@ html[data-motion="off"] .board-grid .piece, html[data-motion="off"] .board-block
 .board .bubble.bottom { bottom: 110px; }
 /* The end of a board game leaves the board in view: the sheet sits at the bottom, not over it. */
 .sheet.board-over { top: auto; bottom: max(12px, env(safe-area-inset-bottom)); }
+/* A board that stands on its edge (Drop Four's rack). The discs sit behind a front with round holes
+   in it and fall in from the top; a cell's own background is what shows through an empty hole. */
+.board-grid.gravity { --rack: #2460b8; --hole: #163a76; background: var(--rack); border-radius: 14px; }
+.board-grid.gravity .cell, .board-grid.gravity .cell.can:hover, .board-grid.gravity .cell.picked, .board-grid.gravity .cell.mark-win { border: 0; background: var(--hole); box-shadow: none; }
+.board-grid.gravity .cell::before {
+  content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background: radial-gradient(circle closest-side, transparent 78%, rgba(0, 0, 0, 0.35) 80%, var(--rack) 85%);
+}
+.board-grid.gravity .piece { position: relative; z-index: 1; width: 88%; height: 88%; border-radius: 50%; font-size: 0; box-shadow: inset 0 0 0 max(3px, 2.2cqw) rgba(0, 0, 0, 0.13); }
+.board-grid.gravity .piece.tone-red { background: #d8402f; }
+.board-grid.gravity .piece.tone-gold { background: #f6c930; }
+/* The last disc dropped and the winning line wear a white ring; the rest of a finished rack dims. */
+.board-grid.gravity .cell.mark-last .piece, .board-grid.gravity .cell.mark-win .piece { box-shadow: inset 0 0 0 max(4px, 2.4cqw) #fff; }
+.board-grid.gravity:has(.mark-win) .cell:not(.mark-win) .piece { opacity: 0.5; }
+.board-seat .piece.small.kind-disc.tone-gold { color: #dba800; }
+.board-grid.gravity .cell.picked .piece { box-shadow: inset 0 0 0 max(4px, 2.4cqw) var(--ink); }
+.board-grid.gravity .cell.target::after { display: none; }
+/* The column under the pointer, the hole its disc would land in, and the column a disc was popped out of. */
+.board-grid.gravity .cell.col-over, .board-grid.gravity .cell.mark-from { --rack: #3f7fdc; background-image: none; }
+.board-grid.gravity .cell.lands.col-over { background: #6f93c9; }
+.board-grid.gravity .cell:focus-visible { outline-color: #fff; }
+@media (prefers-reduced-motion: no-preference) {
+  .board-grid.gravity .piece { animation: disc-drop calc(120ms + var(--row, 0) * 50ms) cubic-bezier(0.4, 0, 0.9, 0.5); }
+  .board-grid.gravity .cell.mark-win .piece { animation: disc-drop calc(120ms + var(--row, 0) * 50ms) cubic-bezier(0.4, 0, 0.9, 0.5), disc-win 700ms ease-in-out 450ms 3; }
+}
+@keyframes disc-drop { from { translate: 0 calc(-1 * (var(--row, 0) + 1) * 100cqw / var(--cols)); } }
+@keyframes disc-win { 50% { filter: brightness(1.35); } }
 
 /* ---- Combat: two grids of water, hulls, and shots told apart by shape as well as colour ---------- */
 /* A hit is a white cross on a red disc; a miss is a small pale dot; a marked shot is a gold ring. */

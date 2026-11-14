@@ -74,6 +74,8 @@ export interface BoardGrid {
   shade?: "checker" | CellShade[];
   /** Pieces sit where the lines cross instead of in the squares (Go, Gomoku). */
   points?: boolean;
+  /** The board stands on its edge, and a piece put in a column falls to where it lands (a drop game's rack). */
+  gravity?: boolean;
   /** Names for the columns and rows ("a"–"h", "8"–"1"), drawn round the edge and read out. */
   coords?: { cols: string[]; rows: string[] };
   /** What each cell is called, when a row and a column don't say it well ("centre", "top left"). */

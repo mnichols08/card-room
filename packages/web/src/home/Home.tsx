@@ -67,8 +67,12 @@ const O = { glyph: "◯", tone: "blue" };
 const SHIP = { glyph: "■", tone: "dark" };
 const HIT = { glyph: "✕", tone: "red" };
 const MISS = { glyph: "•", tone: "blue" };
+const RED = { glyph: "●", tone: "red" };
+const YEL = { glyph: "●", tone: "gold" };
 const BOARDS: Record<string, MiniBoard> = {
   tictactoe: { cols: 3, cells: [X, O, null, null, X, O, O, null, X] },
+  // The bottom of a rack: red about to make four on the slant.
+  dropfour: { cols: 4, cells: [null, null, null, null, null, null, RED, YEL, null, RED, YEL, RED, RED, YEL, YEL, RED] },
   combat: { cols: 4, cells: [SHIP, SHIP, SHIP, null, null, null, MISS, null, MISS, null, HIT, null, null, null, HIT, null] },
 };
 const EMPTY_BOARD: MiniBoard = { cols: 3, cells: Array(9).fill(null) };

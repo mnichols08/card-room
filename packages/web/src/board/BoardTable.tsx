@@ -146,7 +146,8 @@ export function BoardTable({ view, names, act, onLeave, banner, chat, settings }
   const status = error ? (
     <span className="error">{error}</span>
   ) : view.over || view.result ? null : held ? (
-    <span className="mine">Now pick where it goes</span>
+    // A piece whose only place to go is where it already is (a disc popped out of a rack) is tapped twice.
+    <span className="mine">{view.grids.some((g) => g.id === held.grid && g.select?.sources.some((s) => s.from === held.from && s.to.length === 1 && s.to[0] === s.from)) ? "Tap it again to take it out" : "Now pick where it goes"}</span>
   ) : view.turn === me || (view.turn === null && canMove) ? (
     <span className="mine">Your turn</span>
   ) : view.turn !== null ? (
@@ -360,6 +361,8 @@ function Grid({ grid, view, names, side, titled, picked, onCell }: { grid: Board
     return ["spanned", same(r - 1, c) ? "join-n" : "", same(r, c + 1) ? "join-e" : "", same(r + 1, c) ? "join-s" : "", same(r, c - 1) ? "join-w" : ""];
   };
   const canTap = (cell: number) => targets.has(cell) || !!sourceAt(grid, cell) || (tapCols ? tapCols.has(colOf(grid.cols, cell)) : !!grid.tap?.cells.includes(cell));
+  // A drop game: the column under the pointer is lit, and the cell its piece would land in is marked.
+  const [overCol, setOverCol] = useState<number | null>(null);
   const blocks = grid.blocks;
   const blockH = blocks ? grid.rows / blocks.rows : 0;
   const blockW = blocks ? grid.cols / blocks.cols : 0;
@@ -412,7 +415,7 @@ function Grid({ grid, view, names, side, titled, picked, onCell }: { grid: Board
           ))}
         </div>
       )}
-      <div ref={el} className={`board-grid${grid.points ? " points" : ""}${blocks ? " blocked" : ""}${grid.cols > 9 ? " fine-lines" : ""}`} role="group" aria-label={`${named(grid.label, names)}, ${grid.rows} by ${grid.cols}. Arrow keys move around it.`} onKeyDown={onKey}>
+      <div ref={el} className={`board-grid${grid.points ? " points" : ""}${grid.gravity ? " gravity" : ""}${blocks ? " blocked" : ""}${grid.cols > 9 ? " fine-lines" : ""}`} role="group" aria-label={`${named(grid.label, names)}, ${grid.rows} by ${grid.cols}. Arrow keys move around it.`} onKeyDown={onKey} onPointerLeave={() => setOverCol(null)}>
         {grid.cells.map((piece, cell) => {
           const r = rowOf(grid.cols, cell);
           const c = colOf(grid.cols, cell);
@@ -426,6 +429,8 @@ function Grid({ grid, view, names, side, titled, picked, onCell }: { grid: Board
             isPicked(cell) ? "picked" : "",
             ...joins(cell),
             targets.has(cell) ? "target" : "",
+            tapCols?.has(c) && overCol === c ? "col-over" : "",
+            tapCols && grid.tap!.cells.includes(cell) ? "lands" : "",
             // Heavier lines where one block of cells ends and the next begins.
             blocks && (c + 1) % blockW === 0 && c + 1 < grid.cols ? "edge-r" : "",
             blocks && (r + 1) % blockH === 0 && r + 1 < grid.rows ? "edge-b" : "",
@@ -449,6 +454,9 @@ function Grid({ grid, view, names, side, titled, picked, onCell }: { grid: Board
               aria-label={label(cell)}
               onFocus={() => setFocus(cell)}
               onClick={() => onCell(cell)}
+              onPointerEnter={tapCols ? (e) => e.pointerType === "mouse" && setOverCol(c) : undefined}
+              // How far a piece falls to get here, for a board that stands on its edge.
+              style={grid.gravity ? ({ "--row": r } as React.CSSProperties) : undefined}
             >
               {piece && <Piece piece={piece} />}
             </button>
