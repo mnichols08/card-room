@@ -303,6 +303,12 @@ export function createHouses(rooms: Rooms, { mount = "/houses", push, gameOn = (
           : game === "palace"
           ? (house.palacePresets!.find((p) => p.id === (id ?? house.palaceDefault)) ?? house.palacePresets![0] ?? familyPalace)
           : (house.presets.find((p) => p.id === (id ?? house.defaultPreset)) ?? house.presets[0] ?? familyTable);
+      // A new tournament is new tables: not in a game the host has switched off. One already
+      // under way plays out, like any table already going.
+      if (parts.length === 2 && method === "POST") {
+        const game = gameOf(input.game);
+        if (!(await gameOn(game))) return json({ error: `${gameName(game)} is switched off in this card room.` }, 403);
+      }
       const reply = await tournaments.handle(house, me, parts.slice(2), method, input, rulesFor);
       return json(reply.body, reply.status);
     }

@@ -68,6 +68,10 @@ describe("the catalogue", () => {
     expect(refused.status).toBe(403);
     expect(refused.body.error).toBe("Palace is switched off in this card room.");
     expect((await grammi(`/houses/${house}/tables`, { game: "palace" })).status).toBe(403);
+    const tournament = await grammi(`/houses/${house}/tournaments`, { name: "Thanksgiving Palace", game: "palace" });
+    expect(tournament.status).toBe(403);
+    expect(tournament.body.error).toBe("Palace is switched off in this card room.");
+    expect((await grammi(`/houses/${house}/tournaments`, { name: "Thanksgiving Hearts", game: "hearts" })).status).toBe(201);
     expect((await grammi("/spectate", { game: "palace" })).status).toBe(403);
     // Other games are untouched, and the table that was open still takes players.
     expect((await grammi("/rooms", HEARTS)).status).toBe(201);
