@@ -1,0 +1,13 @@
+<!-- Copied from zubra-ui (ba5737e) components/auto-grid.zb: https://github.com/journey-to-code-org/zubra-ui. Ours to edit. -->
+<!--
+  A grid with as many equal columns as fit, each at least `min` wide: four on a wide screen, one on
+  a phone, with no media queries. `gap` is the space between cells.
+  @slot - The cells.
+-->
+<style>
+  :host { display: block; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--min)), 1fr)); gap: var(--gap); }
+</style>
+<auto-grid min="14rem" gap="1rem">
+  <div class="grid" style:--min={min} style:--gap={gap}><zb-slot></zb-slot></div>
+</auto-grid>
