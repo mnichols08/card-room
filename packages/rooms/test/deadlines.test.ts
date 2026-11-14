@@ -172,6 +172,29 @@ describe("deadlines", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
+  it("with a grace, pages count down to the time and the server moves a little after it", async () => {
+    const lenient: typeof counting = {
+      ...counting,
+      deadline: (state, table) => {
+        const due = counting.deadline!(state, table);
+        return due && { ...due, grace: 400 };
+      },
+    };
+    const t = await threePeople(lenient);
+    // Pages are told the time itself, never the grace.
+    expect((await t.info()).deadline).toEqual({ at: T0 + 30_000, seat: 0 });
+    // A move that arrives inside the grace is the seat's own.
+    await pass(30_200);
+    expect((await t.post(0, "act", { move: { add: 5 } })).status).toBe(200);
+    expect((await t.info()).deadline).toEqual({ at: T0 + 60_200, seat: 1 });
+    // Left alone, the server moves when the grace is up too.
+    await pass(30_399);
+    expect((await t.info()).summary.total).toBe(5);
+    await pass(1);
+    expect((await t.info()).summary).toEqual({ total: 6, turn: 2 });
+    expect((await t.moves())[1]).toEqual({ seat: 1, move: { add: 1 }, at: T0 + 60_600 });
+  });
+
   it("keeps a deadline longer than one timer can sleep", async () => {
     const days = 40 * 24 * 60 * 60 * 1000; // setTimeout tops out near 24.8 days
     const t = await threePeople(counting, {}, days);
