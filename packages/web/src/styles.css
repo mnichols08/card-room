@@ -1098,6 +1098,37 @@ html[data-motion="off"] .board-grid .piece, html[data-motion="off"] .board-block
 @keyframes piece-in { from { scale: 0.4; opacity: 0; } to { scale: 1; opacity: 1; } }
 @keyframes piece-win { 50% { scale: 1.18; } }
 
+/* Reversi: round discs with a little shine, on a green board. A cell you can move to has a dot. */
+.board-reversi .board-grid { background: #2f8a5b; --line: rgba(10, 40, 26, 0.7); }
+.board-grid .cell.mark-hint::after { content: ""; position: absolute; width: 26%; aspect-ratio: 1; border-radius: 50%; background: rgba(8, 32, 20, 0.45); }
+.piece.kind-disc {
+  width: 82%; aspect-ratio: 1; border-radius: 50%; color: transparent; text-shadow: none; overflow: hidden;
+  background: var(--disc); box-shadow: 0 max(1px, 0.4cqw) max(2px, 0.7cqw) rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+.piece.kind-disc.tone-dark { --disc: radial-gradient(circle at 35% 30%, #5a554e, #1d1a16 62%); }
+.piece.kind-disc.tone-light { --disc: radial-gradient(circle at 35% 30%, #ffffff, #e2dccd 70%); }
+.board-seat .piece.kind-disc.small, .board-reserve .piece.kind-disc.small { width: 1.25em; height: 1.25em; border-radius: 50%; background: var(--disc); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35); }
+/* The discs the last move turned over keep a soft gold rim until the next move, so it can be read without the animation. */
+.board-grid .cell.mark-flipped .piece.kind-disc { box-shadow: 0 0 0 max(2px, 0.5cqw) rgba(232, 196, 106, 0.7), 0 max(1px, 0.4cqw) max(2px, 0.7cqw) rgba(0, 0, 0, 0.45); }
+/* A trapped disc turns over: edge-on halfway, where it changes colour. Without motion it simply is the new colour. */
+@media (prefers-reduced-motion: no-preference) {
+  .board-grid .cell.mark-flipped .piece.kind-disc.tone-dark { animation: disc-to-dark 460ms ease-in-out; }
+  .board-grid .cell.mark-flipped .piece.kind-disc.tone-light { animation: disc-to-light 460ms ease-in-out; }
+}
+html[data-motion="off"] .board-grid .cell.mark-flipped .piece.kind-disc { animation: none; }
+@keyframes disc-to-dark {
+  0% { transform: rotateY(0deg); background: radial-gradient(circle at 35% 30%, #ffffff, #e2dccd 70%); }
+  49% { background: radial-gradient(circle at 35% 30%, #ffffff, #e2dccd 70%); }
+  50% { transform: rotateY(90deg) scale(1.12); background: radial-gradient(circle at 35% 30%, #5a554e, #1d1a16 62%); }
+  100% { transform: rotateY(0deg); }
+}
+@keyframes disc-to-light {
+  0% { transform: rotateY(0deg); background: radial-gradient(circle at 35% 30%, #5a554e, #1d1a16 62%); }
+  49% { background: radial-gradient(circle at 35% 30%, #5a554e, #1d1a16 62%); }
+  50% { transform: rotateY(90deg) scale(1.12); background: radial-gradient(circle at 35% 30%, #ffffff, #e2dccd 70%); }
+  100% { transform: rotateY(0deg); }
+}
+
 /* What a player plays as, beside their name, on a little cream chip so every colour reads. */
 .board-seat .piece.small, .board-reserve .piece.small {
   width: 1.5em; height: 1.5em; flex: none; border-radius: 6px; background: var(--cream); font-size: 0.85em;

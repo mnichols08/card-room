@@ -61,11 +61,15 @@ const FANS: Record<string, object[]> = {
 };
 
 /** A board game's tile shows a little board instead: a position that says what the game is about. */
-type MiniBoard = { cols: number; cells: ({ glyph: string; tone: string } | null)[] };
+type MiniBoard = { cols: number; cells: ({ glyph: string; tone: string } | null)[]; shade?: "green" };
 const X = { glyph: "✕", tone: "red" };
 const O = { glyph: "◯", tone: "blue" };
+const DARK = { glyph: "●", tone: "dark" };
+const LIGHT = { glyph: "●", tone: "light" };
 const BOARDS: Record<string, MiniBoard> = {
   tictactoe: { cols: 3, cells: [X, O, null, null, X, O, O, null, X] },
+  // Light to move: c1 traps the dark disc beside it.
+  reversi: { cols: 4, shade: "green", cells: [null, null, null, null, null, DARK, LIGHT, null, DARK, DARK, DARK, null, null, null, LIGHT, null] },
 };
 const EMPTY_BOARD: MiniBoard = { cols: 3, cells: Array(9).fill(null) };
 
