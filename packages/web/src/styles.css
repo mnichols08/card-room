@@ -968,3 +968,27 @@ button.cross-pile.can::after {
 .kit-sevens .board-area .card-grid.table { --trick-w: min(calc(11vh / var(--card-ratio)), 54px); }
 .kit-spider .sol-waste { display: none; }
 .kit-spider .sol-found { grid-column: -9 / -1; grid-template-columns: repeat(8, var(--trick-w)); }
+
+/* ---------- Turn clock: the time left on a seat, at an online table with a turn timer ---------- */
+.turn-clock {
+  position: fixed;
+  z-index: 9;
+  transform: translate(-70%, -45%);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--cream);
+  border: 1px solid rgba(251, 246, 236, 0.35);
+  font-size: var(--ui-s, 0.8rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  pointer-events: none;
+  white-space: nowrap;
+}
+.turn-clock.mine { background: var(--gold); color: var(--ink); border-color: var(--gold); }
+.turn-clock.low { background: #b3261e; color: #fff; border-color: #fff; }
+/* Nearly out of time: a slow pulse, only for people who haven't asked for less motion. */
+.turn-clock.pulse { animation: clock-pulse 1s ease-in-out infinite; }
+@keyframes clock-pulse { 50% { transform: translate(-70%, -45%) scale(1.12); } }
+@media (prefers-reduced-motion: reduce) { .turn-clock.pulse { animation: none; } }

@@ -3,9 +3,9 @@
 // or plain script can all subscribe.
 import { configure, indexedDBStore, memoryStore, type Store } from "@zubra/sync";
 import { connect } from "@zubra/sync/connect";
-import type { ChatMessage, RoomDoc, ViewDoc } from "./server.js";
+import type { ChatMessage, DeadlineDoc, RoomDoc, ViewDoc } from "./server.js";
 
-export type { ChatMessage };
+export type { ChatMessage, DeadlineDoc };
 
 type Listener = (doc: Record<string, unknown>) => void;
 
@@ -45,6 +45,8 @@ export interface RoomInfo<Summary = unknown> extends RoomDoc<Summary> {
   id: string;
   /** The seat this browser holds, or null. */
   seat: number | null;
+  /** The server's clock (ms) when it answered. */
+  now?: number;
 }
 
 export class RoomError extends Error {
@@ -90,11 +92,39 @@ export function openRoom<View = unknown, Move = unknown, Summary = unknown>(id: 
     return result;
   }
 
+  // A deadline is a time on the server's clock, and a phone's clock can be minutes out. Every answer to
+  // info() carries the server's time: taking it as the middle of the round trip gives the difference,
+  // and the quickest round trip seen is the one to trust.
+  let offset = 0;
+  let quickest = Infinity;
+  async function info() {
+    const sent = Date.now();
+    const answer = await call<RoomInfo<Summary>>(url);
+    const back = Date.now();
+    if (typeof answer.now === "number" && back - sent <= quickest) {
+      quickest = back - sent;
+      offset = answer.now - (sent + back) / 2;
+    }
+    return answer;
+  }
+  const serverNow = () => Date.now() + offset;
+
   return {
     id,
     /** The public room as the server has it now, and the seat this browser holds. */
-    info: () => call<RoomInfo<Summary>>(url),
-    /** Follow the public room: seats, whether it started, the summary. */
+    info,
+    /**
+     * The server's clock, as near as this browser can tell (after the first info()). Count down to a
+     * room's `deadline.at` with this, never with Date.now().
+     */
+    serverNow,
+    /** Ms left on a deadline (never below zero), by the server's clock; null when there's none. */
+    timeLeft: (deadline: DeadlineDoc | null | undefined) => (deadline ? Math.max(0, deadline.at - serverNow()) : null),
+    /** How far the server's clock is ahead of this browser's, in ms. */
+    clockOffset: () => offset,
+    /** Ask the server the time again (after a long sleep, say). Resolves to the offset. */
+    syncClock: () => info().then(() => offset),
+    /** Follow the public room: seats, whether it started, the summary, the deadline that's running. */
     onRoom(fn: (room: RoomDoc<Summary>) => void) {
       return follow("rooms", id, (doc) => fn(doc as unknown as RoomDoc<Summary>));
     },
