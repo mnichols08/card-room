@@ -32,8 +32,10 @@ const props = defineProps<{
   name: string;
   /** Tables waiting for players, longest wait first. */
   open: { id: string; game: string; who: string; free: number }[];
+  /** Whether this card room takes requests for games it doesn't have. */
+  canAsk?: boolean;
 }>();
-const emit = defineEmits<{ pick: [id: string]; house: [slug: string]; lobby: [] }>();
+const emit = defineEmits<{ pick: [id: string]; house: [slug: string]; lobby: []; ask: [] }>();
 const gameOf = (id: string) => props.games.find((g) => g.id === id);
 const waitingAt = computed(() => props.open.slice(0, 4));
 
@@ -140,6 +142,7 @@ const hello = computed(() => (props.name ? `Welcome back, ${props.name}.` : "Spa
     <p class="fine links">
       <a class="design" href="watch/">👀 Watch a game</a>
       <a class="design" href="designer/">🎨 Design your own deck of cards</a>
+      <button v-if="canAsk" type="button" class="design" @click="emit('ask')">💡 Don't see your game? Ask for it</button>
     </p>
   </div>
 </template>
@@ -256,5 +259,6 @@ h2 { margin: 0; font-size: clamp(1.3rem, 2vw, 1.7rem); color: var(--gold); }
 .none, .fine { text-align: center; color: #b9d0c2; margin: 0; }
 .links { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem 1.5rem; }
 .design { color: var(--gold); font-weight: 600; text-underline-offset: 3px; }
+button.design { background: none; border: 0; padding: 0; font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; }
 .design:focus-visible { outline: 3px solid #ffd76a; outline-offset: 3px; border-radius: 4px; }
 </style>

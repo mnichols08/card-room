@@ -164,6 +164,11 @@ server).
 - One browser can send 3 reports in ten minutes, and the whole card room 40 a day. A blocked player
   can't send any. A player's words can't mention people or link other issues.
 
+**Ask for a game.** With the same token, the front page's footer shows “Don't see your game? Ask
+for it”: a game's name and an optional note become an issue labelled `enhancement` and
+`game request`. Asking for a game that already has an open request adds a comment to it instead, so
+an issue's comments count how many want it. Requests share the reports' limits.
+
 ## Packages
 
 | Package | |

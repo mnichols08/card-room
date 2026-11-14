@@ -2,6 +2,7 @@
 import { isBoardGame, isSportGame, KIT_GAMES } from "@cardroom/games";
 import { createApp, h, reactive } from "vue";
 import { useEffect, useRef, useState } from "react";
+import { bugs, openGameRequest } from "../bugReport";
 import { arranged, refreshCatalogue } from "../catalogue";
 import { GAME_LIST } from "../GamePicker";
 import { lobby, whoIsThere, type OpenTable } from "../lobbyApi";
@@ -111,7 +112,11 @@ export function Home({ last, onPick, onOpenHouse, onLobby }: { last: GameId | nu
       // Tables waiting for players, kept fresh while the page is in front.
       open: [] as ReturnType<typeof brief>[],
       onLobby: () => handlers.current.onLobby(),
+      // "Ask for a game" in the footer, where the card room takes requests.
+      canAsk: false,
+      onAsk: openGameRequest,
     });
+    void bugs.enabled().then((yes) => (props.canAsk = yes));
     // Rendered from the reactive props, so the chooser follows them when the open tables change.
     const app = createApp({ render: () => h(GameChooser, { ...props }) });
     app.mount(el.current!);
