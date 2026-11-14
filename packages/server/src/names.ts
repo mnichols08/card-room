@@ -32,3 +32,8 @@ export function nameOk(name: string, extra: string[] = []): boolean {
   const words = text.split(/[^a-z]+/).filter(Boolean);
   return !words.some((w) => WHOLE.includes(w) || WHOLE.includes(squeezed(w)));
 }
+
+/** Chat at a public table, with the words a name couldn't have covered up. */
+export function maskText(text: string, extra: string[] = []): string {
+  return text.replace(/\S+/g, (word) => (nameOk(word, extra) ? word : "•".repeat(Math.min(word.length, 6))));
+}

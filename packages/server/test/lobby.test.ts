@@ -19,6 +19,7 @@ function setup() {
     talk: false,
     push: { send: async (s, payload) => void sent.push({ to: s.endpoint, notice: JSON.parse(payload) }) },
     lobby: { now: () => clock.now, quietAfter: 60_000, alertGap: 600_000, blockedNames: ["sucks"] },
+    admin: { key: "let-me-in-please" },
   });
   open.push(app);
   const phone = () => {
@@ -251,5 +252,42 @@ describe("the lobby", () => {
     // The list of who asked stays on the server.
     const pulled = (await grammi("/_zb/sync/pull?since=0")).body.changes.map((c: { collection: string }) => c.collection);
     expect(pulled).not.toContain("lobby");
+  });
+
+  it("after the deal the host can still remove a player (a bot plays on) and mute one, and chat is filtered", async () => {
+    const { phone } = setup();
+    const host = phone();
+    const pest = phone();
+    const friend = phone();
+    const { id } = (await host("/lobby/join", { game: "palace", name: "Host", seats: 3 })).body;
+    await pest("/lobby/" + id + "/sit", { name: "Pest" });
+    await friend("/lobby/" + id + "/sit", { name: "Friend" }); // the last seat deals
+    expect((await host("/rooms/" + id)).body).toMatchObject({ started: true, open: false, host: 0 });
+    expect((await host("/lobby")).body.tables).toEqual([]);
+
+    // Crude words are covered; a muted player can't chat; the host can't be muted by a guest.
+    expect((await pest("/rooms/" + id + "/say", { text: "you sh1t players" })).body).toMatchObject({ text: "you •••• players" });
+    expect((await pest("/lobby/" + id + "/mute", { seat: 0 })).status).toBe(403);
+    expect((await host("/lobby/" + id + "/mute", { seat: 1 })).body).toEqual({ muted: true });
+    expect((await host("/rooms/" + id)).body.muted).toEqual([1]);
+    await new Promise((r) => setTimeout(r, 450));
+    expect((await pest("/rooms/" + id + "/say", { text: "hello?" })).body).toEqual({ error: "You've been muted at this table." });
+    expect((await host("/lobby/" + id + "/mute", { seat: 1, muted: false })).body).toEqual({ muted: false });
+    expect((await pest("/rooms/" + id + "/say", { text: "hello again" })).status).toBe(200);
+
+    // Removed mid-game: a computer player has the seat, and the game goes on.
+    expect((await host("/lobby/" + id + "/remove", { seat: 1 })).body).toEqual({ ok: true });
+    const room = (await pest("/rooms/" + id)).body;
+    expect(room).toMatchObject({ started: true, seat: null, host: 0 });
+    expect(room.seats[1]).toMatchObject({ bot: true });
+    expect(room.seats[1].name).not.toBe("Pest");
+    expect((await pest("/rooms/" + id + "/sit", { seat: 1, name: "Pest" })).status).toBe(409);
+    expect((await pest("/rooms/" + id + "/say", { text: "let me in" })).status).toBe(403);
+    // A family table that was never open keeps its own way of talking, and has no host.
+    const fam = phone();
+    const made = (await fam("/rooms", { options: { game: "gin" } })).body.id;
+    await fam("/rooms/" + made + "/sit", { seat: 0, name: "Fam" });
+    expect((await fam("/rooms/" + made + "/say", { text: "well shit" })).body).toMatchObject({ text: "well shit" });
+    expect((await fam("/lobby/" + made + "/mute", { seat: 0 })).status).toBe(404);
   });
 });
