@@ -5,7 +5,7 @@
 // scores. One table screen draws every game from that, and one room runs them all on the server.
 import { mulberry32, type Card, type PlayStyle, type Suit } from "@spades/rules";
 
-export type KitGameId = "hearts" | "ohhell" | "euchre" | "crazy8" | "gin" | "pinochle" | "canasta" | "gofish" | "oldmaid" | "war" | "whist" | "golf" | "rummy500" | "president" | "klondike" | "freecell" | "handfoot" | "cribbage" | "fivedraw" | "holdem" | "bluff" | "liarspoker" | "switch" | "thirtyone" | "kingscorner" | "blackjack" | "spite" | "pitch" | "fivehundred" | "durak" | "bridge" | "fruitsalad" | "slapjack" | "speed";
+export type KitGameId = "hearts" | "ohhell" | "euchre" | "crazy8" | "gin" | "pinochle" | "canasta" | "gofish" | "oldmaid" | "war" | "whist" | "golf" | "rummy500" | "president" | "klondike" | "freecell" | "handfoot" | "cribbage" | "fivedraw" | "holdem" | "bluff" | "liarspoker" | "switch" | "thirtyone" | "kingscorner" | "blackjack" | "spite" | "pitch" | "fivehundred" | "durak" | "bridge" | "fruitsalad" | "slapjack" | "speed" | "memory";
 
 /** A move that isn't allowed. The message is shown to the player as is. */
 export class GameError extends Error {}
@@ -169,6 +169,8 @@ export type Center =
       /** In a row beside the stock instead (Spite and Malice's building piles). */
       layout?: "row";
     }
+  /** Cards in a grid in the middle (Memory); null is face down. Tapping a cell sends { type, index }. */
+  | { kind: "board"; cols: number; cards: (KCard | null)[]; empty: number[]; tap: { type: string; cells: number[] } | null }
   /** Attacks and the cards that beat them (Durak), beside the stock with the trump card under it. */
   | { kind: "pairs"; stock: number; trumpCard: KCard | null; trumpLabel: string; pairs: { attack: KCard; defense: KCard | null }[]; discards: number }
   /** Another player's hand, face down: tap a card to take it (Old Maid). Sends { type: takeType, index }. */
@@ -200,8 +202,8 @@ export interface KitView {
   turn: number | null;
   dealer: number;
   hand: KCard[];
-  /** Your own cards are face down and unseen (War): the table shows your pile, not a hand. */
-  handHidden?: boolean;
+  /** Your own cards are face down and unseen (War): the table shows your pile, not a hand. "none": no cards of your own at all (Memory). */
+  handHidden?: boolean | "none";
   /** Tapping one of these cards in your hand sends { type, card: id }. */
   tap: { type: string; cards: string[] } | null;
   /** Pick several cards, then press one of the buttons: sends { type, cards: ids }. */
