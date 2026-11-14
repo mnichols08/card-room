@@ -57,7 +57,10 @@ export function LocalKit({ game: id, name, rules, seats, seed, onLeave }: { game
   }, [state, bots, settings, tick]);
   useEffect(
     () => () => {
+      // Forget the pause as well as stopping it: left set, it would look like one still running, and
+      // no computer player would move again (React's StrictMode remounts every table once in dev).
       if (pending.current) clearTimeout(pending.current);
+      pending.current = null;
     },
     [],
   );
