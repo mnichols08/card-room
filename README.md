@@ -1,6 +1,6 @@
 # Card Room
 
-Family card and board games online: fifty-four games with house rules saved as presets, family
+Family card and board games online: fifty-two games with house rules saved as presets, family
 **houses** with their own tables, leaderboards and tournaments, computer players with personalities,
 challenge links, and a widget that puts a game on any site, including [open.blog](https://github.com/journey-to-code-org/open.blog) ones.
 
@@ -9,7 +9,7 @@ yourself (Docker or Railway), and practice games work anywhere, including the Gi
 
 ## The games
 
-Spades and Palace have tables of their own; the other fifty-two are built on a shared game kit
+Spades and Palace have tables of their own; the other fifty are built on a shared game kit
 (`packages/games`), so they all get the same setup screen, house rules editor, computer players,
 houses, challenges and tournaments. The kit has three tables: one that draws any card game, one
 that draws any board game (Tic-Tac-Toe is the first), and one that draws any table sport on a
@@ -181,7 +181,7 @@ an issue's comments count how many want it. Requests share the reports' limits.
 
 | Package | |
 | --- | --- |
-| [`packages/games`](packages/games) | The game kit and the fifty-two games built on it: `table.ts` (the `TableGame` engine contract every game shares), `kit.ts` (the card kit: `CardGame`, cards, decks, `KitView`), `board.ts` (the board kit: `BoardGame`, grids, pieces, `BoardView`) and `sport.ts` (the table-sports kit: `SportGame`, shots, `SportView`) |
+| [`packages/games`](packages/games) | The game kit and the fifty games built on it: `table.ts` (the `TableGame` engine contract every game shares), `kit.ts` (the card kit: `CardGame`, cards, decks, `KitView`), `board.ts` (the board kit: `BoardGame`, grids, pieces, `BoardView`) and `sport.ts` (the table-sports kit: `SportGame`, shots, `SportView`) |
 | [`packages/rules`](packages/rules) | Spades rules engine, bots, and the personas who play every game |
 | [`packages/palace`](packages/palace) | Palace rules engine: house-rule presets, seat views, bots and table talk |
 | [`packages/physics`](packages/physics) | A small deterministic 2D physics core for the table sports: the same shot gives the same table on the server and in every browser, which is how Mini Golf's server decides a putt and every browser animates it |
