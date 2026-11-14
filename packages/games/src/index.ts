@@ -31,5 +31,6 @@ export * from "./spite.js";
 export * from "./pitch.js";
 export * from "./fivehundred.js";
 export * from "./durak.js";
+export * from "./bridge.js";
 export * from "./registry.js";
 export * from "./talk.js";

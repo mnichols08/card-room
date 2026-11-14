@@ -941,7 +941,7 @@ button.cross-pile.can::after {
   .kit-spite .mine-on-table .card-grid.table { --trick-w: 60px; --trick-h: calc(60px * var(--card-ratio)); }
 }
 .kit-felt .center:has(> .cross.row) { justify-content: center; gap: 40px; }
-.kit-fivehundred .kit-choices.grid { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); max-width: min(470px, 100%); }
+.kit-fivehundred .kit-choices.grid, .kit-bridge .kit-choices.grid { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); width: min(470px, calc(100vw - 24px)); max-width: none; box-sizing: border-box; }
 
 /* Durak: the stock with the trump card under it, then each attack with its beating card on top. */
 .pairs-area { display: flex; align-items: flex-start; gap: calc(var(--trick-w) * 0.5); flex-wrap: wrap; justify-content: center; }
@@ -953,3 +953,5 @@ button.cross-pile.can::after {
 .pair { position: relative; line-height: 0; padding: 0 calc(var(--trick-w) * 0.22) calc(var(--trick-h) * 0.22) 0; }
 .pair-defense { position: absolute; left: calc(var(--trick-w) * 0.22); top: calc(var(--trick-h) * 0.22); line-height: 0; rotate: 8deg; }
 .kit-felt .center:has(> .pairs-area) { justify-content: center; gap: 32px; }
+.kit-bridge .kit-felt:has(.kit-choices.grid) .status, .kit-fivehundred .kit-felt:has(.kit-choices.grid) .status { position: static; }
+@media (min-width: 1024px) { .kit-fivehundred .kit-choices.grid, .kit-bridge .kit-choices.grid { width: 380px; } }
