@@ -18,5 +18,7 @@ export * from "./klondike.js";
 export * from "./freecell.js";
 export * from "./handfoot.js";
 export * from "./cribbage.js";
+export * from "./poker.js";
+export * from "./fivedraw.js";
 export * from "./registry.js";
 export * from "./talk.js";
