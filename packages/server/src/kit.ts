@@ -1,6 +1,7 @@
-// The games on the card kit, in the card room: one room definition serves them all. A room's
-// options say which game, its house rules and how many seats.
-import { kitGame, type CardGame, type KitGameId, type KitSummary, type KitView } from "@cardroom/games";
+// The games on the kit, card games and board games alike, in the card room: one room definition
+// serves them all. A room's options say which game, its house rules and how many seats. Nothing
+// here looks inside a view, so it doesn't matter what a game's table is made of.
+import { kitGame, type BoardView, type KitGameId, type KitSummary, type KitView, type TableGame } from "@cardroom/games";
 import { paceDelay, personaFor, styleFor, type TableSettings } from "@spades/rules";
 import type { RoomDefinition } from "@spades/rooms/server";
 
@@ -11,7 +12,7 @@ export interface KitOptions {
 }
 
 /** Options from a page or a house: rules checked (else the game's first preset), seats in range. */
-export function kitOptions(game: CardGame<any, any, any>, rules: unknown, seats: unknown): KitOptions {
+export function kitOptions(game: TableGame<any, any, any, any>, rules: unknown, seats: unknown): KitOptions {
   const given = game.normalize(rules);
   const clean = game.validate(given).length === 0 ? given : game.presets[0];
   const n = Number(seats);
@@ -29,7 +30,7 @@ const gameFor = (id: unknown) => {
   return game;
 };
 
-export const kitRoom: RoomDefinition<{ game: KitGameId } & Record<string, unknown>, Record<string, unknown>, KitView, KitOptions, KitSummary> = {
+export const kitRoom: RoomDefinition<{ game: KitGameId } & Record<string, unknown>, Record<string, unknown>, KitView | BoardView, KitOptions, KitSummary> = {
   seats: (options) => kitOptions(gameFor(options.game), options.rules, options.seats).seats,
   setup: (options, seed) => {
     const game = gameFor(options.game);

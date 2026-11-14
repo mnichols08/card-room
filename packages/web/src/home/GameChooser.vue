@@ -18,6 +18,8 @@ export interface ChooserGame {
   teams: boolean;
   /** Three cards to fan out on the tile. */
   fan: Record<string, unknown>[];
+  /** A board game shows a little board instead of cards. */
+  board?: { cols: number; cells: ({ glyph: string; tone: string } | null)[] };
 }
 
 const props = defineProps<{
@@ -100,7 +102,10 @@ const hello = computed(() => (props.name ? `Welcome back, ${props.name}.` : "Spa
       <ul class="grid">
         <li v-for="g in shown" :key="g.id">
           <button type="button" class="tile" :class="{ last: g.id === last }" :aria-label="`${g.name}: ${g.blurb}, ${seatsLabel(g)}`" @click="emit('pick', g.id)">
-            <span class="fan" aria-hidden="true">
+            <span v-if="g.board" class="mini-board" aria-hidden="true" :style="{ '--cols': g.board.cols }">
+              <span v-for="(c, i) in g.board.cells" :key="i" class="mini-cell" :class="c ? `tone-${c.tone}` : ''">{{ c?.glyph }}</span>
+            </span>
+            <span v-else class="fan" aria-hidden="true">
               <PlayingCard v-for="(c, i) in g.fan" :key="i" class="fan-card" :style="{ '--i': i }" :card="c" size="table" />
             </span>
             <span class="emoji" aria-hidden="true">{{ g.emoji }}</span>
@@ -184,11 +189,28 @@ h2 { margin: 0; font-size: clamp(1.3rem, 2vw, 1.7rem); color: var(--gold); }
 .fan { position: absolute; right: calc(var(--tile-card) * 0.35); top: 50%; translate: 0 -50%; width: calc(var(--tile-card) * 1.3); height: calc(var(--tile-card) * 1.5); --trick-w: var(--tile-card); --trick-h: calc(var(--tile-card) * 1.4); }
 .fan-card { position: absolute; left: 0; top: 0; transform-origin: 50% 120%; rotate: calc((var(--i) - 1) * 9deg); translate: calc(var(--i) * var(--tile-card) * 0.16) 0; transition: rotate 220ms var(--ease-back, ease-out), translate 220ms var(--ease-back, ease-out); }
 .tile:hover .fan-card, .tile:focus-visible .fan-card { rotate: calc((var(--i) - 1) * 16deg); translate: calc(var(--i) * var(--tile-card) * 0.22) -4px; }
+/* A board game's tile: a little board where the fan would be; it straightens up when you point at the tile. */
+.mini-board {
+  position: absolute; right: calc(var(--tile-card) * 0.3); top: 50%; translate: 0 -50%; rotate: 5deg;
+  width: calc(var(--tile-card) * 1.5); aspect-ratio: 1; display: grid; grid-template: repeat(var(--cols), minmax(0, 1fr)) / repeat(var(--cols), minmax(0, 1fr)); gap: 2px;
+  background: #6b6257; border-radius: 10%; overflow: hidden; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.35);
+  transition: rotate 220ms var(--ease-back, ease-out), scale 220ms var(--ease-back, ease-out);
+}
+/* The gaps between the cells are the board's lines. */
+.mini-cell {
+  display: grid; place-items: center; font-weight: 800; line-height: 1; font-size: calc(var(--tile-card) * 1.5 / var(--cols) * 0.6);
+  background: var(--cream); color: var(--ink);
+}
+.mini-cell.tone-red { color: #b3261e; }
+.mini-cell.tone-blue { color: #1f5fbf; }
+.mini-cell.tone-dark { color: #1d1a16; }
+.tile:hover .mini-board, .tile:focus-visible .mini-board { rotate: 0deg; scale: 1.06; }
 @media (max-width: 560px) {
   .tile { padding-right: clamp(14px, 1.8vw, 22px); padding-top: calc(var(--tile-card) * 1.2); }
   .fan { top: 14px; right: 14px; translate: none; --tile-card: 34px; }
+  .mini-board { top: 12px; right: 14px; translate: none; --tile-card: 32px; }
   .emoji { display: none; }
 }
-@media (prefers-reduced-motion: reduce) { .tile, .fan-card { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .tile, .fan-card, .mini-board { transition: none; } }
 .none, .fine { text-align: center; color: #b9d0c2; margin: 0; }
 </style>

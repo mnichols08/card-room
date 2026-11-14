@@ -1,5 +1,5 @@
 import { PALACE_PRESETS, type PalaceRules } from "@cardroom/palace";
-import { isKitGame, kitGame } from "@cardroom/games";
+import { isBoardGame, isKitGame, kitGame } from "@cardroom/games";
 import type { RulePreset } from "@spades/rules";
 import TextField from "@spades/ui/zubra-ui/text-field.zb";
 import { useState } from "react";
@@ -40,7 +40,7 @@ export function EmbedHome({ game, onPractice }: { game: GameId; onPractice: (nam
           onPractice(you, rules, game === "palace" ? seats : 4);
         }}
       >
-        Deal me in
+        {isBoardGame(game) ? "Play" : "Deal me in"}
       </button>
       <p className="fine">
         You'll play against the computer right here.{" "}

@@ -10,9 +10,9 @@ import { Table } from "./Table";
 import { useTable, type Move } from "./useTable";
 import type { PalaceMove, PalaceView } from "@cardroom/palace";
 import { PalaceTable } from "./palace/PalaceTable";
-import { isKitGame, kitGame, type KitView } from "@cardroom/games";
+import { isBoardGame, isKitGame, kitGame, type BoardView, type KitView } from "@cardroom/games";
 import { GAME_LIST } from "./GamePicker";
-import { KitTable } from "./kit/KitTable";
+import { GameTable } from "./kit/GameTable";
 import { OnlineTable, TablePlayers, TableSettingsFields, TurnTimerField, type TablePlayersValue } from "./TableSettings";
 import { admin } from "./adminApi";
 import { TurnClock } from "./TurnClock";
@@ -170,8 +170,8 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
   if (doc.started && mySeat !== null && view) {
     if (isKitGame(game)) {
       return online(
-        <KitTable
-          view={view as KitView}
+        <GameTable
+          view={view as KitView | BoardView}
           names={doc.seats.map((s, i) => s.name ?? seatLabel(game, i))}
           act={(move) => room.act(move).then(() => null, (e: Error) => e.message)}
           onLeave={onLeave}
@@ -399,7 +399,7 @@ function Lobby(props: {
           )}
           {mySeat !== null && (
             <button type="button" className="primary deal" disabled={!full} onClick={() => attempt(() => room.start())}>
-              {full ? "Deal" : doc.open ? "Waiting for players…" : "Waiting for every seat"}
+              {full ? (isBoardGame(game) ? "Start the game" : "Deal") : doc.open ? "Waiting for players…" : "Waiting for every seat"}
             </button>
           )}
         </>

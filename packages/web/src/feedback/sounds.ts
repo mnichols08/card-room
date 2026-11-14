@@ -5,6 +5,7 @@
 export type SoundName =
   | "deal"
   | "card"
+  | "piece"
   | "bid"
   | "yourTurn"
   | "trickUs"
@@ -103,6 +104,11 @@ export const SOUNDS: Record<SoundName, Play> = {
     swish(ctx, out, t, { freq: 2200 + Math.random() * 600, q: 0.9, peak: 0.5, decay: 0.06 });
     swish(ctx, out, t + 0.005, { freq: 400, q: 0.7, peak: 0.25, decay: 0.08, type: "lowpass" });
   },
+  /** A piece set down on a board: a short wooden click. */
+  piece: (ctx, out, t) => {
+    glide(ctx, out, t, 620 + Math.random() * 60, 300, { peak: 0.32, decay: 0.05, type: "triangle" });
+    swish(ctx, out, t, { freq: 1700, q: 1.2, peak: 0.16, decay: 0.03 });
+  },
   /** A bid placed: a wooden tap. */
   bid: (ctx, out, t) => glide(ctx, out, t, 900, 600, { peak: 0.25, decay: 0.07, type: "triangle" }),
   /** Your turn: two gentle rising notes. */
@@ -176,7 +182,7 @@ export const BUZZES: Partial<Record<SoundName, number | number[]>> = {
 
 /** How long each sound runs, for rendering them offline. */
 export const LENGTHS: Record<SoundName, number> = {
-  deal: 0.8, card: 0.2, bid: 0.15, yourTurn: 0.7, trickUs: 0.85, trickThem: 0.65, spadesBroken: 0.4,
+  deal: 0.8, card: 0.2, piece: 0.15, bid: 0.15, yourTurn: 0.7, trickUs: 0.85, trickThem: 0.65, spadesBroken: 0.4,
   nilMade: 0.9, set: 1.0, handDone: 1.3, won: 2.0, lost: 1.3, nope: 0.35, message: 0.15, hurry: 0.35,
 };
 
