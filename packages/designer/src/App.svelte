@@ -8,7 +8,7 @@
   They're custom elements, so Svelte sets their properties and listens to their events directly.
 -->
 <script lang="ts">
-  import { BACK_PATTERNS, CLASSIC, CORNERS, EMBLEMS, FACE_FONTS, STARTERS, deckStyle, normalizeDesign, saveDeck, savedDeck, validateDesign, type CardDesign } from "@cardroom/decks";
+  import { BACK_PATTERNS, CLASSIC, CORNERS, EMBLEMS, FACE_FONTS, STARTERS, deckStyle, normalizeDesign, prefersOwnDeck, saveDeck, savedDeck, setPrefersOwnDeck, validateDesign, type CardDesign } from "@cardroom/decks";
   import { onMount } from "svelte";
   import ColorPick from "./lib/ColorPick.svelte";
   import DeckPreview from "./lib/DeckPreview.svelte";
@@ -40,6 +40,8 @@
 
   /** The deck this browser plays with, or null for the card room's own. */
   let playing = $state<CardDesign | null>(savedDeck());
+  /** Their own deck even at tables that chose their own cards. */
+  let always = $state(prefersOwnDeck());
   let previewSize = $state(150);
   let flipped = $state(false);
 
@@ -152,7 +154,12 @@
     const chosen = normalizeDesign($state.snapshot(deck));
     saveDeck(chosen);
     playing = chosen;
-    toast(`You're playing with “${chosen.name}” on this device.`, "success");
+    toast(always ? `You'll see “${chosen.name}” at every table on this device.` : `You'll see “${chosen.name}” on this device, wherever a table hasn't chosen its own cards.`, "success");
+  }
+
+  function setAlways(on: boolean) {
+    always = on;
+    setPrefersOwnDeck(on);
   }
 
   function stopPlaying() {
@@ -210,6 +217,21 @@
       {/if}
     </div>
   </header>
+
+  <section class="yours" aria-label="Your cards">
+    <p class="quiet">
+      To have <strong>everyone</strong> at a table play with a deck, pick it in the table's lobby before the deal: any deck in the gallery, or one of yours.
+      “Play with it” is for your own eyes, at practice tables and tables that haven't chosen.
+    </p>
+    {#if playing}
+      <toggle-switch
+        label="Always show me my own deck"
+        description="Even at tables that chose their own cards. Handy if yours is the one you read best."
+        checked={always}
+        oncheckedchange={(event: News<boolean>) => setAlways(event.detail)}
+      ></toggle-switch>
+    {/if}
+  </section>
 
   {#if online === false}
     <alert-banner variant="info" heading="Decks stay on this device here">
@@ -414,6 +436,8 @@
   h2 + :global(auto-grid), h2 + :global(empty-state) { margin-top: 0.9rem; }
   .now { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.75rem; font-size: 0.9rem; color: var(--muted-foreground); }
   .now strong { color: var(--foreground); }
+  .yours { display: grid; gap: 0.75rem; }
+  .yours .quiet { max-width: 70ch; }
   .waiting { display: grid; place-items: center; min-height: 30vh; }
 
   /* The workbench: the deck on its felt beside the controls; on a phone the felt comes first. */

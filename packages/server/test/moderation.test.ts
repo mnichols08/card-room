@@ -274,4 +274,50 @@ describe("card designs", () => {
     expect((await rowdy("/designs/mine")).body.designs[0]).not.toHaveProperty("hidden");
     expect((await admin("/designs/nosuch/hide", {})).status).toBe(404);
   });
+
+  it("a table wears a deck everyone at it sees, kept as it was when it was chosen", async () => {
+    const { phone, admin } = setup();
+    const grammi = phone();
+    const rick = phone();
+    const pearl = phone();
+    const stranger = phone();
+    const shared = (await pearl("/designs", { design: { ...STARTERS[1], name: "Pearl's deck" }, author: "Pearl", shared: true })).body;
+    const secret = (await rick("/designs", { design: { ...STARTERS[2], name: "Not yet" } })).body;
+    const id = (await grammi("/rooms", PALACE)).body.id as string;
+
+    // Only someone seated chooses, and only a deck they could show everyone.
+    expect((await grammi(`/designs/table/${id}`, { design: shared.id })).status).toBe(403);
+    await grammi(`/rooms/${id}/sit`, { seat: 0, name: "brokennil" });
+    expect((await stranger(`/designs/table/${id}`, { design: shared.id })).status).toBe(403);
+    expect((await grammi(`/designs/table/${id}`, { design: secret.id })).status).toBe(404);
+    expect((await grammi(`/designs/table/${id}`, { design: "nosuchid" })).status).toBe(404);
+    expect((await grammi("/designs/table/nosuch", { design: shared.id })).status).toBe(404);
+    expect((await grammi(`/designs/table/${id}`, {})).status).toBe(400);
+
+    const set = await grammi(`/designs/table/${id}`, { design: shared.id });
+    expect(set.status).toBe(200);
+    expect(set.body.deck).toEqual({ id: shared.id, author: "Pearl", design: { ...STARTERS[1], name: "Pearl's deck" } });
+    // Everyone who opens the table gets it with the room, a stranger included.
+    expect((await stranger(`/rooms/${id}`)).body.deck).toEqual(set.body.deck);
+    expect(JSON.stringify((await stranger(`/rooms/${id}`)).body)).not.toContain(pearl.cookie());
+
+    // The maker changes it, the host hides it, the maker deletes it: the table's cards stay as chosen.
+    await pearl(`/designs/${shared.id}`, { design: { ...STARTERS[4], name: "Changed my mind" } });
+    await admin(`/designs/${shared.id}/hide`, { reason: "Testing" });
+    await pearl(`/designs/${shared.id}/delete`, {});
+    expect((await stranger(`/rooms/${id}`)).body.deck.design.name).toBe("Pearl's deck");
+
+    // One of the card room's own, the maker's own private deck at their own table, and none at all.
+    expect((await grammi(`/designs/table/${id}`, { design: "starter:Holly" })).body.deck).toMatchObject({ id: "starter:Holly", author: "Card Room", design: { name: "Holly" } });
+    await rick(`/rooms/${id}/sit`, { seat: 1, name: "Pappy" });
+    expect((await rick(`/designs/table/${id}`, { design: secret.id })).body.deck.design.name).toBe("Not yet");
+    expect((await grammi(`/designs/table/${id}`, { design: null })).body).toEqual({ deck: null });
+    expect((await stranger(`/rooms/${id}`)).body.deck).toBeNull();
+
+    // Once the cards are dealt, they're set.
+    await rick(`/designs/table/${id}`, { design: "starter:Midnight" });
+    await grammi(`/rooms/${id}/start`, {});
+    expect((await grammi(`/designs/table/${id}`, { design: null })).status).toBe(409);
+    expect((await stranger(`/rooms/${id}`)).body.deck.design.name).toBe("Midnight");
+  });
 });

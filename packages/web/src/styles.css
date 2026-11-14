@@ -498,7 +498,8 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; }
 .pile { --fan: calc(var(--trick-w) * 0.28); }
 .pile-stack { position: relative; width: calc(var(--trick-w) + 2 * var(--fan)); height: calc(var(--trick-h) + 6px); }
 .pile-card { position: absolute; left: calc(var(--i) * var(--fan)); top: calc(var(--i) * 2px); rotate: calc((var(--i) - 1) * 3deg); }
-.deck playing-card { filter: drop-shadow(calc(var(--depth, 0) * 1px) calc(var(--depth, 0) * 1px) 0 #4b131b); }
+/* The stack's edge takes the deck's own dark colour. */
+.deck playing-card { filter: drop-shadow(calc(var(--depth, 0) * 1px) calc(var(--depth, 0) * 1px) 0 var(--deck-emblem-ink, #4b131b)); }
 .empty-slot {
   width: var(--trick-w); height: var(--trick-h); border-radius: calc(var(--trick-w) * 0.1); border: 2px dashed rgba(255, 255, 255, 0.3);
   display: grid; place-items: center; text-align: center; font-size: 0.7rem; color: #cfe2d6;
@@ -981,3 +982,9 @@ button.cross-pile.can::after {
 @media (min-width: 1024px) { .board-area .card-grid.table { --trick-w: min(calc((100vh - 330px) / 6.4 / var(--card-ratio)), 74px); } }
 .kit-felt .center:has(> .board-area) { flex-direction: column; align-items: center; }
 .kit-sevens .board-area .card-grid.table { --trick-w: min(calc(11vh / var(--card-ratio)), 54px); }
+
+/* The table's deck in the lobby: the choice, and three of its cards. */
+.deck-choice { display: flex; align-items: flex-end; gap: 12px; }
+.deck-choice > :first-child { flex: 1; min-width: 0; }
+.deck-preview { display: inline-flex; gap: 4px; flex: none; }
+.deck-line { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 0; color: var(--cream); }

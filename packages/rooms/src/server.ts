@@ -81,6 +81,8 @@ export interface RoomDoc<Summary = unknown> {
    * the server makes one (see `exhibit`).
    */
   watchable?: boolean;
+  /** What the cards look like at this table, for everyone at it and watching: the app's to define (see `setDeck`). */
+  deck?: unknown;
   /** Why the server's admin closed this table. A closed table takes no more seats, moves or chat. */
   closed?: string;
   summary: Summary | null;
@@ -597,6 +599,8 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     start,
     lock,
     exhibit,
+    /** Set what the cards look like at a table (anything the app's pages understand), or null for the app's own. */
+    setDeck: async (id: string, deck: unknown) => void (await sync.write("rooms", id, { deck: deck ?? null })),
     /** Get a table's computer players moving again (after a restart, nothing else would wake a table with no people). */
     nudge: (id: string) => void driveBots(id),
     holders,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CLASSIC, STARTERS, applyDeck, cleanName, contrast, deckStyle, deckVars, normalizeDesign, saveDeck, savedDeck, validateDesign } from "../src/index.js";
+import { CLASSIC, STARTERS, deckAtTable, prefersOwnDeck, setPrefersOwnDeck, applyDeck, cleanName, contrast, deckStyle, deckVars, normalizeDesign, saveDeck, savedDeck, validateDesign } from "../src/index.js";
 
 describe("card designs", () => {
   it("every starter is a playable design that normalizing leaves alone", () => {
@@ -95,6 +95,24 @@ describe("card designs", () => {
     kept.set("cardroom.deck", "{not json");
     expect(savedDeck(storage)).toBeNull();
     saveDeck(null, storage);
+    expect(kept.size).toBe(0);
+  });
+
+  it("draws a table with the table's deck, unless this browser always wants its own", () => {
+    const table = { id: "abc", author: "Grammi", design: STARTERS[3]! };
+    const own = STARTERS[1]!;
+    expect(deckAtTable(table, own, false)).toEqual(STARTERS[3]);
+    expect(deckAtTable(table, own, true)).toEqual(own);
+    expect(deckAtTable(null, own, false)).toEqual(own);
+    expect(deckAtTable(table, null, true)).toEqual(STARTERS[3]); // "always mine" with no deck of your own: the table's
+    expect(deckAtTable(undefined, null, false)).toBeNull();
+
+    const kept = new Map<string, string>();
+    const storage = { getItem: (k: string) => kept.get(k) ?? null, setItem: (k: string, v: string) => void kept.set(k, v), removeItem: (k: string) => void kept.delete(k) };
+    expect(prefersOwnDeck(storage)).toBe(false);
+    setPrefersOwnDeck(true, storage);
+    expect(prefersOwnDeck(storage)).toBe(true);
+    setPrefersOwnDeck(false, storage);
     expect(kept.size).toBe(0);
   });
 });

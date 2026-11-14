@@ -3,6 +3,8 @@ import { TableChat, type ChatProps } from "./Chat";
 import type { RoomDoc } from "@spades/rooms/server";
 import { cleanSettings, partnerOf, personaFor, pickPersonas, seatsOf, teamOf, type Seat, type SeatView, type TableSettings } from "@spades/rules";
 import TextField from "@spades/ui/zubra-ui/text-field.zb";
+import { applyDeck, deckAtTable, prefersOwnDeck, savedDeck, type TableDeck } from "@cardroom/decks";
+import { TableDeckPicker } from "./TableDeck";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { loadSavedName, saveName, saveTableSettings } from "./storage";
 import { Table } from "./Table";
@@ -63,6 +65,21 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
       room.close();
     };
   }, [room]);
+
+  // The table's deck dresses every card on the page while this table is open: the same cards for
+  // everyone here, unless this browser's owner always wants their own (set in the card designer).
+  const tableDeck = (doc?.deck ?? null) as TableDeck | null;
+  const deckKey = tableDeck ? JSON.stringify(tableDeck) : "";
+  useEffect(() => {
+    const dress = () => applyDeck(document.documentElement, deckAtTable(tableDeck, savedDeck(), prefersOwnDeck()));
+    dress();
+    // Choosing another deck in the designer's tab changes the cards here at once.
+    window.addEventListener("storage", dress);
+    return () => {
+      window.removeEventListener("storage", dress);
+      applyDeck(document.documentElement, savedDeck());
+    };
+  }, [deckKey]);
 
   useEffect(() => {
     if (source === null) return;
@@ -327,6 +344,7 @@ function Lobby(props: {
         })}
       </ol>
 
+      <TableDeckPicker table={room.id} deck={(doc.deck ?? null) as TableDeck | null} canChoose={!doc.started && mySeat !== null} onProblem={props.setProblem} />
       {!doc.started && props.settings && doc.seats.some((s) => s.bot) && (
         <section className="house-block" aria-label="Computer players">
           <TableSettingsFields settings={props.settings.value} onChange={(next) => attempt(() => props.settings!.change(next))} />

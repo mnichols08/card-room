@@ -6,7 +6,7 @@
 //
 // A design is data (colours and choices from fixed lists; see @cardroom/decks), checked here again
 // whatever the page sent, so nothing in the gallery can carry markup or CSS of its maker's own.
-import { cleanName, normalizeDesign, validateDesign, type CardDesign } from "@cardroom/decks";
+import { STARTERS, cleanName, normalizeDesign, validateDesign, type CardDesign, type TableDeck } from "@cardroom/decks";
 import { newPlayerId, playerCookie, playerOf } from "@spades/rooms/server";
 
 export interface DesignDoc {
@@ -34,6 +34,13 @@ interface Sync {
   }>;
 }
 
+/** The parts of the rooms kit a table's deck needs. */
+interface Tables {
+  room(id: string): Promise<{ started: boolean; closed?: string } | undefined>;
+  holders(id: string): Promise<(string | null)[]>;
+  setDeck(id: string, deck: unknown): Promise<void>;
+}
+
 const LETTERS = "abcdefghjkmnpqrstuvwxyz23456789";
 const random = (n: number) => Array.from(crypto.getRandomValues(new Uint8Array(n)), (b) => LETTERS[b % LETTERS.length]).join("");
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
@@ -44,7 +51,7 @@ export const DESIGNS_PER_PLAYER = 40;
 export const GALLERY_SIZE = 120;
 const CREATE_GAP_MS = 1500;
 
-export function createDesigns(sync: Sync, { mount = "/designs", now = () => Date.now() }: { mount?: string; now?: () => number } = {}) {
+export function createDesigns(sync: Sync, { mount = "/designs", tables, now = () => Date.now() }: { mount?: string; /** The card room's tables, so a table can wear a design. */ tables?: Tables; now?: () => number } = {}) {
   const docs = sync.documents();
   const lastMade = new Map<string, number>();
 
@@ -104,6 +111,36 @@ export function createDesigns(sync: Sync, { mount = "/designs", now = () => Date
       const doc: DesignDoc = { id, owner: me, author: cleanName(input.author, "Someone"), design, shared: input.shared === true, created: now(), updated: now() };
       await save(doc);
       return json(shown(doc, me), 201, player ? {} : { "set-cookie": playerCookie(me, request) });
+    }
+
+    // POST /designs/table/:table { design: id | "starter:<name>" | null } → the deck everyone at that table sees
+    if (parts.length === 2 && parts[0] === "table" && method === "POST" && tables) {
+      const table = parts[1]!;
+      const room = await tables.room(table);
+      if (!room) return json({ error: "There's no table with that code." }, 404);
+      if (!player || !(await tables.holders(table)).includes(player)) return json({ error: "Take a seat first: the players choose the table's cards." }, 403);
+      if (room.closed) return json({ error: room.closed }, 410);
+      if (room.started) return json({ error: "The cards are set once the game starts." }, 409);
+      const wanted = input.design;
+      if (wanted === undefined || wanted === "") return json({ error: "Pick a deck." }, 400);
+      if (wanted === null) {
+        await tables.setDeck(table, null);
+        return json({ deck: null });
+      }
+      let deck: TableDeck | undefined;
+      const starter = STARTERS.find((s) => wanted === `starter:${s.name}`);
+      if (starter) deck = { id: `starter:${starter.name}`, author: "Card Room", design: starter };
+      else {
+        const design = typeof wanted === "string" ? await get(wanted) : undefined;
+        // Yours, or one in the gallery: a table never shows everyone a deck its maker kept private.
+        const usable = design && !design.deleted && (design.owner === player || (design.shared && !design.hidden));
+        if (usable) deck = { id: design.id, author: design.author, design: design.design };
+      }
+      if (!deck) return json({ error: "That deck isn't in the gallery any more. Pick another." }, 404);
+      // The table keeps its own copy: changing, deleting or hiding the design later doesn't change
+      // the cards in the middle of someone's game.
+      await tables.setDeck(table, deck);
+      return json({ deck });
     }
 
     // GET /designs/mine → everything you've saved, shared or not

@@ -278,3 +278,42 @@ export function saveDeck(design: CardDesign | null, storage: Pick<Storage, "setI
     // Private browsing, or storage is full: the deck just isn't remembered.
   }
 }
+
+/** A table's deck: a design as it was when the table chose it, and whose it is. Everyone at the table sees it. */
+export interface TableDeck {
+  /** The design's id in the gallery, or "starter:<name>" for one of the card room's own. */
+  id: string;
+  author: string;
+  design: CardDesign;
+}
+
+/** Where the browser keeps "always show me my own deck, whatever the table chose". */
+export const OWN_DECK_KEY = "cardroom.deck.always";
+
+/** Whether this browser's owner wants their own deck at every table (they read it best, say). */
+export function prefersOwnDeck(storage: Pick<Storage, "getItem"> | undefined = globalThis.localStorage): boolean {
+  try {
+    return storage?.getItem(OWN_DECK_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function setPrefersOwnDeck(always: boolean, storage: Pick<Storage, "setItem" | "removeItem"> | undefined = globalThis.localStorage): void {
+  try {
+    if (always) storage?.setItem(OWN_DECK_KEY, "1");
+    else storage?.removeItem(OWN_DECK_KEY);
+  } catch {
+    // Not remembered.
+  }
+}
+
+/**
+ * The deck to draw a table with: the table's own, so everyone sees the same cards; this browser's
+ * where the table hasn't chosen one, or where its owner always wants theirs. Null is the card
+ * room's own deck.
+ */
+export function deckAtTable(table: TableDeck | null | undefined, own: CardDesign | null, always: boolean): CardDesign | null {
+  if (always && own) return own;
+  return table?.design ? normalizeDesign(table.design) : own;
+}

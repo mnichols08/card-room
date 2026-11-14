@@ -59,7 +59,7 @@ export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: b
   const catalogue = createCatalogue(rooms.sync);
   const houses = createHouses(rooms, { push, gameOn: catalogue.isOn });
   const challenges = createChallenges(rooms, push, { gameOn: catalogue.isOn });
-  const designs = createDesigns(rooms.sync);
+  const designs = createDesigns(rooms.sync, { tables: rooms });
   const spectate = createSpectate(rooms, catalogue);
   const moderation = createModeration(rooms, designs, { token: options.adminToken, houses, catalogue });
 
