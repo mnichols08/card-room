@@ -8,7 +8,7 @@ import { browserInfo, browserLines, bugs, openReport, REPORT_EVENT, takeScreensh
 const DESCRIPTION_LIMIT = 2000;
 
 /** Whether this card room takes reports (false until the server has said so). */
-function useReports() {
+export function useReports() {
   const [enabled, setEnabled] = useState(false);
   useEffect(() => void bugs.enabled().then(setEnabled), []);
   return enabled;

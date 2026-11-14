@@ -140,3 +140,37 @@ describe("watching Combat", () => {
     expect((watchView("golf", seats) as { grids: unknown[] }).grids).toHaveLength(3);
   });
 });
+
+// A table sport: every seat's world holds only that seat's ball, so the seats' tables never match.
+// The watch view has to be a table that can be drawn all the same.
+describe("watching a table sport", () => {
+  it("gives the watcher a whole table and the last shot, and nothing to strike", async () => {
+    const { SPORT_GAMES } = await import("@cardroom/games");
+    const { watchView } = await import("../src/games.js");
+    type Body = { id: string; x: number; y: number } | null;
+    type Sport = { shoot: { body: string; minPower: number } | null; choices: unknown; table: { world: { bodies: Body[] }; bodies: unknown[] }; last: { from: Body[]; rest: Body[] } | null };
+    for (const game of SPORT_GAMES as unknown as { id: GameId; presets: unknown[]; newGame(rules: unknown, seats: number, seed: number): unknown; apply(s: unknown, seat: number, move: unknown): unknown; view(s: unknown, seat: number): Sport }[]) {
+      let s = game.newGame(game.presets[0], 2, 7);
+      const check = () => {
+        const watch = watchView(game.id, [0, 1].map((seat) => game.view(s, seat))) as Sport;
+        expect(watch.shoot, game.id).toBeNull();
+        expect(watch.choices, game.id).toBeNull();
+        expect(watch.table.world.bodies.length, game.id).toBeGreaterThan(0);
+        for (const b of [...watch.table.world.bodies, ...watch.table.bodies, ...(watch.last?.from ?? []), ...(watch.last?.rest ?? [])]) expect(b, game.id).toBeTruthy();
+        return watch;
+      };
+      check();
+      // A few shots each, whoever may shoot.
+      let shots = 0;
+      for (let i = 0; i < 12; i++) {
+        const seat = [0, 1].find((n) => game.view(s, n).shoot);
+        if (seat === undefined) break;
+        const shoot = game.view(s, seat).shoot!;
+        s = game.apply(s, seat, { type: "shot", body: shoot.body, angle: (i * 4700) % 36000, power: shoot.minPower + 200 });
+        shots++;
+        check();
+      }
+      expect(shots, game.id).toBeGreaterThan(0);
+    }
+  });
+});
