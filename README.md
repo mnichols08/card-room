@@ -12,7 +12,7 @@ yourself (Docker or Railway), and practice games work anywhere, including the Gi
 Spades and Palace have tables of their own; the other fifty are built on a shared game kit
 (`packages/games`), so they all get the same setup screen, house rules editor, computer players,
 houses, challenges and tournaments. The kit has three tables: one that draws any card game, one
-that draws any board game (Tic-Tac-Toe was the first), and one that draws any table sport on a
+that draws any board game (Tic-Tac-Toe is the first), and one that draws any table sport on a
 canvas (Mini Golf is the first).
 
 | Game | Players | |
