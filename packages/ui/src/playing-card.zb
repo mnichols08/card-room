@@ -7,6 +7,7 @@
   A deck's look comes from the page too: the --deck-* variables (`deckVars` in @cardroom/decks) set
   the back's pattern, frame and emblem, the paper, each suit's ink, the lettering and the corners.
   Without them it's the card room's own deck.
+  @prop {{ kind: "pip", suit: "spades" | "hearts" | "diamonds" | "clubs", rank: number, id?: string } | { kind: "joker", size: "big" | "little", id?: string } | { kind: "fruit", fruit: "cherry" | "lemon" | "pear" | "grape" | null, face: number | "hop" | "turn" | "plus2" | "salad" | "salad4", id?: string }} card - The card to draw.
   @fires pick - A playable card was tapped.
 -->
 <script>

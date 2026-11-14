@@ -16,7 +16,7 @@
     "@spades/rooms": "*",
     "@spades/rules": "*",
     "@vitejs/plugin-vue": "^6.0.11",
-    "@zubra/runtime": "^5.9.2",
+    "@zubra/runtime": "^5.15.0",
     "modern-screenshot": "^4.7.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
@@ -27,8 +27,8 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.3.0",
-    "@zubra/compiler": "^5.9.2",
-    "@zubra/unplugin": "^5.9.2",
+    "@zubra/compiler": "^5.15.0",
+    "@zubra/unplugin": "^5.15.0",
     "typescript": "^5.6.0",
     "vite": "^8.3.8"
   }

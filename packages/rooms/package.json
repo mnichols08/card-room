@@ -14,7 +14,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@zubra/sync": "^5.9.2"
+    "@zubra/sync": "^5.15.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

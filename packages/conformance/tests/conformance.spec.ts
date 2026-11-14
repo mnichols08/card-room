@@ -1,28 +1,21 @@
 // The same checks against the same fixture in every framework. A check that fails in one
 // framework and passes in the rest is a difference in how Zubra's components behave there.
 //
-// KNOWN lists the differences already reported upstream. Those checks are expected to fail; when
-// one starts passing (Zubra fixed it), the run says so, and the entry and the workaround in the
-// card room's own apps can go.
+// KNOWN lists the differences already reported upstream, each as { [check's title]: issue link }.
+// Those checks are expected to fail; when one starts passing (Zubra fixed it), the run says so,
+// and the entry and the workaround in the card room's own apps can go.
 import { expect, test, type Page } from "@playwright/test";
 
 const FRAMEWORKS = ["element", "react", "vue", "svelte", "solid", "angular"] as const;
 type Framework = (typeof FRAMEWORKS)[number];
 
-const ZUBRA = "https://github.com/journey-to-code-org/zubra/issues";
 const TEXT = "text the page fills in shows in a slot";
 const OWN = "an element the page puts in a slot stays the page's own";
 const TOGETHER = "elements for different slots that arrive together each go to their slot";
 const GONE = "elements taken away again are gone from every slot";
 
-const KNOWN: Partial<Record<Framework, Record<string, string>>> = {
-  element: { [OWN]: `${ZUBRA}/267` },
-  react: { [OWN]: `${ZUBRA}/267` },
-  vue: { [OWN]: `${ZUBRA}/267`, [GONE]: `${ZUBRA}/269` },
-  svelte: { [OWN]: `${ZUBRA}/267`, [GONE]: `${ZUBRA}/269` },
-  solid: { [TEXT]: `${ZUBRA}/268`, [OWN]: `${ZUBRA}/267`, [TOGETHER]: `${ZUBRA}/262`, [GONE]: `${ZUBRA}/269` },
-  angular: { [TEXT]: `${ZUBRA}/261`, [TOGETHER]: `${ZUBRA}/262` },
-};
+// Nothing differs today (the last ones were fixed in Zubra 5.15.0).
+const KNOWN: Partial<Record<Framework, Record<string, string>>> = {};
 
 const t = (page: Page, name: string) => page.locator(`[data-t="${name}"]`);
 
