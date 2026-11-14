@@ -28,6 +28,7 @@ const FANS: Record<string, ReturnType<typeof card>[]> = {
   president: [card(2, "spades"), card(2, "hearts"), card(3, "clubs")],
   klondike: [card(13, "spades"), card(12, "hearts"), card(11, "spades")],
   freecell: [card(14, "hearts"), card(14, "clubs"), card(14, "diamonds")],
+  handfoot: [card(9, "spades"), card(9, "hearts"), card(9, "clubs")],
 };
 
 const SEATS: Record<string, { seats: [number, number]; teams: boolean }> = {
