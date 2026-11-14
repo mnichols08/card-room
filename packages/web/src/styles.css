@@ -405,33 +405,31 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; }
 
 .me-badge { position: relative; }
 /* Bubbles have their own layer above the table and its sheets: a partner's "go nil!" matters
-   most while you're bidding. Each sits near the seat that spoke. */
+   most while you're bidding. Each one places itself beside the seat that spoke, wherever it covers
+   least (Chat.tsx), and fades when its time (--life) is up. */
 .bubble-layer { position: fixed; inset: 0; z-index: 12; pointer-events: none; }
 .bubble {
   position: absolute;
   display: flex;
   flex-direction: column;
-  max-width: 200px;
+  max-width: min(200px, calc(100vw - 16px));
   padding: 6px 10px 7px;
   border-radius: 14px;
   background: var(--cream);
   color: var(--ink);
   font-size: 0.9rem;
   line-height: 1.25;
+  overflow-wrap: anywhere;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
-  animation: bubble-in 180ms ease-out;
+  transition: left 160ms ease-out, top 160ms ease-out;
+  animation: bubble-in 180ms ease-out, bubble-out 260ms ease-in calc(var(--life, 4500ms) - 260ms) forwards;
 }
 .bubble .said-by { font-size: 0.7rem; font-weight: 700; color: var(--felt); }
 .bubble.emoji { align-items: center; }
 .bubble.emoji span:last-child { font-size: 1.9rem; line-height: 1.1; }
-.bubble.top { top: 182px; left: 50%; translate: -50% 0; }
-/* Palace: the open felt under the pile, clear of everyone's face-up cards. */
-.bubble.palace { top: 55%; left: 50%; translate: -50% 0; }
-.bubble.left { top: 46%; left: 8px; }
-.bubble.right { top: 46%; right: 8px; }
-.bubble.bottom { bottom: calc(var(--card-h) + 140px); left: 50%; translate: -50% 0; }
 @keyframes bubble-in { from { opacity: 0; scale: 0.8; } to { opacity: 1; scale: 1; } }
-@media (prefers-reduced-motion: reduce) { .bubble { animation: none; } }
+@keyframes bubble-out { to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .bubble { animation: none; transition: none; } }
 .seat-row strong { display: flex; flex-direction: column; }
 .seat-row .blurb { font-weight: 400; font-size: 0.78rem; color: #cfe2d6; }
 

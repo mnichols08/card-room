@@ -446,15 +446,7 @@ export function KitTable({
 
       <div className="bubble-layer" aria-live="polite">
         {[...bubbles.entries()].map(([s, m]) => (
-          <Bubble
-            key={`${s}-${m.at}`}
-            message={m}
-            side={
-              s === me
-                ? "bottom"
-                : (spots.find((x) => x.seat === s)?.area ?? "top")
-            }
-          />
+          <Bubble key={`${s}-${m.at}`} message={m} seat={s} />
         ))}
       </div>
 
