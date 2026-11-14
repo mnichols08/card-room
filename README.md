@@ -47,10 +47,6 @@ that draws any board game (Tic-Tac-Toe is the first).
 | War | 2 to 4 | Flip, and the highest card takes all |
 | Slapjack | 2 to 6 | Flip, and slap the jacks first |
 | Speed | 2 | No turns: play faster than the other player |
-| Sevens | 3 to 7 | Build out from the 7s |
-| Cuckoo | 3 to 10 | One card each; don't get stuck with the lowest |
-| Contract Rummy | 3 to 8 | Seven rounds, seven contracts to lay down |
-| Memory | 1 to 6 | Find the pairs (great for grandkids) |
 | Kings in the Corner | 2 to 4 | Solitaire for the whole table |
 | Spite and Malice | 2 to 4 | Race to play off your pile; kings are wild |
 | Five Card Draw | 2 to 6 | Poker for chips: bet, swap, bet, show |
