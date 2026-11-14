@@ -25,13 +25,14 @@ export default defineConfig({
     },
   ],
   // `npm run dev -w @spades/server` serves the rooms and the sync log on 8787.
-  server: { proxy: Object.fromEntries(["/rooms", "/_zb", "/houses", "/challenges", "/push"].map((p) => [p, "http://localhost:8787"])) },
+  server: { proxy: Object.fromEntries(["/rooms", "/_zb", "/houses", "/challenges", "/push", "/designs", "/moderation"].map((p) => [p, "http://localhost:8787"])) },
   resolve: {
     alias: {
       "@spades/rules": local("../rules/src/index.ts"),
       // From source, like the rules: the Pages build doesn't build the other packages first.
       "@cardroom/palace": local("../palace/src/index.ts"),
       "@cardroom/games": local("../games/src/index.ts"),
+      "@cardroom/decks": local("../decks/src/index.ts"),
       "@spades/ui": local("../ui/src"),
       "@spades/rooms/client": local("../rooms/src/client.ts"),
       "@spades/rooms/server": local("../rooms/src/server.ts"),

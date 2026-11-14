@@ -24,6 +24,11 @@ jobs:
         env:
           BASE_PATH: /${{ github.event.repository.name }}/
           SITE_ORIGIN: https://${{ github.repository_owner }}.github.io
+      # The card designer goes along, under designer/. Without a server behind it, decks stay in
+      # the browser; choosing one still dresses the practice tables.
+      - run: npm run build -w @cardroom/designer && cp -r packages/designer/dist packages/web/dist/designer
+        env:
+          BASE_PATH: /${{ github.event.repository.name }}/designer/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: packages/web/dist

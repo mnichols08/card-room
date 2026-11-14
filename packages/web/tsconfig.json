@@ -22,6 +22,9 @@
       ],
       "@spades/rooms/*": [
         "../rooms/src/*"
+      ],
+      "@cardroom/decks": [
+        "../decks/src/index.ts"
       ]
     },
     "types": [

@@ -25,3 +25,9 @@ jobs:
           for i in $(seq 1 20); do curl -fs localhost:8790/healthz && break; sleep 0.5; done
           curl -fs localhost:8790/push/key
           curl -fs localhost:8790/ | grep -q manifest.webmanifest
+          # The designer and the admin app are served under the card room's address.
+          curl -fs localhost:8790/designer/ | grep -q "Card designer"
+          curl -fs localhost:8790/admin/ | grep -q "Card Room admin"
+          curl -fs localhost:8790/designs | grep -q '"designs"'
+          # Without CARDROOM_ADMIN_TOKEN, moderation is off.
+          test "$(curl -s -o /dev/null -w '%{http_code}' localhost:8790/moderation/overview)" = 503

@@ -53,7 +53,13 @@ score.
 | [`packages/rooms`](packages/rooms) | Turn-based rooms over `@zubra/sync`: seats, server-decided moves, private views, bots |
 | [`packages/server`](packages/server) | The server: every game's rooms, houses, challenges, tournaments, the sync log and the web app |
 | [`packages/web`](packages/web) | The app (React, with the game chooser in Vue): tables, setup screens, houses, practice |
-| [`packages/ui`](packages/ui) | Table components in Zubra (cards, seats, fields), and the `<card-room>` embed |
+| [`packages/designer`](packages/designer) | The card designer (Svelte): draw a deck, keep it or share it, play with it |
+| [`packages/admin`](packages/admin) | The admin app (Angular): the host moderates tables, players and shared designs |
+| [`packages/decks`](packages/decks) | Card designs: what a deck looks like, checked, and turned into the CSS variables the cards read |
+| [`packages/ui`](packages/ui) | Components in Zubra: our own (cards, seats), the ones copied from zubra-ui, and the `<card-room>` embed |
+
+One set of Zubra components serves four frameworks: React and Vue in the card room, Svelte in the
+designer and Angular in the admin app.
 
 The server decides every move. Each player's browser only ever receives its own view of a table
 (its own hand), never the whole game; moves the rules don't allow are refused on the server.
@@ -66,8 +72,45 @@ npm test
 npm run dev        # the server on :8787 and the app on http://localhost:5173
 ```
 
-Family tables, houses, challenges and tournaments need the server. Practice against the computer
-works anywhere, including the GitHub Pages build of the app.
+Family tables, houses, challenges, tournaments, the designs gallery and the admin app need the
+server. Practice against the computer and designing decks work anywhere, including the GitHub
+Pages build of the app.
+
+The card designer (`npm run dev -w @cardroom/designer`, http://localhost:5174/designer/) and the
+admin app (`npm run dev -w @cardroom/admin`, http://localhost:5175/admin/) have dev servers of
+their own, which also talk to the server on :8787. For the admin app, start the server with a
+token: `CARDROOM_ADMIN_TOKEN=anything npm run dev -w @spades/server`.
+
+## Designing cards
+
+The card designer lives at `/designer/` (there's a link on the card room's front page). A deck is
+its back (a pattern, three colours and an emblem), its paper, an ink for each suit (two colours or
+four), its lettering and its corners. Saving one keeps it under **My decks**; turning on **Share
+it in the gallery** puts it where everyone in the card room can play with it or remix it.
+**Play with it** makes it the deck that browser sees at every table. It changes how the cards
+look to you, not to the others at the table.
+
+A design is data, never CSS or markup from a page: colours and choices from fixed lists, checked
+again on the server (`packages/decks`). The designer won't save a deck you couldn't play with
+(inks too faint for the paper, two suits in the same ink).
+
+## Moderating the card room
+
+Whoever runs the server can look after it from the admin app at `/admin/`. It's off until the
+server has an admin token (see **Settings**); sign in with that token.
+
+| | |
+| --- | --- |
+| **Tables** | Every table and who's at it. Look at one to read its chat, remove a message, take someone out of a seat (a computer player takes over if the game has started), or close the table for good, with a reason everyone there sees. |
+| **Players** | Everyone who's sat down, joined a house or saved a design. Blocking someone stops them sitting, playing, chatting, opening houses and sharing designs; tables they're at carry on without them. Unblocking undoes it. |
+| **Card designs** | Every shared deck. Hiding one takes it out of the gallery; its maker keeps it and sees your reason. |
+| **Activity** | Everything done from the admin app, newest first. |
+
+Players are browsers, not accounts: a player is a cookie, and a name is whatever they typed when
+they sat down. The admin app never sees the cookies, only a reference that's enough to block
+someone with. A blocked person who clears their cookies is a new player, so blocking is for
+keeping a family room friendly, not for keeping a determined stranger out; for that, don't share
+the room's address.
 
 ## Adding a game
 
@@ -151,8 +194,11 @@ docker run -p 8787:8787 -v spades:/data cardroom
 | `CARDROOM_VAPID_PUBLIC_KEY` | Push notifications: the public key (see below) |
 | `CARDROOM_VAPID_PRIVATE_KEY` | Push notifications: the private key; keep it secret |
 | `CARDROOM_VAPID_SUBJECT` | Optional: a `mailto:` or `https:` address push services can reach you at |
+| `CARDROOM_ADMIN_TOKEN` | Turns on the admin app at `/admin/`: the token its host signs in with. Make it long and keep it secret (`openssl rand -hex 24`) |
 | `CARDROOM_BOT_DELAY` | Fixed thinking time for computer players, in milliseconds (handy for testing) |
 | `CARDROOM_WEB` | Where the built web app is, if not `packages/web/dist` |
+| `CARDROOM_DESIGNER` | Where the built card designer is, if not `packages/designer/dist` |
+| `CARDROOM_ADMIN` | Where the built admin app is, if not `packages/admin/dist/browser` |
 | `PORT` | The port to listen on (8787; Railway sets its own) |
 
 The older `SPADES_*` names for these still work; `CARDROOM_*` wins if both are set. Keep the

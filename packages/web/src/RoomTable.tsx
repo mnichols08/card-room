@@ -71,6 +71,18 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
     );
   }
   if (!doc) return <main className="setup lobby"><p>Finding the table…</p></main>;
+  // The card room's host closed this table (the admin app): nothing more can happen here.
+  if (doc.closed) {
+    return (
+      <main className="setup lobby">
+        <h1>This table is closed</h1>
+        <p>{doc.closed}</p>
+        <button type="button" className="primary" onClick={onLeave}>
+          Back
+        </button>
+      </main>
+    );
+  }
 
   const chat: ChatProps = {
     messages,
