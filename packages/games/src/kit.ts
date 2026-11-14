@@ -5,7 +5,7 @@
 // scores. One table screen draws every game from that, and one room runs them all on the server.
 import { mulberry32, type Card, type PlayStyle, type Suit } from "@spades/rules";
 
-export type KitGameId = "hearts" | "ohhell" | "euchre" | "crazy8" | "gin" | "pinochle" | "canasta" | "gofish" | "oldmaid" | "war" | "whist" | "golf" | "rummy500" | "president" | "klondike" | "freecell" | "handfoot";
+export type KitGameId = "hearts" | "ohhell" | "euchre" | "crazy8" | "gin" | "pinochle" | "canasta" | "gofish" | "oldmaid" | "war" | "whist" | "golf" | "rummy500" | "president" | "klondike" | "freecell" | "handfoot" | "cribbage";
 
 /** A move that isn't allowed. The message is shown to the player as is. */
 export class GameError extends Error {}
@@ -191,6 +191,8 @@ export interface KitView {
   grids?: { owner: number; cols: number; cards: (KCard | null)[] }[];
   /** Cells of your own grid you can tap now: sends { type, index }. */
   gridTap?: { type: string; cells: number[]; prompt?: string } | null;
+  /** A score track (Cribbage's board): each side's front peg, and the back peg where it was before. */
+  track?: { to: number; pegs: { seats: number[]; value: number; back: number }[] };
   /** Small facts for the table: "Trump ♥", "Hearts broken", "Hand 3 of 13". */
   info: string[];
   /** What just happened, in words. */

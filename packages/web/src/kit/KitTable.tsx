@@ -38,11 +38,14 @@ export interface KitTableProps {
 
 /** Engines name seats as {0}, {1}…: put the players' names in. */
 export const named = (text: string, names: string[]) =>
-  text.replace(/\{(\d+)\}/g, (_, n: string, at: number) => {
+  text.replace(/\{(\d+)\}('s)?/g, (_, n: string, owns: string | undefined, at: number) => {
     const name = names[Number(n)] ?? `Seat ${Number(n) + 1}`;
-    // "You" mid-sentence reads as "you": "two cards to you", "Vern asked you for aces".
+    // "You" mid-sentence reads as "you" ("two cards to you"), and "You's" as "Your" ("your crib").
     const before = text.slice(0, at).trimEnd();
-    return name === "You" && before && !/[.!?:]$/.test(before) ? "you" : name;
+    const start = !before || /[.!?:]$/.test(before);
+    if (name !== "You") return owns ? `${name}'s` : name;
+    if (owns) return start ? "Your" : "your";
+    return start ? "You" : "you";
   });
 
 /** "Ann & Cy" for a side of the table. */
@@ -255,6 +258,9 @@ export function KitTable({
             send={send}
           />
           <div className="center-info">
+            {view.track && (
+              <ScoreTrack track={view.track} view={view} names={names} />
+            )}
             {view.info.length > 0 && (
               <ul className="kit-info">
                 {view.info.map((line, i) => (
@@ -839,6 +845,39 @@ function SolitaireArea({
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** A pegging track: a lane per side, holes every five, the back peg and the front peg. */
+function ScoreTrack({
+  track,
+  view,
+  names,
+}: {
+  track: NonNullable<KitView["track"]>;
+  view: KitView;
+  names: string[];
+}) {
+  const at = (n: number) => `${(Math.min(n, track.to) / track.to) * 100}%`;
+  return (
+    <div className="score-track" aria-label="The board">
+      {track.pegs.map((p, i) => (
+        <div
+          key={i}
+          className={`track-lane${p.seats.includes(view.me) ? " us" : ""}`}
+        >
+          <span className="track-name">{sideName(p.seats, names)}</span>
+          <div
+            className="track-bar"
+            style={{ "--holes": track.to / 5 } as React.CSSProperties}
+          >
+            <span className="peg back" style={{ left: at(p.back) }} />
+            <span className="peg front" style={{ left: at(p.value) }} />
+          </div>
+          <strong>{p.value}</strong>
+        </div>
+      ))}
     </div>
   );
 }
