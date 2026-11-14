@@ -69,6 +69,8 @@ describe("Combat in the card room", () => {
       // What a watcher is shown (and she could read it too) has no fleet in it: no board of anyone's own, no hulls.
       for (const c of changes) {
         if (c.collection !== "views" || c.key !== `${id}/watch` || c.field !== "view") continue;
+        // Once the game is over both fleets are on the table for everyone, as in her own view.
+        if (c.value.over) continue;
         expect(JSON.stringify(c.value)).not.toMatch(/"span"/);
         expect((c.value.grids ?? []).every((g: { owner?: number } | null) => g?.owner === undefined)).toBe(true);
         expect(c.value.reserves ?? []).toEqual([]);
