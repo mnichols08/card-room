@@ -37,34 +37,21 @@ How each framework gets the components:
 | `angular` | the custom element, compiled ahead by `zubra build --lib`; templates use its tag |
 
 The pages are written the way each framework's templates naturally are, with no workarounds, so
-the tests show what a newcomer would hit.
+the tests show what a newcomer would hit. They import the components loosely typed; the card
+room's apps are where the typings Zubra writes are checked.
 
 ## Known differences
 
-`KNOWN` in `tests/conformance.spec.ts` lists the checks that fail today, each with the Zubra issue
-it was reported in. Those are expected to fail, so the run is green. When Zubra fixes one, its
-check passes, the run goes red with "Expected to fail, but passed", and the entry comes out of the
-list (and any workaround for it out of the card room's apps).
+None today: all 18 checks pass in all six frameworks on Zubra 5.15.0.
 
-| Check | Fails in | Issue |
-| --- | --- | --- |
-| Text the page fills in shows in a slot | Angular | [zubra#261](https://github.com/journey-to-code-org/zubra/issues/261) |
-| | Solid | [zubra#268](https://github.com/journey-to-code-org/zubra/issues/268) |
-| Elements for different slots that arrive together each go to their slot | Angular, Solid | [zubra#262](https://github.com/journey-to-code-org/zubra/issues/262) |
-| An element the page puts in a slot stays the page's own | plain elements, React, Vue, Svelte, Solid | [zubra#267](https://github.com/journey-to-code-org/zubra/issues/267) |
-| Elements taken away again are gone from every slot | Vue, Svelte, Solid | [zubra#269](https://github.com/journey-to-code-org/zubra/issues/269) |
+`KNOWN` in `tests/conformance.spec.ts` is where a difference goes when one turns up: the check's
+title and the Zubra issue it was reported in. A listed check is expected to fail, so the run stays
+green. When Zubra fixes it, the check passes, the run goes red with "Expected to fail, but
+passed", and the entry comes out (with any workaround in the card room's apps).
 
-The suite also turned up one thing outside the browser: Zubra types a prop from its default value
-and has no way to say otherwise ([zubra#270](https://github.com/journey-to-code-org/zubra/issues/270)).
-The card room's React code had 21 type errors hidden by it; `packages/web/src/PlayingCard.ts`
-gives `<playing-card>` its real prop type until components can.
-
-Until they're fixed, in the card room's own apps:
-
-- Wrap text a framework fills in in an element, and not a `<span>` inside a component whose own
-  root is a `<span>` (`status-badge`).
-- Keep `slot="…"` elements in the template from the start: show and hide them (`hidden`) instead
-  of adding and removing them.
+The first run of this suite, on Zubra 5.9, found five (zubra#261, #262, #267, #268, #269) and a
+gap in the typings (#270). All were fixed in 5.15.0, and the workarounds they needed are gone from
+the admin app and the card room.
 
 ## Adding a check
 

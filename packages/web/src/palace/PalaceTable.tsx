@@ -2,7 +2,7 @@ import type { PalaceMove, PalaceView } from "@cardroom/palace";
 import { cardId, type Card, type TableSettings } from "@spades/rules";
 import { TableSettingsButton } from "../TableSettings";
 import PalaceSeat from "@spades/ui/palace-seat.zb";
-import PlayingCard from "../PlayingCard";
+import PlayingCard from "@spades/ui/playing-card.zb";
 import { useEffect, useRef, useState } from "react";
 import { Bubble, TableChat, useBubbles, type ChatProps } from "../Chat";
 import { loadFeedbackSettings, play, saveFeedbackSettings } from "../feedback/sounds";

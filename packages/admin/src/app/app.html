@@ -1,9 +1,3 @@
-<!--
-  Text that Angular fills in ({{ … }}) sits in a <span> wherever it's a Zubra component's direct
-  child. Angular creates such a text node empty and fills it a moment later; Zubra takes an empty
-  text node at start-up for a framework's marker, not content, and doesn't slot it. An element is
-  always content.
--->
 <toast-region position="bottom-end" label="Notifications"></toast-region>
 
 @if (!signedIn()) {
@@ -13,7 +7,7 @@
       <h1>Card Room admin</h1>
       <p class="quiet">For whoever runs this card room. Sign in with the admin token you set on the server.</p>
       @if (signInError()) {
-        <alert-banner variant="danger" heading="Couldn't sign in"><span>{{ signInError() }}</span></alert-banner>
+        <alert-banner variant="danger" heading="Couldn't sign in">{{ signInError() }}</alert-banner>
       }
       <text-field
         zubraModel
@@ -43,7 +37,7 @@
     </header>
 
     @if (loadError()) {
-      <alert-banner variant="danger" heading="Couldn't load the latest"><span>{{ loadError() }}</span></alert-banner>
+      <alert-banner variant="danger" heading="Couldn't load the latest">{{ loadError() }}</alert-banner>
     }
 
     @if (!loaded()) {
@@ -85,7 +79,7 @@
             <cluster-layout gap="0.5rem" justify="flex-end">
               <action-button variant="outline" size="sm" [disabled]="pickedTables().length !== 1" (click)="pickedTables()[0] && openTable(pickedTables()[0]!)">Look at table</action-button>
               <action-button variant="destructive" size="sm" [disabled]="!closable().length" (click)="askClose(closable())">
-                <span>{{ closable().length > 1 ? "Close " + closable().length + " tables" : "Close table" }}</span>
+                {{ closable().length > 1 ? "Close " + closable().length + " tables" : "Close table" }}
               </action-button>
             </cluster-layout>
           </div>
@@ -114,10 +108,10 @@
             <p class="quiet">Players are browsers, not accounts: a name is whatever they typed when they sat down.</p>
             <cluster-layout gap="0.5rem" justify="flex-end">
               <action-button variant="outline" size="sm" [disabled]="!toUnblock().length" (click)="unblock(toUnblock())">
-                <span>{{ toUnblock().length > 1 ? "Unblock " + toUnblock().length : "Unblock" }}</span>
+                {{ toUnblock().length > 1 ? "Unblock " + toUnblock().length : "Unblock" }}
               </action-button>
               <action-button variant="destructive" size="sm" [disabled]="!toBlock().length" (click)="askBlock(toBlock())">
-                <span>{{ toBlock().length > 1 ? "Block " + toBlock().length + " players" : "Block player" }}</span>
+                {{ toBlock().length > 1 ? "Block " + toBlock().length + " players" : "Block player" }}
               </action-button>
             </cluster-layout>
           </div>
@@ -150,7 +144,7 @@
                         <span class="who">
                           {{ member.name }}
                           @if (member.role !== "member") {
-                            <status-badge [variant]="member.role === 'owner' ? 'primary' : 'outline'"><span>{{ member.role === "owner" ? "Owner" : "Admin" }}</span></status-badge>
+                            <status-badge [variant]="member.role === 'owner' ? 'primary' : 'outline'">{{ member.role === "owner" ? "Owner" : "Admin" }}</status-badge>
                           }
                           @if (member.blocked) {
                             <status-badge variant="danger">Blocked</status-badge>
@@ -267,16 +261,16 @@
     @if (detail(); as d) {
       <stack-layout gap="1rem">
         <cluster-layout gap="0.4rem">
-          <status-badge [variant]="statusVariant(d.table.status)" [dot]="true"><span>{{ statusLabel(d.table.status) }}</span></status-badge>
+          <status-badge [variant]="statusVariant(d.table.status)" [dot]="true">{{ statusLabel(d.table.status) }}</status-badge>
           @if (d.table.rules) {
-            <status-badge variant="outline"><span>{{ d.table.rules }}</span></status-badge>
+            <status-badge variant="outline">{{ d.table.rules }}</status-badge>
           }
           @if (d.table.house) {
-            <status-badge variant="outline"><span>{{ d.table.house.name }}</span></status-badge>
+            <status-badge variant="outline">{{ d.table.house.name }}</status-badge>
           }
         </cluster-layout>
         @if (d.table.closed) {
-          <alert-banner variant="warning" heading="Closed"><span>{{ d.table.closed }}</span></alert-banner>
+          <alert-banner variant="warning" heading="Closed">{{ d.table.closed }}</alert-banner>
         }
 
         <div>
@@ -326,8 +320,6 @@
         </div>
       </stack-layout>
     }
-    <!-- The dialogs' buttons are always here, not inside an @if: a slot="actions" element that
-         arrives after the dialog has started can land in its body instead of its footer. -->
     <action-button slot="actions" variant="destructive" [hidden]="!detail() || detail()!.table.status === 'closed'" (click)="detail() && askClose([detail()!.table])">Close this table</action-button>
     <action-button slot="actions" variant="outline" data-close>Done</action-button>
   </modal-dialog>
@@ -341,8 +333,8 @@
           <text-field zubraModel [(ngModel)]="reason" [label]="c.reasonLabel" [description]="c.reasonHelp ?? ''" [maxlength]="c.initial === undefined ? 200 : 30"></text-field>
         }
       </stack-layout>
+      <action-button slot="actions" variant="outline" data-close>Cancel</action-button>
+      <action-button slot="actions" variant="destructive" [loading]="busy()" (click)="answer()">{{ c.action }}</action-button>
     }
-    <action-button slot="actions" variant="outline" data-close>Cancel</action-button>
-    <action-button slot="actions" variant="destructive" [loading]="busy()" (click)="answer()"><span>{{ confirm()?.action ?? "Yes" }}</span></action-button>
   </modal-dialog>
 }

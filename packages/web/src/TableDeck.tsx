@@ -2,7 +2,7 @@
 // it before the deal, from the card room's own decks, their own designs and the gallery; the
 // server keeps the table's copy, so it can't change under a game.
 import { STARTERS, deckVars, type CardDesign, type TableDeck } from "@cardroom/decks";
-import PlayingCard from "./PlayingCard";
+import PlayingCard from "@spades/ui/playing-card.zb";
 import SelectField from "@spades/ui/zubra-ui/select-field.zb";
 import type { Card } from "@spades/rules";
 import { useEffect, useState } from "react";

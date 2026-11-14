@@ -16,7 +16,9 @@ export default defineConfig({
   // The start page's game picker is a Vue island inside the React app: in a .vue file, a .zb import
   // is a Vue component (Zubra's Vue adapter), so the same components serve both frameworks.
   plugins: [
-    zubra(),
+    // Each app keeps the typings Zubra writes for it in its own folder: the components are shared with
+    // apps in other frameworks.
+    zubra({ dts: { dir: ".zubra/types" } }),
     react(),
     vue(),
     {

@@ -1,7 +1,7 @@
 <!--
   Choosing a bid. With `blind`, the player hasn't looked at their cards: it offers blind nil or a
   look. Otherwise 1–13, and nil when `nil` allows it.
-  @fires bid - A bid was chosen; `detail` is a number of tricks, "nil" or "blind-nil".
+  @fires bid {number | "nil" | "blind-nil"} - A bid was chosen: a number of tricks, "nil" or "blind-nil".
   @fires look - The player chose to look at their cards.
 -->
 <script>

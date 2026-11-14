@@ -3,18 +3,35 @@
   "compilerOptions": {
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
     "noEmit": true,
     "declaration": false,
     "sourceMap": false,
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
     "allowArbitraryExtensions": true,
-    "types": ["svelte", "vite/client", "@zubra/unplugin/client", "node"],
+    "types": [
+      "svelte",
+      "vite/client",
+      "@zubra/unplugin/client",
+      "node"
+    ],
     "paths": {
-      "@cardroom/decks": ["../decks/src/index.ts"],
-      "@spades/ui/*": ["../ui/src/*"]
+      "@cardroom/decks": [
+        "../decks/src/index.ts"
+      ],
+      "@spades/ui/*": [
+        "./.zubra/types/__/ui/src/*",
+        "../ui/src/*"
+      ]
     }
   },
-  "include": ["src", "vite.config.ts"]
+  "include": [
+    "src",
+    "vite.config.ts"
+  ]
 }

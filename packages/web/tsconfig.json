@@ -21,6 +21,7 @@
         "../physics/src/index.ts"
       ],
       "@spades/ui/*": [
+        "./.zubra/types/__/ui/src/*",
         "../ui/src/*"
       ],
       "@spades/rooms/*": [
@@ -38,7 +39,6 @@
   },
   "include": [
     "src",
-    "vite.config.ts",
-    "../ui/src"
+    "vite.config.ts"
   ]
 }

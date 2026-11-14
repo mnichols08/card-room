@@ -3,8 +3,7 @@
 //
 // It is written the way an Angular template naturally is, with no workarounds: text straight
 // from {{ }} in a slot, and slotted elements inside @if. Where that doesn't work, the tests say so
-// (see KNOWN in tests/conformance.spec.ts). The one exception is the list, whose items wrap their
-// text in a <b> so that check stays about the list keeping in step.
+// (see KNOWN in tests/conformance.spec.ts).
 import { CUSTOM_ELEMENTS_SCHEMA, ChangeDetectionStrategy, Component, signal } from "@angular/core";
 import { FormsModule } from "@angular/forms";
 import { ZubraModel } from "@zubra/runtime/angular";
@@ -81,7 +80,7 @@ import "./zubra";
         <h2>Lists</h2>
         <stack-layout data-t="list" gap="0.25rem">
           @for (item of items(); track item + "-" + $index) {
-            <status-badge [attr.data-item]="item"><b>{{ item }}</b></status-badge>
+            <status-badge [attr.data-item]="item">{{ item }}</status-badge>
           }
         </stack-layout>
         <button data-t="add" type="button" (click)="items.set(items().concat('item ' + (items().length + 1)))">Add</button>
