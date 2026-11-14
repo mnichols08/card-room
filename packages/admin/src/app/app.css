@@ -45,3 +45,21 @@ h3 { font-size: 0.95rem; margin-bottom: 0.5rem; }
 .chat .gone .line { color: var(--muted-foreground); font-style: italic; }
 .chat:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 .ask { overflow-wrap: anywhere; }
+
+/* ---------- Houses ---------- */
+.members { list-style: none; margin: 0.75rem 0 0; padding: 0; display: grid; gap: 0.35rem; }
+.members li { display: flex; align-items: center; gap: 0.5rem; min-height: 2.25rem; }
+
+/* ---------- Games ---------- */
+.setting { padding: 1rem 1.1rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); }
+.games { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); }
+.games li { display: grid; grid-template-columns: 2ch 1.75rem minmax(0, 1fr) auto; align-items: center; gap: 0.25rem 0.75rem; padding: 0.35rem 0.9rem; border-bottom: 1px solid var(--border); }
+.games li:last-child { border-bottom: 0; }
+.games .place { color: var(--muted-foreground); font-variant-numeric: tabular-nums; text-align: right; }
+.games .emoji { font-size: 1.25rem; text-align: center; }
+.games .off .emoji { opacity: 0.5; }
+.games .moves { display: flex; gap: 0.25rem; }
+@media (max-width: 34rem) {
+  .games li { grid-template-columns: 2ch 1.75rem minmax(0, 1fr); }
+  .games .moves { grid-column: 3; padding-bottom: 0.35rem; }
+}

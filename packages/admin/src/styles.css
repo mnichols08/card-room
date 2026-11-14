@@ -42,3 +42,7 @@ tab-list > section[data-tab], tab-list section[data-tab] { padding: 1.25rem 0 0;
 segmented-control { max-width: 100%; }
 /* A component's own `display` would otherwise win over the hidden attribute. */
 [hidden] { display: none !important; }
+/* In the games list each switch is a row of the list, not a card of its own; its name comes first. */
+.games toggle-switch button { border: 0; background: none; padding: 0.4rem 0; flex-direction: row-reverse; }
+.games toggle-switch .label { font-weight: 600; }
+.games .off toggle-switch .text { opacity: 0.6; }

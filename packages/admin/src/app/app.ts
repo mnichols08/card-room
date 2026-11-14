@@ -8,17 +8,19 @@ import { CUSTOM_ELEMENTS_SCHEMA, ChangeDetectionStrategy, Component, computed, e
 import { FormsModule } from "@angular/forms";
 import { deckStyle, type CardDesign } from "@cardroom/decks";
 import { ZubraModel } from "@zubra/runtime/angular";
-import { Api, ApiError, type ChatLine, type LogEntry, type Overview, type Player, type SharedDesign, type Table, type TableStatus } from "./api";
+import { Api, ApiError, type Catalogue, type CatalogueGame, type ChatLine, type House, type HouseMember, type LogEntry, type Overview, type Player, type SharedDesign, type Table, type TableStatus } from "./api";
 import "./zubra";
 
-type Section = "overview" | "tables" | "players" | "designs" | "activity";
+type Section = "overview" | "tables" | "players" | "houses" | "games" | "designs" | "activity";
 
 /** A question before something that can't be taken back, with room for a reason. */
 interface Confirm {
   title: string;
   body: string;
-  /** The reason field's label; without one, no reason is asked for. */
+  /** The text field's label (a reason, or a new name); without one, nothing is asked for. */
   reasonLabel?: string;
+  /** What the field starts with. */
+  initial?: string;
   /** What the reason field explains: who'll read it. */
   reasonHelp?: string;
   action: string;
@@ -51,6 +53,8 @@ export class App implements OnDestroy {
     { value: "overview", label: "Overview" },
     { value: "tables", label: "Tables" },
     { value: "players", label: "Players" },
+    { value: "houses", label: "Houses" },
+    { value: "games", label: "Games" },
     { value: "designs", label: "Card designs" },
     { value: "activity", label: "Activity" },
   ];
@@ -60,6 +64,10 @@ export class App implements OnDestroy {
   protected readonly players = signal<Player[]>([]);
   protected readonly designs = signal<SharedDesign[]>([]);
   protected readonly log = signal<LogEntry[]>([]);
+  protected readonly houses = signal<House[]>([]);
+  protected readonly catalogue = signal<Catalogue | null>(null);
+  /** While a change to the games is on its way to the server. */
+  protected readonly savingGames = signal(false);
   protected readonly loaded = signal(false);
   protected readonly loadError = signal("");
 
@@ -217,6 +225,8 @@ export class App implements OnDestroy {
     this.tables.set([]);
     this.players.set([]);
     this.designs.set([]);
+    this.houses.set([]);
+    this.catalogue.set(null);
     this.log.set([]);
     this.overview.set(null);
   }
@@ -225,7 +235,9 @@ export class App implements OnDestroy {
 
   protected async refresh(quiet = false): Promise<void> {
     try {
-      const [overview, tables, players, designs, log] = await Promise.all([this.api.overview(), this.api.tables(), this.api.players(), this.api.designs(), this.api.log()]);
+      const [overview, tables, players, designs, log, houses, catalogue] = await Promise.all([this.api.overview(), this.api.tables(), this.api.players(), this.api.designs(), this.api.log(), this.api.houses(), this.api.games()]);
+      this.houses.set(houses);
+      if (!this.savingGames()) this.catalogue.set(catalogue);
       this.overview.set(overview);
       this.tables.set(tables);
       this.players.set(players);
@@ -348,6 +360,102 @@ export class App implements OnDestroy {
     await this.refresh(true);
   }
 
+  // ---------- Houses ----------
+
+  protected askRename(house: House): void {
+    this.ask({
+      title: `Rename ${house.name}?`,
+      body: "Everyone in the house sees the new name. Its invite link stays the same.",
+      reasonLabel: "House name",
+      initial: house.name,
+      action: "Rename house",
+      run: async (name) => {
+        await this.api.renameHouse(house.slug, name);
+        return `Renamed the house to ${name}.`;
+      },
+    });
+  }
+
+  protected askOwner(house: House, member: HouseMember): void {
+    const owner = house.members.find((m) => m.role === "owner");
+    this.ask({
+      title: `Make ${member.name} the owner of ${house.name}?`,
+      body: `The owner sets the house's rules and roles. ${owner ? `${owner.name} stays in the house as an admin.` : ""}`,
+      action: "Make owner",
+      run: async () => {
+        await this.api.makeOwner(house.slug, member.id);
+        return `${member.name} now owns ${house.name}.`;
+      },
+    });
+  }
+
+  protected askRemoveMember(house: House, member: HouseMember): void {
+    this.ask({
+      title: `Remove ${member.name} from ${house.name}?`,
+      body: "They lose the house's tables, rules and tournaments. They could join again with its invite link unless you block them.",
+      action: "Remove from house",
+      run: async () => {
+        await this.api.removeMember(house.slug, member.id);
+        return `Removed ${member.name} from ${house.name}.`;
+      },
+    });
+  }
+
+  protected askDeleteHouse(house: House): void {
+    this.ask({
+      title: `Delete ${house.name}?`,
+      body: `The house, its saved rules, its leaderboard and its tournaments are gone for all ${house.members.length} of its members. Tables already open carry on. This can't be undone.`,
+      action: "Delete house",
+      run: async () => {
+        await this.api.deleteHouse(house.slug);
+        return `Deleted ${house.name}.`;
+      },
+    });
+  }
+
+  // ---------- Games ----------
+
+  protected seats(game: CatalogueGame): string {
+    const [min, max] = game.seats;
+    return `${min === max ? min : `${min} to ${max}`} ${max === 1 ? "player" : "players"}${game.teams ? ", partners" : ""}`;
+  }
+
+  /** Show the change at once, send it, and take the server's word for how it ended up. */
+  private async saveGames(next: Catalogue, change: { order?: string[]; off?: string[]; watching?: boolean }): Promise<void> {
+    const before = this.catalogue();
+    this.catalogue.set(next);
+    this.savingGames.set(true);
+    try {
+      this.catalogue.set(await this.api.setGames(change));
+    } catch (error) {
+      this.catalogue.set(before);
+      this.toast(this.message(error), "danger");
+    } finally {
+      this.savingGames.set(false);
+    }
+  }
+
+  protected setGameOn(game: CatalogueGame, on: boolean): void {
+    const now = this.catalogue();
+    if (!now) return;
+    const games = now.games.map((g) => (g.id === game.id ? { ...g, on } : g));
+    void this.saveGames({ ...now, games }, { off: games.filter((g) => !g.on).map((g) => g.id) });
+  }
+
+  /** Move a game to a place in the list (0 is first). */
+  protected moveGame(game: CatalogueGame, to: number): void {
+    const now = this.catalogue();
+    if (!now) return;
+    const games = now.games.filter((g) => g.id !== game.id);
+    games.splice(Math.max(0, Math.min(to, games.length)), 0, game);
+    void this.saveGames({ ...now, games }, { order: games.map((g) => g.id) });
+  }
+
+  protected setWatching(watching: boolean): void {
+    const now = this.catalogue();
+    if (now) void this.saveGames({ ...now, watching }, { watching });
+  }
+
   // ---------- Card designs ----------
 
   protected deck(design: CardDesign): string {
@@ -381,7 +489,7 @@ export class App implements OnDestroy {
   // ---------- The question dialog ----------
 
   private ask(question: Confirm): void {
-    this.reason = "";
+    this.reason = question.initial ?? "";
     this.confirm.set(question);
     this.confirmOpen.set(true);
   }

@@ -20,4 +20,5 @@ import "../../zubra/zubra-ui/status-badge.js";
 import "../../zubra/zubra-ui/tab-list.js";
 import "../../zubra/zubra-ui/text-field.js";
 import "../../zubra/zubra-ui/toast-region.js";
+import "../../zubra/zubra-ui/toggle-switch.js";
 import "../../zubra/zubra-ui/user-avatar.js";

@@ -136,6 +136,76 @@
           }
         </section>
 
+        <!-- Houses -->
+        <section data-tab="houses">
+          @if (houses().length) {
+            <auto-grid min="19rem" gap="1rem">
+              @for (house of houses(); track house.slug) {
+                <content-card [heading]="house.name">
+                  <span class="by">{{ house.members.length }} {{ house.members.length === 1 ? "member" : "members" }} · {{ house.tables }} {{ house.tables === 1 ? "table" : "tables" }} opened</span>
+                  <ul class="members">
+                    @for (member of house.members; track member.id) {
+                      <li>
+                        <user-avatar [name]="member.name" size="sm"></user-avatar>
+                        <span class="who">
+                          {{ member.name }}
+                          @if (member.role !== "member") {
+                            <status-badge [variant]="member.role === 'owner' ? 'primary' : 'outline'"><span>{{ member.role === "owner" ? "Owner" : "Admin" }}</span></status-badge>
+                          }
+                          @if (member.blocked) {
+                            <status-badge variant="danger">Blocked</status-badge>
+                          }
+                        </span>
+                        @if (member.role !== "owner") {
+                          <action-button variant="ghost" size="sm" [label]="'Make ' + member.name + ' the owner'" (click)="askOwner(house, member)">Make owner</action-button>
+                          <action-button variant="ghost" size="sm" [label]="'Remove ' + member.name + ' from the house'" (click)="askRemoveMember(house, member)">Remove</action-button>
+                        }
+                      </li>
+                    }
+                  </ul>
+                  <cluster-layout slot="footer" gap="0.5rem">
+                    <action-button variant="outline" size="sm" (click)="askRename(house)">Rename</action-button>
+                    <action-button variant="destructive" size="sm" (click)="askDeleteHouse(house)">Delete house</action-button>
+                  </cluster-layout>
+                </content-card>
+              }
+            </auto-grid>
+          } @else {
+            <empty-state heading="No houses yet">A house is a family's own corner of the card room: its members, its house rules and its tournaments. When someone starts one, it shows up here.</empty-state>
+          }
+        </section>
+
+        <!-- Games -->
+        <section data-tab="games">
+          @if (catalogue(); as c) {
+            <div class="setting">
+              <toggle-switch
+                label="Let people watch tables with players"
+                description="Watchers see who's playing and the score, never anyone's cards. Tables of computer players can always be watched."
+                [checked]="c.watching"
+                (checkedchange)="setWatching(detailOf($event))"
+              ></toggle-switch>
+            </div>
+            <h2>Games on the front page</h2>
+            <p class="quiet">Switch a game off to stop new tables of it; tables already going carry on. The order here is the order everyone sees.</p>
+            <ol class="games">
+              @for (game of c.games; track game.id; let i = $index; let last = $last) {
+                <li [class.off]="!game.on">
+                  <span class="place">{{ i + 1 }}</span>
+                  <span class="emoji" aria-hidden="true">{{ game.emoji }}</span>
+                  <!-- The switch is the row's name too: its label and description. -->
+                  <toggle-switch [label]="game.name" [description]="seats(game)" [checked]="game.on" (checkedchange)="setGameOn(game, detailOf($event))"></toggle-switch>
+                  <span class="moves">
+                    <action-button variant="ghost" size="sm" [disabled]="i === 0" [label]="'Move ' + game.name + ' to the top'" (click)="moveGame(game, 0)">Top</action-button>
+                    <action-button variant="outline" size="sm" [disabled]="i === 0" [label]="'Move ' + game.name + ' up'" (click)="moveGame(game, i - 1)">↑</action-button>
+                    <action-button variant="outline" size="sm" [disabled]="last" [label]="'Move ' + game.name + ' down'" (click)="moveGame(game, i + 1)">↓</action-button>
+                  </span>
+                </li>
+              }
+            </ol>
+          }
+        </section>
+
         <!-- Card designs -->
         <section data-tab="designs">
           @if (designs().length) {
@@ -268,7 +338,7 @@
       <stack-layout gap="1rem">
         <p class="ask">{{ c.body }}</p>
         @if (c.reasonLabel) {
-          <text-field zubraModel [(ngModel)]="reason" [label]="c.reasonLabel" [description]="c.reasonHelp ?? ''" [maxlength]="200"></text-field>
+          <text-field zubraModel [(ngModel)]="reason" [label]="c.reasonLabel" [description]="c.reasonHelp ?? ''" [maxlength]="c.initial === undefined ? 200 : 30"></text-field>
         }
       </stack-layout>
     }

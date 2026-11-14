@@ -69,6 +69,39 @@ export interface SharedDesign {
   blocked: boolean;
 }
 
+export interface HouseMember {
+  id: string;
+  name: string;
+  role: "owner" | "admin" | "member";
+  joined: number;
+  player: string;
+  blocked: boolean;
+}
+
+export interface House {
+  slug: string;
+  name: string;
+  tables: number;
+  tournaments: number;
+  members: HouseMember[];
+}
+
+export interface CatalogueGame {
+  id: string;
+  name: string;
+  emoji: string;
+  /** Fewest and most players. */
+  seats: [number, number];
+  teams: boolean;
+  on: boolean;
+}
+
+export interface Catalogue {
+  games: CatalogueGame[];
+  /** Whether tables with players at them can be watched. */
+  watching: boolean;
+}
+
 export interface Overview {
   tables: { total: number; open: number; playing: number; finished: number; closed: number };
   players: number;
@@ -124,6 +157,14 @@ export class Api {
   players = () => this.send<{ players: Player[] }>("/players").then((r) => r.players);
   designs = () => this.send<{ designs: SharedDesign[] }>("/designs").then((r) => r.designs);
   log = () => this.send<{ log: LogEntry[] }>("/log").then((r) => r.log);
+
+  houses = () => this.send<{ houses: House[] }>("/houses").then((r) => r.houses);
+  renameHouse = (slug: string, name: string) => this.send(`/houses/${slug}/rename`, { name });
+  removeMember = (slug: string, member: string) => this.send(`/houses/${slug}/remove-member`, { member });
+  makeOwner = (slug: string, member: string) => this.send(`/houses/${slug}/owner`, { member });
+  deleteHouse = (slug: string) => this.send(`/houses/${slug}/delete`, {});
+  games = () => this.send<Catalogue>("/games");
+  setGames = (change: { order?: string[]; off?: string[]; watching?: boolean }) => this.send<Catalogue>("/games", change);
 
   closeTable = (id: string, reason: string) => this.send(`/tables/${id}/close`, { reason });
   unseat = (id: string, seat: number) => this.send(`/tables/${id}/unseat`, { seat });
