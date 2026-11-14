@@ -44,5 +44,6 @@ export * from "./pyramid.js";
 export * from "./drinks.js";
 export * from "./ridethebus.js";
 export * from "./kingscup.js";
+export * from "./horserace.js";
 export * from "./registry.js";
 export * from "./talk.js";
