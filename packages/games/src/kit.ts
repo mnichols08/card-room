@@ -5,7 +5,7 @@
 // scores. One table screen draws every game from that, and one room runs them all on the server.
 import { mulberry32, type Card, type PlayStyle, type Suit } from "@spades/rules";
 
-export type KitGameId = "hearts" | "ohhell" | "euchre" | "crazy8" | "gin" | "pinochle" | "canasta" | "gofish" | "oldmaid" | "war" | "whist" | "golf" | "rummy500" | "president" | "klondike" | "freecell" | "handfoot" | "cribbage" | "fivedraw" | "holdem" | "bluff";
+export type KitGameId = "hearts" | "ohhell" | "euchre" | "crazy8" | "gin" | "pinochle" | "canasta" | "gofish" | "oldmaid" | "war" | "whist" | "golf" | "rummy500" | "president" | "klondike" | "freecell" | "handfoot" | "cribbage" | "fivedraw" | "holdem" | "bluff" | "liarspoker";
 
 /** A move that isn't allowed. The message is shown to the player as is. */
 export class GameError extends Error {}
@@ -185,7 +185,7 @@ export interface KitView {
   /** Pick several cards, then press one of the buttons: sends { type, cards: ids }. */
   pick: { min: number; max: number; prompt: string; cards: string[]; actions: { label: string; type: string; primary?: boolean; extra?: Record<string, unknown> }[] } | null;
   /** Buttons: a bid, a trump call, "Next hand". */
-  choices: { prompt: string; options: Choice[]; layout?: "grid" | "row" } | null;
+  choices: { prompt: string; options: Choice[]; layout?: "grid" | "row" | "list" } | null;
   players: SeatInfo[];
   center: Center;
   melds: Meld[];

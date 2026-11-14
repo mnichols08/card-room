@@ -894,3 +894,8 @@ button.sol-slot.again { cursor: pointer; color: var(--gold); border-color: rgba(
 .kit-felt .opp-area.top .kit-melds { max-width: none; flex-wrap: nowrap; }
 /* Cribbage's show on a laptop: your counted hand at the size of everyone else's. */
 @media (min-width: 1024px) { .kit-cribbage .mine-on-table .kit-melds.table { --trick-w: calc(var(--card-w) * 0.62); --trick-h: calc(var(--trick-w) * var(--card-ratio)); } }
+/* Long choices (Liar's Poker's bids): a list of wide buttons, a line of words each. */
+.kit-choices.list { display: grid; grid-template-columns: repeat(auto-fill, minmax(11em, 1fr)); gap: 8px; max-width: 520px; width: 100%; }
+.kit-choices.list p { grid-column: 1 / -1; }
+.kit-choices.list button { border-radius: 12px; padding: 10px 12px; line-height: 1.2; }
+@media (min-width: 1024px) { .kit-felt .center-info:has(.kit-choices.list) { max-width: 460px; } }
