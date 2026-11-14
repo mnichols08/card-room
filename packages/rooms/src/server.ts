@@ -80,6 +80,12 @@ export interface Deadline<Move> {
   /** The seat the clock is on: the timeout move is made as this seat, and pages count down on it. */
   seat: number;
   /**
+   * Ms the server waits past that time before it makes the move (none unless given). For a clock
+   * short enough that the trip to the page and back matters: pages still count down to the time
+   * itself, and a move sent as it reaches zero has this long to arrive.
+   */
+  grace?: number;
+  /**
    * The move to make when time runs out, worked out only then (it may be a bot's whole think). Null
    * for nothing to do. It goes through `act` and into the move log like any other move.
    */
@@ -165,7 +171,10 @@ interface GameDoc<Options> {
 }
 
 interface Armed {
+  /** When time runs out, as pages are told. */
   at: number;
+  /** When the server makes the move: `at`, plus the deadline's own grace. */
+  fire: number;
   seat: number;
   timer: ReturnType<typeof setTimeout> | null;
 }
@@ -379,14 +388,14 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     let at = Math.round(asked);
     // The grace never puts off a deadline that was already armed, or asking twice would be a way to stall.
     if (sudden) at = Math.max(at, Math.min(Date.now() + grace, before ?? Infinity));
-    const armed: Armed = { at, seat: due.seat, timer: null };
+    const armed: Armed = { at, fire: at + Math.max(0, due.grace ?? 0), seat: due.seat, timer: null };
     const wait = () => {
       armed.timer = setTimeout(() => {
         armed.timer = null;
         if (entry.deadline !== armed) return; // a move got in first
-        if (Date.now() < armed.at) return wait(); // longer than one timer can sleep, or the timer woke early
+        if (Date.now() < armed.fire) return wait(); // longer than one timer can sleep, or the timer woke early
         timeUp(id, entry, armed);
-      }, Math.min(Math.max(armed.at - Date.now(), 0), LONGEST_TIMEOUT));
+      }, Math.min(Math.max(armed.fire - Date.now(), 0), LONGEST_TIMEOUT));
     };
     entry.deadline = armed;
     wait();

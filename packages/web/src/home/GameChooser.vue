@@ -203,6 +203,7 @@ h2 { margin: 0; font-size: clamp(1.3rem, 2vw, 1.7rem); color: var(--gold); }
 }
 .mini-cell.tone-red { color: #b3261e; }
 .mini-cell.tone-blue { color: #1f5fbf; }
+.mini-cell.tone-gold { color: #d9a400; }
 .mini-cell.tone-dark { color: #1d1a16; }
 .tile:hover .mini-board, .tile:focus-visible .mini-board { rotate: 0deg; scale: 1.06; }
 @media (max-width: 560px) {
