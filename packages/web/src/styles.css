@@ -1110,6 +1110,8 @@ button.cross-pile.can::after {
 .board-blocks .tone-gold { color: #9a6f00; } .board-blocks .tone-dark { color: #1d1a16; } .board-blocks .tone-light { color: #fffdf8; }
 @media (prefers-reduced-motion: no-preference) {
   .board-grid .piece { animation: piece-in 220ms var(--ease-back); }
+  /* A piece that slides from cell to cell is the same piece arriving, not a new one dropping in. */
+  .board-grid .piece.slides { animation: none; }
   .board-grid .cell.mark-win .piece { animation: piece-win 900ms ease-in-out 2; }
   .board-blocks .block.closed { animation: piece-in 260ms var(--ease-back); }
 }
@@ -1130,6 +1132,35 @@ html[data-motion="off"] .board-grid .piece, html[data-motion="off"] .board-block
 .board .bubble.bottom { bottom: 110px; }
 /* The end of a board game leaves the board in view: the sheet sits at the bottom, not over it. */
 .sheet.board-over { top: auto; bottom: max(12px, env(safe-area-inset-bottom)); }
+
+/* Picking a piece up and moving it (checkers, chess): it can be dragged, so a press on it mustn't
+   scroll the page, and while it is in the air it rides above the other cells. */
+.board-grid .piece { pointer-events: none; transition: opacity 200ms ease; }
+.board-grid .cell.source { cursor: grab; touch-action: none; }
+.board-grid .cell.dragging { z-index: 6; cursor: grabbing; }
+.board-grid .cell.dragging .piece { scale: 1.12; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.45)); }
+/* A piece that has to move (a capture that must be taken): a ring round it. */
+.board-grid .cell.mark-must::before { content: ""; position: absolute; inset: 4%; border-radius: 50%; border: max(2px, 0.7cqw) solid #ffe27a; box-shadow: 0 0 max(4px, 1.2cqw) rgba(255, 226, 122, 0.9); pointer-events: none; }
+@media (prefers-reduced-motion: no-preference) { .board-grid .cell.mark-must::before { animation: must-pulse 1.4s ease-in-out infinite; } }
+html[data-motion="off"] .board-grid .cell.mark-must::before { animation: none; }
+@keyframes must-pulse { 50% { opacity: 0.45; } }
+/* On a dark square the places a piece can go need a lighter dot than on cream. */
+.board-grid .cell.shade-dark.target::after { background: rgba(255, 244, 214, 0.8); }
+.board-grid .cell.shade-dark.target:has(.piece)::after { background: none; border-color: rgba(255, 244, 214, 0.85); }
+
+/* Checkers: men are discs in the two colours, and a king wears a crown and a gold rim. */
+/* Its table has more under the board (what must be taken, what happened, what each side has captured), so the board leaves more room. */
+.board-checkers .board-wrap { width: min(100%, var(--board-max), max(220px, calc((100dvh - 410px) * var(--cols) / var(--rows)))); }
+.board-checkers .piece { border-radius: 50%; }
+.board-checkers .piece.tone-dark { background: radial-gradient(circle at 50% 38%, #4a4038, #1f1a16 68%); color: #e8c46a; text-shadow: none; }
+.board-checkers .piece.tone-light { background: radial-gradient(circle at 50% 38%, #fffaf0, #e2d2b0 70%); color: #8a5d00; text-shadow: none; }
+.board-checkers .piece.kind-man { color: transparent; }
+.board-checkers .board-grid .piece {
+  width: 80%; aspect-ratio: 1; font-size: 0.78em;
+  box-shadow: 0 max(2px, 0.5cqw) 0 rgba(0, 0, 0, 0.5), inset 0 0 0 max(1px, 0.35cqw) rgba(0, 0, 0, 0.35), inset 0 0 0 max(3px, 1.1cqw) rgba(255, 255, 255, 0.12);
+}
+.board-checkers .board-grid .piece.kind-king { box-shadow: 0 max(2px, 0.5cqw) 0 rgba(0, 0, 0, 0.5), 0 max(4px, 1cqw) 0 rgba(0, 0, 0, 0.3), inset 0 0 0 max(2px, 0.6cqw) #e8c46a; }
+.board-checkers .piece.small { border-radius: 50%; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4); font-size: 0.7em; }
 
 /* ---------- Turn clock: the time left on a seat, at an online table with a turn timer ---------- */
 .turn-clock {

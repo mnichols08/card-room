@@ -19,7 +19,7 @@ export interface ChooserGame {
   /** Three cards to fan out on the tile. */
   fan: Record<string, unknown>[];
   /** A board game shows a little board instead of cards. */
-  board?: { cols: number; cells: ({ glyph: string; tone: string } | null)[] };
+  board?: { cols: number; cells: ({ glyph: string; tone: string; shade?: string } | null)[] };
 }
 
 const props = defineProps<{
@@ -103,7 +103,7 @@ const hello = computed(() => (props.name ? `Welcome back, ${props.name}.` : "Spa
         <li v-for="g in shown" :key="g.id">
           <button type="button" class="tile" :class="{ last: g.id === last }" :aria-label="`${g.name}: ${g.blurb}, ${seatsLabel(g)}`" @click="emit('pick', g.id)">
             <span v-if="g.board" class="mini-board" aria-hidden="true" :style="{ '--cols': g.board.cols }">
-              <span v-for="(c, i) in g.board.cells" :key="i" class="mini-cell" :class="c ? `tone-${c.tone}` : ''">{{ c?.glyph }}</span>
+              <span v-for="(c, i) in g.board.cells" :key="i" class="mini-cell" :class="c ? [`tone-${c.tone}`, c.shade ? `shade-${c.shade}` : ''] : ''">{{ c?.glyph }}</span>
             </span>
             <span v-else class="fan" aria-hidden="true">
               <PlayingCard v-for="(c, i) in g.fan" :key="i" class="fan-card" :style="{ '--i': i }" :card="c" size="table" />
@@ -208,6 +208,9 @@ h2 { margin: 0; font-size: clamp(1.3rem, 2vw, 1.7rem); color: var(--gold); }
 .mini-cell.tone-red { color: #b3261e; }
 .mini-cell.tone-blue { color: #1f5fbf; }
 .mini-cell.tone-dark { color: #1d1a16; }
+.mini-cell.tone-light { color: #fffdf8; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5); }
+/* The dark squares of a checkered board. */
+.mini-cell.shade-dark { background: #a9794d; }
 .tile:hover .mini-board, .tile:focus-visible .mini-board { rotate: 0deg; scale: 1.06; }
 @media (max-width: 560px) {
   .tile { padding-right: clamp(14px, 1.8vw, 22px); padding-top: calc(var(--tile-card) * 1.2); }

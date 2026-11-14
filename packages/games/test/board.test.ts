@@ -37,6 +37,8 @@ export function checkBoardView(v: BoardView, seat: number) {
       expect(s.to.length).toBeGreaterThan(0);
       for (const to of s.to) expect(on(to)).toBe(true);
     }
+    // What is already in hand is something that can be put down.
+    if (g.select?.held !== undefined) expect(g.select.sources.some((s) => s.from === g.select!.held)).toBe(true);
     for (const piece of g.cells) if (piece) expect(piece.glyph && piece.label && piece.kind).toBeTruthy();
   }
   for (const r of v.reserves) for (const p of r.pieces) expect(p.count).toBeGreaterThanOrEqual(0);
