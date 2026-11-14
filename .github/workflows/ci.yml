@@ -18,6 +18,9 @@ jobs:
       - run: npm run build
       - run: npm run typecheck
       - run: npm test
+      # The same Zubra components in six frameworks, checked in the runner's own Chrome.
+      - run: npm run build -w @cardroom/conformance
+      - run: npm run conformance -w @cardroom/conformance
       # Tests run through vitest, which forgives some Node ESM import mistakes; boot the real build.
       - name: Smoke test the built server
         run: |
@@ -25,3 +28,12 @@ jobs:
           for i in $(seq 1 20); do curl -fs localhost:8790/healthz && break; sleep 0.5; done
           curl -fs localhost:8790/push/key
           curl -fs localhost:8790/ | grep -q manifest.webmanifest
+          # The designer and the admin app are served under the card room's address.
+          curl -fs localhost:8790/designer/ | grep -q "Card designer"
+          curl -fs localhost:8790/admin/ | grep -q "Card Room admin"
+          curl -fs localhost:8790/watch/ | grep -q "Watch a game"
+          curl -fs localhost:8790/catalogue | grep -q '"spades"'
+          curl -fs localhost:8790/spectate | grep -q '"tables"'
+          curl -fs localhost:8790/designs | grep -q '"designs"'
+          # Without CARDROOM_ADMIN_TOKEN, moderation is off.
+          test "$(curl -s -o /dev/null -w '%{http_code}' localhost:8790/moderation/overview)" = 503

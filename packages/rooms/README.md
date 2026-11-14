@@ -110,6 +110,21 @@ await room.syncClock(); // ask again (after the phone slept)
 - **Finished games leave memory.** With `finished`, a room's state is dropped once the game ends; a later request replays it from the log.
 - **Restarts replay.** After a restart, a room's state is rebuilt by replaying `setup` and its move log, so `act` must be deterministic.
 
+## Letting people watch
+
+Give the room a `watch(state, views)` and the server writes one more view after each move,
+`views/<id>/watch`, that anyone may read (`spectators()` in the options can say otherwise). A page
+follows it with `room.onView("watch", …)`.
+
+`sharedView(views, { blank, from })` builds that view from every seat's: what all the seats see
+alike is kept, and what differs between them becomes null or an empty list, so a watcher learns
+nothing that every player doesn't already know. Name the private parts in `blank` as well (two
+hands that happened to match in some detail would otherwise show it), and in `from` the keys that
+say where the viewer sits.
+
+A table that's all computer players can be opened right up instead: `exhibit(id)` lets anyone read
+every seat's view.
+
 ## Two things learned about Sync along the way
 
 - **The live stream is authorized when it opens.** A browser that gets its cookie after connecting (by sitting down) keeps being treated as a stranger until it reconnects; `sit()` reopens the connection for this reason.

@@ -1,0 +1,30 @@
+{
+  "name": "@cardroom/admin",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The card room's admin app: its host moderates tables, players and shared card designs. Angular, on Zubra components.",
+  "scripts": {
+    "zubra": "zubra build --lib ../ui/src --out zubra --name @cardroom/admin-zubra",
+    "dev": "npm run zubra && ng serve",
+    "build": "npm run zubra && ng build",
+    "typecheck": "ngc -p tsconfig.app.json --noEmit"
+  },
+  "dependencies": {
+    "@angular/common": "^22.2.0",
+    "@angular/compiler": "^22.2.0",
+    "@angular/core": "^22.2.0",
+    "@angular/forms": "^22.2.0",
+    "@angular/platform-browser": "^22.2.0",
+    "@cardroom/decks": "*",
+    "@zubra/runtime": "^5.9.2",
+    "rxjs": "^7.8.0",
+    "tslib": "^2.8.0"
+  },
+  "devDependencies": {
+    "@angular/build": "^22.2.0",
+    "@angular/cli": "^22.2.0",
+    "@angular/compiler-cli": "^22.2.0",
+    "@zubra/compiler": "^5.9.2",
+    "typescript": "~6.0.0"
+  }
+}

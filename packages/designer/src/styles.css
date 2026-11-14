@@ -1,0 +1,43 @@
+/* zubra-ui's default theme (shadcn/ui's variables), light or dark with the system; the components
+   read these. The page adds the card room's felt green as the primary colour. */
+@import "../../ui/src/zubra-ui/themes/default.css";
+@import "../../ui/src/zubra-ui/themes/system.css";
+
+:root {
+  --felt: #1f4d3a;
+  --felt-dark: #143628;
+  --felt-light: #2b6a50;
+  --primary: var(--felt);
+  --primary-foreground: #fbf6ec;
+  --ring: color-mix(in oklab, var(--felt) 60%, white);
+  /* The small cards in a deck's preview. */
+  --trick-w: 58px;
+  --trick-h: calc(var(--trick-w) * 1.4);
+  color-scheme: light dark;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --primary: #7fc8a4;
+    --primary-foreground: #0f2a1f;
+    --ring: #7fc8a4;
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100%; }
+body { background: var(--background); color: var(--foreground); }
+h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; line-height: 1.2; margin: 0; text-wrap: balance; }
+p { margin: 0; }
+a { color: inherit; }
+[hidden] { display: none !important; }
+
+/* Zubra's components render in the page's own DOM (no shadow root), so the page can fit them to
+   itself: tabs that scroll sideways on a phone, and room under them. */
+tab-list [role="tablist"] { overflow-x: auto; scrollbar-width: none; }
+tab-list [role="tab"] { white-space: nowrap; }
+tab-list section[data-tab] { padding: 1.25rem 0 0; }
+segmented-control { max-width: 100%; }

@@ -1,0 +1,14 @@
+<!-- Copied from zubra-ui (ba5737e) components/cluster-layout.zb: https://github.com/journey-to-code-org/zubra-ui. Ours to edit. -->
+<!--
+  Children in a row that wraps onto more lines when there isn't room: buttons, tags, links in a
+  footer. `gap` is the space between them, `justify` and `align` line them up (CSS
+  justify-content and align-items values).
+  @slot - The children.
+-->
+<style>
+  :host { display: block; }
+  .cluster { display: flex; flex-wrap: wrap; gap: var(--gap); justify-content: var(--justify); align-items: var(--align); }
+</style>
+<cluster-layout gap="0.75rem" justify="flex-start" align="center">
+  <div class="cluster" style:--gap={gap} style:--justify={justify} style:--align={align}><zb-slot></zb-slot></div>
+</cluster-layout>

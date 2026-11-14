@@ -1,7 +1,8 @@
 // The Card Room's start page: the Vue game chooser, mounted inside the React app.
 import { KIT_GAMES } from "@cardroom/games";
 import { createApp, h, reactive } from "vue";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { arranged, refreshCatalogue } from "../catalogue";
 import { GAME_LIST } from "../GamePicker";
 import { lobby, whoIsThere, type OpenTable } from "../lobbyApi";
 import { loadMyHouses, loadName, type GameId } from "../storage";
@@ -71,12 +72,15 @@ const brief = (t: OpenTable) => ({ id: t.id, game: t.game, who: whoIsThere(t), f
 
 export function Home({ last, onPick, onOpenHouse, onLobby }: { last: GameId | null; onPick: (game: GameId) => void; onOpenHouse: (slug: string) => void; onLobby: () => void }) {
   const el = useRef<HTMLDivElement>(null);
+  const [catalogue, setCatalogue] = useState(0);
   const handlers = useRef({ onPick, onOpenHouse, onLobby });
   handlers.current = { onPick, onOpenHouse, onLobby };
 
   useEffect(() => {
+    // The games the card room's host offers, in their order (every game, where there's no server).
+    const games = () => arranged(GAME_LIST).map((g) => ({ ...g, ...(SEATS[g.id] ?? { seats: [2, 6], teams: false }), fan: FANS[g.id] ?? FANS.spades! }));
     const props = reactive({
-      games: GAME_LIST.map((g) => ({ ...g, ...(SEATS[g.id] ?? { seats: [2, 6], teams: false }), fan: FANS[g.id] ?? FANS.spades! })),
+      games: games(),
       houses: loadMyHouses(),
       last,
       name: loadName(),
@@ -101,6 +105,11 @@ export function Home({ last, onPick, onOpenHouse, onLobby }: { last: GameId | nu
       document.removeEventListener("visibilitychange", load);
       app.unmount();
     };
+  }, [catalogue]);
+
+  // Ask the server for the host's catalogue; if it differs from what this browser remembered, draw the chooser again.
+  useEffect(() => {
+    void refreshCatalogue().then((changed) => changed && setCatalogue((n) => n + 1));
   }, []);
 
   return <main className="home" ref={el} />;
