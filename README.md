@@ -62,6 +62,7 @@ just for keeping score.
 | [`packages/games`](packages/games) | The game kit (`kit.ts`: the `CardGame` contract, cards, decks, views) and the thirty-six games built on it |
 | [`packages/rules`](packages/rules) | Spades rules engine, bots, and the personas who play every game |
 | [`packages/palace`](packages/palace) | Palace rules engine: house-rule presets, seat views, bots and table talk |
+| [`packages/physics`](packages/physics) | A small deterministic 2D physics core for the ball games to come: the same shot gives the same table on the server and in every browser |
 | [`packages/rooms`](packages/rooms) | Turn-based rooms over `@zubra/sync`: seats, server-decided moves, private views, bots |
 | [`packages/server`](packages/server) | The server: every game's rooms, houses, challenges, tournaments, the sync log and the web app |
 | [`packages/web`](packages/web) | The app (React, with the game chooser in Vue): tables, setup screens, houses, practice |
