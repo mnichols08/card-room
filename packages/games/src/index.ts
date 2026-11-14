@@ -48,6 +48,7 @@ export * from "./board.js";
 export * from "./tictactoe.js";
 export * from "./dropfour.js";
 export * from "./combat.js";
+export * from "./reversi.js";
 export * from "./horserace.js";
 export * from "./drinkingpyramid.js";
 export * from "./registry.js";

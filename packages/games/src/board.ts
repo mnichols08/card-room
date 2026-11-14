@@ -57,7 +57,11 @@ export type CellMark =
   /** Part of the winning line. */
   | "win"
   /** In danger: a king in check, a ship just hit. */
-  | "threat";
+  | "threat"
+  /** A piece that changed sides on the last move: a disc turned over in Reversi. */
+  | "flipped"
+  /** A place you could move to, in a game that points them out. Only ever sent to the seat that can. */
+  | "hint";
 
 export interface BoardGrid {
   /** Names this grid in a move when a view has more than one: "board", "mine", "theirs". */

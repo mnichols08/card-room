@@ -61,9 +61,11 @@ const FANS: Record<string, object[]> = {
 };
 
 /** A board game's tile shows a little board instead: a position that says what the game is about. */
-type MiniBoard = { cols: number; cells: ({ glyph: string; tone: string } | null)[] };
+type MiniBoard = { cols: number; cells: ({ glyph: string; tone: string } | null)[]; shade?: "green" };
 const X = { glyph: "✕", tone: "red" };
 const O = { glyph: "◯", tone: "blue" };
+const DARK = { glyph: "●", tone: "dark" };
+const LIGHT = { glyph: "●", tone: "light" };
 const SHIP = { glyph: "■", tone: "dark" };
 const HIT = { glyph: "✕", tone: "red" };
 const MISS = { glyph: "•", tone: "blue" };
@@ -74,6 +76,8 @@ const BOARDS: Record<string, MiniBoard> = {
   // The bottom of a rack: red about to make four on the slant.
   dropfour: { cols: 4, cells: [null, null, null, null, null, null, RED, YEL, null, RED, YEL, RED, RED, YEL, YEL, RED] },
   combat: { cols: 4, cells: [SHIP, SHIP, SHIP, null, null, null, MISS, null, MISS, null, HIT, null, null, null, HIT, null] },
+  // Light to move: c1 traps the dark disc beside it.
+  reversi: { cols: 4, shade: "green", cells: [null, null, null, null, null, DARK, LIGHT, null, DARK, DARK, DARK, null, null, null, LIGHT, null] },
 };
 const EMPTY_BOARD: MiniBoard = { cols: 3, cells: Array(9).fill(null) };
 

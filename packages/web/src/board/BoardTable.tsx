@@ -333,7 +333,7 @@ function Reserve({ reserve, names, picked, canPick, onPick }: { reserve: BoardRe
   );
 }
 
-const MARK_WORDS: Record<string, string> = { last: "last move", from: "moved from here", win: "winning line", threat: "under threat" };
+const MARK_WORDS: Record<string, string> = { last: "last move", from: "moved from here", win: "winning line", threat: "under threat", flipped: "just flipped", hint: "you can move here" };
 
 function Grid({ grid, view, names, side, titled, picked, onCell }: { grid: BoardGrid; view: BoardView; names: string[]; side: boolean; titled: boolean; picked: number | string | null; onCell: (cell: number) => void }) {
   const me = view.me;
@@ -458,7 +458,8 @@ function Grid({ grid, view, names, side, titled, picked, onCell }: { grid: Board
               // How far a piece falls to get here, for a board that stands on its edge.
               style={grid.gravity ? ({ "--row": r } as React.CSSProperties) : undefined}
             >
-              {piece && <Piece piece={piece} />}
+              {/* Keyed by whose it is: a piece that changes sides is drawn afresh, so its animation plays again. */}
+              {piece && <Piece key={`${piece.owner}/${piece.tone ?? ""}`} piece={piece} />}
             </button>
           );
         })}
