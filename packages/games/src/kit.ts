@@ -5,7 +5,7 @@
 // scores. One table screen draws every game from that, and one room runs them all on the server.
 import { mulberry32, type Card, type PlayStyle, type Suit } from "@spades/rules";
 
-export type KitGameId = "hearts" | "ohhell" | "euchre" | "crazy8" | "gin" | "pinochle" | "canasta" | "gofish" | "oldmaid" | "war" | "whist" | "golf" | "rummy500" | "president" | "klondike" | "freecell" | "handfoot" | "cribbage" | "fivedraw" | "holdem";
+export type KitGameId = "hearts" | "ohhell" | "euchre" | "crazy8" | "gin" | "pinochle" | "canasta" | "gofish" | "oldmaid" | "war" | "whist" | "golf" | "rummy500" | "president" | "klondike" | "freecell" | "handfoot" | "cribbage" | "fivedraw" | "holdem" | "bluff";
 
 /** A move that isn't allowed. The message is shown to the player as is. */
 export class GameError extends Error {}
@@ -123,6 +123,8 @@ export type Center =
       /** What to call the piles, when it isn't "N to draw" and "N in the pile" (Euchre's kitty). */
       stockLabel?: string;
       discardLabel?: string;
+      /** The discard pile is face down (Bluff): drawn as backs, discardCount of them. */
+      faceDown?: boolean;
       /** Only a stock, no discard pile beside it (Go Fish's pond). */
       noDiscard?: boolean;
       /** The discard pile spread out so every card shows; tapping one of `cards` sends { type, card } (Rummy 500). */
