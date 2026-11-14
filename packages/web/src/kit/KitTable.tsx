@@ -68,6 +68,7 @@ const YOU_VERBS: Record<string, string> = {
   goes: "go",
   makes: "make",
   picks: "pick",
+  drinks: "drink",
   says: "say",
   was: "were",
 };
