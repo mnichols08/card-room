@@ -599,6 +599,41 @@ function CenterArea({
   if (center.kind === "solitaire")
     return <SolitaireArea center={center} send={send} />;
   if (center.kind === "cross") return <CrossArea center={center} send={send} />;
+  if (center.kind === "pairs") {
+    return (
+      <div className="pairs-area">
+        <div className="pairs-stock" aria-label={`${center.stock} to draw, ${center.trumpLabel}`}>
+          {center.trumpCard && (
+            <span className="pairs-trump">
+              <PlayingCard card={center.trumpCard} size="table" />
+            </span>
+          )}
+          {center.stock > (center.trumpCard ? 1 : 0) && (
+            <span className="pairs-deck">
+              <PlayingCard back size="table" />
+            </span>
+          )}
+          <small>{center.stock ? `${center.stock} to draw · ${center.trumpLabel}` : center.trumpLabel}</small>
+        </div>
+        <div className="pairs" aria-label="The attack">
+          {center.pairs.length ? (
+            center.pairs.map((p) => (
+              <div key={p.attack.id} className={`pair${p.defense ? " beaten" : ""}`}>
+                <PlayingCard card={p.attack} size="table" data-flip={p.attack.id} />
+                {p.defense && (
+                  <span className="pair-defense">
+                    <PlayingCard card={p.defense} size="table" data-flip={p.defense.id} />
+                  </span>
+                )}
+              </div>
+            ))
+          ) : (
+            <div className="empty-slot">{center.discards ? `${center.discards} beaten off` : ""}</div>
+          )}
+        </div>
+      </div>
+    );
+  }
   if (center.kind === "fan") {
     // Their hand, face down and fanned: tap the card you want.
     const n = center.count;

@@ -942,3 +942,14 @@ button.cross-pile.can::after {
 }
 .kit-felt .center:has(> .cross.row) { justify-content: center; gap: 40px; }
 .kit-fivehundred .kit-choices.grid { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); max-width: min(470px, 100%); }
+
+/* Durak: the stock with the trump card under it, then each attack with its beating card on top. */
+.pairs-area { display: flex; align-items: flex-start; gap: calc(var(--trick-w) * 0.5); flex-wrap: wrap; justify-content: center; }
+.pairs-stock { position: relative; display: grid; justify-items: start; gap: 4px; width: calc(var(--trick-w) * 1.6); }
+.pairs-stock > span { grid-area: 1 / 1; line-height: 0; }
+.pairs-trump { rotate: 90deg; translate: calc(var(--trick-w) * 0.45) 0; }
+.pairs-stock small { justify-self: center; font-size: 11px; color: rgba(255, 255, 255, 0.75); white-space: nowrap; }
+.pairs { display: flex; flex-wrap: wrap; gap: calc(var(--trick-w) * 0.18) calc(var(--trick-w) * 0.12); justify-content: center; max-width: calc(var(--trick-w) * 4.8); }
+.pair { position: relative; line-height: 0; padding: 0 calc(var(--trick-w) * 0.22) calc(var(--trick-h) * 0.22) 0; }
+.pair-defense { position: absolute; left: calc(var(--trick-w) * 0.22); top: calc(var(--trick-h) * 0.22); line-height: 0; rotate: 8deg; }
+.kit-felt .center:has(> .pairs-area) { justify-content: center; gap: 32px; }
