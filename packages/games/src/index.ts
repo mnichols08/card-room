@@ -23,5 +23,6 @@ export * from "./fivedraw.js";
 export * from "./holdem.js";
 export * from "./bluff.js";
 export * from "./liarspoker.js";
+export * from "./switch.js";
 export * from "./registry.js";
 export * from "./talk.js";
