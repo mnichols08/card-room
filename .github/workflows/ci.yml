@@ -18,6 +18,9 @@ jobs:
       - run: npm run build
       - run: npm run typecheck
       - run: npm test
+      # The same Zubra components in six frameworks, checked in the runner's own Chrome.
+      - run: npm run build -w @cardroom/conformance
+      - run: npm run conformance -w @cardroom/conformance
       # Tests run through vitest, which forgives some Node ESM import mistakes; boot the real build.
       - name: Smoke test the built server
         run: |
