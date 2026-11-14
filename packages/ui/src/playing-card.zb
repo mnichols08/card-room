@@ -1,6 +1,7 @@
 <!--
-  One playing card: a pip card, a joker, or the back of a card. Tap a playable card to pick it.
-  `card` is `{ kind: "pip", suit, rank }` (rank 2–14) or `{ kind: "joker", size: "big" | "little" }`.
+  One playing card: a pip card, a joker, a Fruit Salad card, or the back of a card. Tap a playable card to pick it.
+  `card` is `{ kind: "pip", suit, rank }` (rank 2–14), `{ kind: "joker", size: "big" | "little" }`, or
+  `{ kind: "fruit", fruit: "cherry" | "lemon" | "pear" | "grape" | null, face: 0–9 | "hop" | "turn" | "plus2" | "salad" | "salad4" }`.
   Sizes come from the page: --card-w / --card-h for the hand, --trick-w / --trick-h for size="table".
   Everything inside scales with the card itself (container units), so one design serves every size.
   @fires pick - A playable card was tapped.
@@ -24,14 +25,25 @@
     10: [[35, 20], [65, 20], [50, 30], [35, 40], [65, 40], [35, 60, 1], [65, 60, 1], [50, 70, 1], [35, 80, 1], [65, 80, 1]],
   }
 
+  // Fruit Salad cards: a fruit and a number or an action, on the fruit's colour; salads are wild.
+  const FRUIT_EMOJI = { cherry: "🍒", lemon: "🍋", pear: "🍐", grape: "🍇" }
+  const FACE_ICON = { hop: "⤼", turn: "⇄", plus2: "+2", salad: "★", salad4: "+4" }
+  const FACE_WORD = { hop: "Hop", turn: "Turn", plus2: "plus two", salad: "Salad, wild", salad4: "Big Salad, wild, plus four" }
+  const fruity = card.kind === "fruit"
+  const fruitKey = fruity ? card.fruit ?? "wild" : ""
+  const faceLabel = fruity ? (typeof card.face === "number" ? String(card.face) : FACE_ICON[card.face]) : ""
+  const fruitEmoji = fruity ? (card.fruit ? FRUIT_EMOJI[card.fruit] : "🥗") : ""
+  const fruitAction = fruity && typeof card.face !== "number"
+
   const joker = card.kind === "joker"
-  const red = joker ? card.size === "big" : card.suit === "hearts" || card.suit === "diamonds"
-  const rank = joker ? "★" : RANKS[card.rank] ?? String(card.rank)
-  const symbol = joker ? "" : SYMBOLS[card.suit]
-  const name = joker ? (card.size === "big" ? "Big Joker" : "Little Joker") : `${rank} of ${card.suit}`
-  const court = !joker && card.rank >= 11 && card.rank <= 13
-  const ace = !joker && card.rank === 14
-  const kind = joker ? "joker" : court ? "court" : ace ? "ace" : "pips"
+  const pip = card.kind === "pip"
+  const red = joker ? card.size === "big" : pip && (card.suit === "hearts" || card.suit === "diamonds")
+  const rank = joker ? "★" : fruity ? faceLabel : RANKS[card.rank] ?? String(card.rank)
+  const symbol = pip ? SYMBOLS[card.suit] : ""
+  const name = fruity ? (card.fruit ? `${card.fruit} ${typeof card.face === "number" ? card.face : FACE_WORD[card.face]}` : FACE_WORD[card.face]) : joker ? (card.size === "big" ? "Big Joker" : "Little Joker") : `${rank} of ${card.suit}`
+  const court = pip && card.rank >= 11 && card.rank <= 13
+  const ace = pip && card.rank === 14
+  const kind = fruity ? "fruit" : joker ? "joker" : court ? "court" : ace ? "ace" : "pips"
   const pips = kind === "pips" ? PIPS[card.rank].map(([x, y, f], i) => ({ id: i, x: `${x}%`, y: `${y}%`, flip: !!f })) : []
   const ten = rank === "10"
   const spadeAce = ace && card.suit === "spades"
@@ -156,6 +168,34 @@
     font-size: calc(var(--u) * 12); line-height: 1; color: #7a1f2b; font-variant-emoji: text;
   }
 
+  /* Fruit Salad: the fruit's colour, a cream disc with the fruit and the face, the face in the corners. */
+  .card.fruitcard { --fc: #7d3cbd; --fc2: #5b2690; background: radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.28), transparent 45%), linear-gradient(160deg, var(--fc), var(--fc2)); color: #fff; border-color: rgba(0, 0, 0, 0.25); }
+  .card[data-fruit=cherry] { --fc: #e0344b; --fc2: #a8162c; }
+  .card[data-fruit=lemon] { --fc: #f7c936; --fc2: #d99a0b; }
+  .card[data-fruit=pear] { --fc: #7cbf4a; --fc2: #4c8a26; }
+  .card[data-fruit=grape] { --fc: #8a4fc9; --fc2: #5b2690; }
+  .card[data-fruit=wild] { background: conic-gradient(from 45deg, #e0344b 0 25%, #f7c936 0 50%, #7cbf4a 0 75%, #8a4fc9 0); }
+  .fruit { position: absolute; inset: 0; pointer-events: none; }
+  .f-corner { position: absolute; font: 900 26cqw/1 system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: -0.04em; text-shadow: 0 0 2cqw rgba(0, 0, 0, 0.55), 0 1cqw 0 rgba(0, 0, 0, 0.25); }
+  .f-corner.tl { top: 6cqw; left: 7cqw; }
+  .f-corner.br { bottom: 6cqw; right: 7cqw; rotate: 180deg; display: none; }
+  .f-disc {
+    position: absolute; left: 50%; top: 56%; translate: -50% -50%; width: 64cqw; height: 64cqw; border-radius: 50%;
+    background: #fffaf0; box-shadow: inset 0 0 0 2.5cqw rgba(0, 0, 0, 0.08), 0 1cqw 2cqw rgba(0, 0, 0, 0.25);
+    display: grid; place-items: center; align-content: center; gap: 1cqw; color: var(--fc2);
+  }
+  .card[data-fruit=wild] .f-disc { color: #3a2a1a; }
+  .f-emoji { font-size: 18cqw; line-height: 1; }
+  .f-disc b { font: 900 26cqw/0.9 system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: -0.04em; }
+  .f-disc.action b { font-size: 22cqw; }
+  @container (min-width: 84px) {
+    .f-corner { font-size: 20cqw; }
+    .f-corner.br { display: block; }
+    .f-disc { top: 50%; width: 60cqw; height: 60cqw; }
+  }
+  .card[data-size=table] .f-corner.br { display: block; }
+  .card[data-size=table] .f-disc { top: 50%; }
+
   @media (prefers-reduced-motion: reduce) { .card { transition: none; } .card.shake { animation: none; } }
 </style>
 <playing-card card={{ kind: "pip", suit: "spades", rank: 14 }} size="hand" back={false} playable={false} dim={false} selected={false} won={false} shake={false}>
@@ -166,8 +206,10 @@
     class="card"
     data-size={size}
     class:red={red}
-    class:diamonds={!joker && card.suit === "diamonds"}
-    class:clubs={!joker && card.suit === "clubs"}
+    class:diamonds={pip && card.suit === "diamonds"}
+    class:clubs={pip && card.suit === "clubs"}
+    class:fruitcard={fruity}
+    data-fruit={fruitKey}
     class:playable={playable}
     class:dim={dim}
     class:selected={selected}
@@ -178,16 +220,24 @@
     aria-pressed={selected ? "true" : null}
     onclick={() => emit('pick')}
   >
-    <span class="index tl" aria-hidden="true">
+    <span zb-if={fruity} class="fruit" aria-hidden="true">
+      <span class="f-corner tl">{faceLabel}</span>
+      <span class="f-corner br">{faceLabel}</span>
+      <span class="f-disc" class:action={fruitAction}>
+        <span class="f-emoji">{fruitEmoji}</span>
+        <b>{faceLabel}</b>
+      </span>
+    </span>
+    <span zb-if={!fruity} class="index tl" aria-hidden="true">
       <b class:ten={ten}>{rank}</b>
-      <i zb-if={!joker} class="glyph">{symbol}</i>
+      <i zb-if={pip} class="glyph">{symbol}</i>
       <span zb-else class="jsize">{jokerWord}</span>
     </span>
-    <span class="index br" aria-hidden="true">
+    <span zb-if={!fruity} class="index br" aria-hidden="true">
       <b class:ten={ten}>{rank}</b>
-      <i zb-if={!joker} class="glyph">{symbol}</i>
+      <i zb-if={pip} class="glyph">{symbol}</i>
     </span>
-    <span class="face" class:pips={kind === "pips"} class:court={court} class:ace={ace} class:joker={joker} aria-hidden="true">
+    <span zb-if={!fruity} class="face" class:pips={kind === "pips"} class:court={court} class:ace={ace} class:joker={joker} aria-hidden="true">
       <svg zb-if={court} class="royal" viewBox="0 0 100 200" preserveAspectRatio="xMidYMid meet">
         <defs>
           <g id={halfId}>
