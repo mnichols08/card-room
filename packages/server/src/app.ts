@@ -119,7 +119,7 @@ export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: b
   const ai = createAi(options.ai);
   const houses = createHouses(rooms, { push, ai });
   const challenges = createChallenges(rooms, push);
-  const lobby = createLobby(rooms, options.lobby);
+  const lobby = createLobby(rooms, { push, ...options.lobby });
 
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
   /** /push: the public key, and saying yes (or no) to notifications on this phone. */

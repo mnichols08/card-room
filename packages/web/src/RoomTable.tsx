@@ -65,6 +65,18 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
     return room.onView(mySeat, (doc) => setView(doc.view));
   }, [room, mySeat]);
 
+  // Your seat can be taken away before the deal (the host removed you, or you went quiet at an open
+  // table). The public seats say so; check with the server before believing it.
+  const seatGone = mySeat !== null && doc !== null && !doc.started && !doc.seats[mySeat]?.name;
+  useEffect(() => {
+    if (!seatGone) return;
+    room.info().then((info) => {
+      if (info.seat !== null || info.started) return;
+      setMySeat(null);
+      setProblem("You're no longer seated at this table.");
+    }, () => undefined);
+  }, [room, seatGone]);
+
   // At an open table, waiting: keep telling the lobby you're still here, or it frees your seat for
   // someone else. A phone that slept may have lost its seat, so look again when the page comes back.
   const waiting = Boolean(doc?.open) && !doc?.started && mySeat !== null;
@@ -280,6 +292,18 @@ function Lobby(props: {
                 {game === "spades" && s.bot && s.name && personaFor(s.name).blurb && <small className="blurb">{personaFor(s.name).blurb}</small>}
               </strong>
               {mine && <em>you</em>}
+              {!mine && doc.open && !doc.started && doc.host === i && <em>host</em>}
+              {doc.open && !doc.started && mySeat !== null && doc.host === mySeat && !mine && !s.bot && s.name && (
+                <button
+                  type="button"
+                  className="link danger"
+                  onClick={() => {
+                    if (window.confirm(`Remove ${s.name} from the table? They won't be able to sit back down here.`)) attempt(() => lobby.remove(room.id, i));
+                  }}
+                >
+                  Remove
+                </button>
+              )}
               {!doc.started && !doc.locked && empty && mySeat === null && (
                 <button
                   type="button"

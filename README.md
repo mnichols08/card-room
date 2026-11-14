@@ -90,6 +90,16 @@ An open table deals itself when its last seat is taken (add bots if you're tired
 Leaving before the deal gives your seat back, and a seat whose player has gone quiet for a minute
 and a half is freed, so the list only shows tables somebody is really waiting at.
 
+Open tables are where strangers meet, so:
+
+- **The host can remove a player** before the deal (the host is whoever opened the table, or the
+  first seat once they've left). A removed player can't sit back down at that table.
+- **Names are filtered.** The crudest names are turned away from open tables, and one that came in
+  by a table's link shows as "Player". The list is short on purpose; add your own words with
+  `CARDROOM_BLOCKED_NAMES`.
+- **A buzz when someone's waiting.** On the Open tables page, pick a game (or any game) and turn
+  notifications on: your phone buzzes when a table opens for it, at most once every ten minutes.
+
 ## Packages
 
 | Package | |
@@ -232,6 +242,7 @@ docker run -p 8787:8787 -v spades:/data cardroom
 | `CARDROOM_AI_PROVIDER` | `anthropic` or `openai`, if the key doesn't say (a key starting `sk-ant-` is Anthropic's) |
 | `CARDROOM_AI_MODEL` | The model for that key. Default: `claude-haiku-5-5` or `gpt-5.6-luna`. |
 | `CARDROOM_AI_DAILY` | The most lines a day on that key, everyone together. Default 3000. |
+| `CARDROOM_BLOCKED_NAMES` | Optional: more words that names on open tables may not contain, comma-separated |
 | `CARDROOM_BOT_DELAY` | Fixed thinking time for computer players, in milliseconds (handy for testing) |
 | `CARDROOM_WEB` | Where the built web app is, if not `packages/web/dist` |
 | `PORT` | The port to listen on (8787; Railway sets its own) |

@@ -1,6 +1,7 @@
 import { memoryLog } from "@zubra/sync/server";
 import { afterEach, describe, expect, it } from "vitest";
 import { createCardRoom } from "../src/app.js";
+import type { Notice } from "../src/push.js";
 
 const BASE = "http://test";
 let open: ReturnType<typeof createCardRoom>[] = [];
@@ -11,7 +12,14 @@ afterEach(() => {
 
 function setup() {
   const clock = { now: 1_000_000 };
-  const app = createCardRoom({ log: memoryLog({ keep: "latest" }), botDelay: 5, talk: false, lobby: { now: () => clock.now, quietAfter: 60_000 } });
+  const sent: { to: string; notice: Notice }[] = [];
+  const app = createCardRoom({
+    log: memoryLog({ keep: "latest" }),
+    botDelay: 5,
+    talk: false,
+    push: { send: async (s, payload) => void sent.push({ to: s.endpoint, notice: JSON.parse(payload) }) },
+    lobby: { now: () => clock.now, quietAfter: 60_000, alertGap: 600_000, blockedNames: ["sucks"] },
+  });
   open.push(app);
   const phone = () => {
     let cookie = "";
@@ -22,8 +30,10 @@ function setup() {
       return { status: r.status, body: await r.json() };
     };
   };
-  return { app, phone, clock };
+  return { app, phone, clock, sent };
 }
+const sub = (n: number) => ({ endpoint: `https://push.example/phone-${n}`, keys: { p256dh: "BPkey", auth: "authkey" } });
+const tick = () => new Promise((r) => setTimeout(r, 10));
 const names = (t: { seats: { name: string | null }[] }) => t.seats.map((s) => s.name);
 
 describe("the lobby", () => {
@@ -147,6 +157,99 @@ describe("the lobby", () => {
     expect((await a("/lobby/join", { game: "war", name: "A" })).status).toBe(429);
     // Pages can't read the lobby's own document through the sync log.
     const pulled = (await a("/_zb/sync/pull?since=0")).body.changes.map((c: { collection: string }) => c.collection);
+    expect(pulled).not.toContain("lobby");
+  });
+
+  it("the host can remove a player before the deal, and they can't sit back down", async () => {
+    const { phone } = setup();
+    const host = phone();
+    const pest = phone();
+    const friend = phone();
+    const { id } = (await host("/lobby/join", { game: "hearts", name: "Host", seats: 4 })).body;
+    await pest("/lobby/" + id + "/sit", { name: "Pest" });
+    await friend("/lobby/" + id + "/sit", { name: "Friend" });
+    expect((await host("/rooms/" + id)).body).toMatchObject({ open: true, host: 0 });
+
+    expect((await pest("/lobby/" + id + "/remove", { seat: 0 })).status).toBe(403); // not the host
+    expect((await phone()("/lobby/" + id + "/remove", { seat: 1 })).status).toBe(403); // not even seated
+    expect((await host("/lobby/" + id + "/remove", { seat: 0 })).status).toBe(400); // not yourself
+    expect((await host("/lobby/" + id + "/remove", { seat: 1 })).body).toEqual({ ok: true });
+    expect(names((await host("/lobby")).body.tables[0])).toEqual(["Host", null, "Friend", null]);
+
+    // Not through the lobby, not by finding players (that opens a table of their own), not by the link.
+    expect((await pest("/lobby/" + id + "/sit", { name: "Pest" })).status).toBe(403);
+    const elsewhere = (await pest("/lobby/join", { game: "hearts", name: "Pest", seats: 4 })).body;
+    expect(elsewhere).toMatchObject({ waiting: true });
+    expect(elsewhere.id).not.toBe(id);
+    await pest("/rooms/" + id + "/sit", { seat: 3, name: "Pest again" });
+    const tables = (await host("/lobby")).body.tables;
+    expect(names(tables.find((t: { id: string }) => t.id === id))).toEqual(["Host", null, "Friend", null]);
+    expect(tables.every((t: object) => !("removed" in t) && !("host" in t))).toBe(true); // player ids stay on the server
+
+    // The host leaves: the next player runs the table.
+    await host("/rooms/" + id + "/stand", {});
+    await friend("/lobby");
+    expect((await friend("/rooms/" + id)).body).toMatchObject({ open: true, host: 2 });
+  });
+
+  it("keeps crude names off open tables", async () => {
+    const { phone } = setup();
+    const a = phone();
+    expect((await a("/lobby/join", { game: "hearts", name: "sh1t head" })).body).toEqual({ error: "Pick a different name for an open table." });
+    expect((await a("/lobby/join", { game: "hearts", name: "Grammi Sucks" })).status).toBe(400); // the owner's own word
+    const { id } = (await a("/lobby/join", { game: "hearts", name: "A" })).body;
+    expect((await phone()("/lobby/" + id + "/sit", { name: "F.U.C.K" })).status).toBe(400);
+    // By the table's link the name isn't checked on the way in, so the lobby renames it.
+    await phone()("/rooms/" + id + "/sit", { seat: 2, name: "fuuuck" });
+    expect(names((await a("/lobby")).body.tables[0]).slice(0, 3)).toEqual(["A", null, "Player"]);
+
+    // A family table keeps its names until it's opened to everyone.
+    const fam = phone();
+    const made = (await fam("/rooms", { options: { game: "palace", seats: 3 } })).body.id;
+    await fam("/rooms/" + made + "/sit", { seat: 0, name: "Big Shit" });
+    expect((await fam("/rooms/" + made)).body.seats[0].name).toBe("Big Shit");
+    await fam("/lobby/" + made + "/open", { open: true });
+    expect((await fam("/rooms/" + made)).body.seats[0].name).toBe("Player");
+  });
+
+  it("buzzes the players who asked to hear when a table opens for their game", async () => {
+    const { phone, sent, clock } = setup();
+    const grammi = phone();
+    const anyone = phone();
+    expect((await grammi("/lobby/alerts")).body).toEqual({ games: [], notifications: true });
+    expect((await grammi("/lobby/alerts", { games: ["spades", "tiddlywinks"] })).body).toEqual({ games: ["spades"], notifications: true });
+    await grammi("/push/subscribe", { subscription: sub(1) });
+    await anyone("/lobby/alerts", { games: ["any"] });
+    await anyone("/push/subscribe", { subscription: sub(2) });
+    expect((await grammi("/lobby/alerts")).body.games).toEqual(["spades"]);
+
+    await phone()("/lobby/join", { game: "palace", name: "Jimmy" });
+    await tick();
+    expect(sent.map((s) => s.to)).toEqual([sub(2).endpoint]); // not spades: grammi isn't bothered
+
+    const rick = phone();
+    const { id } = (await rick("/lobby/join", { game: "spades", name: "Rick" })).body;
+    await tick();
+    // "Any game" was buzzed a moment ago, so it waits; grammi hears about spades.
+    expect(sent.slice(1)).toEqual([{ to: sub(1).endpoint, notice: { title: "Rick is looking for Spades players ♠️", body: expect.stringContaining("3 seats open"), url: "/?lobby=1", tag: "lobby" } }]);
+
+    // Opening your own table doesn't buzz you, and a second table soon after doesn't buzz anyone.
+    clock.now += 700_000;
+    sent.length = 0;
+    await grammi("/lobby/join", { game: "spades", name: "brokennil", sameRules: true, rules: { playTo: 250 } });
+    await tick();
+    expect(sent.map((s) => s.to)).toEqual([sub(2).endpoint]);
+    expect(id).toBeTruthy();
+
+    // Asking for nothing turns it off.
+    await anyone("/lobby/alerts", { games: [] });
+    clock.now += 700_000;
+    sent.length = 0;
+    await phone()("/lobby/join", { game: "gin", name: "G" });
+    await tick();
+    expect(sent).toEqual([]);
+    // The list of who asked stays on the server.
+    const pulled = (await grammi("/_zb/sync/pull?since=0")).body.changes.map((c: { collection: string }) => c.collection);
     expect(pulled).not.toContain("lobby");
   });
 });

@@ -10,13 +10,22 @@
 //
 //   lobby/open   server only: one field per listed table (its game, rules and when it opened)
 //
-// A table's public room doc carries `open: true` while it's listed, so its page can say so.
+// A table's public room doc carries `open: true` while it's listed, so its page can say so, and
+// `host`: the seat of whoever opened it.
+//
+// Strangers. The host can remove a player before the deal, and that player can't sit back down at
+// that table. Names on open tables go through a filter (names.ts). And a player can ask for a buzz
+// when a table opens for a game they like:
+//
+//   lobby/alerts   server only: one field per player who asked (the games they want to hear about)
 import { kitGame, isKitGame } from "@cardroom/games";
 import { familyTable, validatePreset, type RulePreset } from "@spades/rules";
 import { newPlayerId, playerCookie, playerOf, type RoomDoc } from "@spades/rooms/server";
-import { GAMES, gameOfOptions, isGameId, type GameId, type TableOptions } from "./games.js";
+import { GAMES, gameEmoji, gameName, gameOfOptions, isGameId, type GameId, type TableOptions } from "./games.js";
 import { kitOptions } from "./kit.js";
+import { nameOk } from "./names.js";
 import { palaceOptions } from "./palace.js";
+import type { Push } from "./push.js";
 
 interface Entry {
   game: GameId;
@@ -25,6 +34,10 @@ interface Entry {
   created: number;
   /** The table's rules and size in one string, for players who only want a table set up exactly like theirs. */
   match?: string;
+  /** Whoever opened it (a player id), or the longest-seated player since they left. They can remove players. */
+  host?: string;
+  /** Players the host removed: they can't sit back down here. */
+  removed?: string[];
 }
 
 export interface OpenTable extends Entry {
@@ -57,11 +70,20 @@ export interface LobbyOptions {
   limit?: number;
   /** The time (ms). For tests. */
   now?: () => number;
+  /** Buzzes the players who asked to hear when a table opens. */
+  push?: Push;
+  /** The least time (ms) between two buzzes to one player about open tables. Default 10 minutes. */
+  alertGap?: number;
+  /** More words that names on open tables may not contain. */
+  blockedNames?: string[];
 }
 
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", ...headers } });
 const cleanName = (value: unknown) => String(value ?? "").replace(/\s+/g, " ").trim().slice(0, 20) || "Player";
+const BAD_NAME = "Pick a different name for an open table.";
+/** What a listing is called for alerts: every game. */
+const ANY = "any";
 
 /** How often one player may have a new open table set up for them. */
 const NEW_TABLE_GAP_MS = 3000;
@@ -87,7 +109,9 @@ function fingerprint(game: GameId, options: TableOptions): string {
   return JSON.stringify([game, game === "spades" ? 4 : o.seats, stable(rules)]);
 }
 
-export function createLobby(rooms: Rooms, { mount = "/lobby", quietAfter = 90_000, limit = 200, now = Date.now }: LobbyOptions = {}) {
+export function createLobby(rooms: Rooms, { mount = "/lobby", quietAfter = 90_000, limit = 200, now = Date.now, push, alertGap = 600_000, blockedNames = [] }: LobbyOptions = {}) {
+  const okName = (name: string) => nameOk(name, blockedNames);
+  const lastBuzz = new Map<string, number>();
   const docs = rooms.sync.documents();
   /** When each waiting player was last heard from, by `<table>/<seat>`. Not kept across restarts: everyone gets a fresh start. */
   const heard = new Map<string, number>();
@@ -116,7 +140,7 @@ export function createLobby(rooms: Rooms, { mount = "/lobby", quietAfter = 90_00
     for (const key of [...heard.keys()]) if (key.startsWith(`${id}/`)) heard.delete(key);
     if (!(await entry(id))) return;
     await rooms.sync.write("lobby", "open", { [id]: null });
-    if (await rooms.room(id)) await rooms.sync.write("rooms", id, { open: false });
+    if (await rooms.room(id)) await rooms.sync.write("rooms", id, { open: false, host: null });
   }
 
   /**
@@ -140,9 +164,22 @@ export function createLobby(rooms: Rooms, { mount = "/lobby", quietAfter = 90_00
         await rooms.unseat(id, seat);
       }
     }
+    // Someone the host removed came back by the table's link: no.
+    for (const [seat, holder] of (await rooms.holders(id)).entries()) if (holder && e.removed?.includes(holder)) await rooms.unseat(id, seat);
     const holders = await rooms.holders(id);
     room = (await rooms.room(id))!;
     if (!holders.some(Boolean)) return void (await unlist(id)), null;
+    // A name that came in by the table's link is shown to everyone too.
+    if (room.seats.some((s, i) => holders[i] && s.name && !okName(s.name))) {
+      await rooms.sync.write("rooms", id, { seats: room.seats.map((s, i) => (holders[i] && s.name && !okName(s.name) ? { ...s, name: "Player" } : s)) });
+      room = (await rooms.room(id))!;
+    }
+    // The host is whoever opened the table; if they've gone, the player in the first seat.
+    if (!e.host || !holders.includes(e.host)) {
+      e.host = holders.find(Boolean)!;
+      await rooms.sync.write("lobby", "open", { [id]: e });
+    }
+    if (room.host !== holders.indexOf(e.host)) await rooms.sync.write("rooms", id, { host: holders.indexOf(e.host) });
     if (room.seats.every((s, i) => s.bot || holders[i])) {
       await rooms.start(id); // onStart takes it off the list
       await unlist(id);
@@ -182,7 +219,36 @@ export function createLobby(rooms: Rooms, { mount = "/lobby", quietAfter = 90_00
     return seat;
   }
 
-  async function open(id: string, room: RoomDoc<unknown>): Promise<string | null> {
+  /** Who asked to hear about which games: player id → game ids, or "any". */
+  async function alerts(): Promise<Record<string, string[]>> {
+    const doc = (await docs).get("lobby", "alerts") ?? {};
+    return Object.fromEntries(Object.entries(doc).filter((e): e is [string, string[]] => Array.isArray(e[1]) && e[1].length > 0));
+  }
+
+  /** A table just opened: buzz the players who asked to hear about its game, but not too often. */
+  async function announce(id: string) {
+    const t = await settle(id);
+    if (!t || !push?.enabled) return;
+    const { game, rules } = t.entry;
+    const host = t.room.seats[t.holders.indexOf(t.entry.host ?? "")]?.name ?? "Someone";
+    const free = t.room.seats.filter((s, i) => !s.bot && !t.holders[i]).length;
+    const at = now();
+    for (const [player, games] of Object.entries(await alerts())) {
+      if (t.holders.includes(player) || !(games.includes(ANY) || games.includes(game))) continue;
+      if (at - (lastBuzz.get(player) ?? -Infinity) < alertGap) continue;
+      lastBuzz.set(player, at);
+      void push
+        .notify(player, {
+          title: `${host} is looking for ${gameName(game)} players ${gameEmoji(game)}`,
+          body: `${rules ? `${rules}. ` : ""}${free === 1 ? "One seat open" : `${free} seats open`}. Tap to see the open tables.`,
+          url: "/?lobby=1",
+          tag: "lobby",
+        })
+        .catch((e) => console.error("lobby", e));
+    }
+  }
+
+  async function open(id: string, room: RoomDoc<unknown>, host: string): Promise<string | null> {
     if (await entry(id)) return null;
     if (Object.keys(await entries()).length >= limit) return "The lobby is full right now. Try again in a little while.";
     const info = (room.info ?? {}) as { rules?: string };
@@ -190,7 +256,7 @@ export function createLobby(rooms: Rooms, { mount = "/lobby", quietAfter = 90_00
     // The table's own options, checked the same way a player's are, so equal rules compare equal.
     const given = ((await docs).get("games", id)?.options ?? {}) as { rules?: unknown; seats?: unknown };
     const match = fingerprint(game, optionsFor(game, game === "spades" ? given : given.rules, given.seats));
-    await rooms.sync.write("lobby", "open", { [id]: { game, rules: String(info.rules ?? ""), created: now(), match } satisfies Entry });
+    await rooms.sync.write("lobby", "open", { [id]: { game, rules: String(info.rules ?? ""), created: now(), match, host } satisfies Entry });
     await rooms.sync.write("rooms", id, { open: true });
     return null;
   }
@@ -204,12 +270,23 @@ export function createLobby(rooms: Rooms, { mount = "/lobby", quietAfter = 90_00
     if (parts.length === 0 && method === "GET") {
       const asked = new URL(request.url).searchParams.get("game");
       const tables = await inTurn(() => list(player, isGameId(asked) ? asked : undefined));
-      return json({ tables: tables.map(({ match: _match, ...t }) => t) });
+      return json({ tables: tables.map(({ match: _match, host: _host, removed: _removed, ...t }) => t) });
+    }
+    // GET /lobby/alerts → the games this player asked to hear about
+    if (parts.length === 1 && parts[0] === "alerts" && method === "GET") {
+      return json({ games: (player && (await alerts())[player]) || [], notifications: Boolean(push?.enabled) });
     }
     if (method !== "POST") return json({ error: "Not found" }, 404);
     const input = ((await request.json().catch(() => ({}))) ?? {}) as Record<string, unknown>;
     const me = player ?? newPlayerId();
     const cookie: Record<string, string> = player ? {} : { "set-cookie": playerCookie(me, request) };
+
+    // POST /lobby/alerts { games } → buzz me when a table opens for these games ("any" for every game; none to stop)
+    if (parts.length === 1 && parts[0] === "alerts") {
+      const games = [...new Set((Array.isArray(input.games) ? input.games : []).filter((g): g is string => g === ANY || isGameId(g)))];
+      await rooms.sync.write("lobby", "alerts", { [me]: games.length ? games : null });
+      return json({ games, notifications: Boolean(push?.enabled) }, 200, cookie);
+    }
 
     // POST /lobby/join { game, name, rules?, seats?, settings?, sameRules? } → { id, seat, waiting }
     // A seat at a table that's waiting for this game; or a new open table with these rules. With
@@ -220,11 +297,12 @@ export function createLobby(rooms: Rooms, { mount = "/lobby", quietAfter = 90_00
       if (!isGameId(game) || !about) return json({ error: "Pick a game first." }, 400);
       if (about.seats[1] < 2) return json({ error: `${about.name} is a game for one.` }, 400);
       const name = cleanName(input.name);
+      if (!okName(name)) return json({ error: BAD_NAME }, 400);
       return inTurn(async () => {
         const options = optionsFor(game, input.rules, input.seats);
         const wanted = fingerprint(game, options);
         const strict = input.sameRules === true;
-        const waiting = await list(me, game);
+        const waiting = (await list(me, game)).filter((t) => !t.removed?.includes(me));
         // Already waiting somewhere for this game: go back there. Else the same rules first, then
         // (unless only the same rules will do) whoever has waited longest.
         const choices = [
@@ -243,7 +321,8 @@ export function createLobby(rooms: Rooms, { mount = "/lobby", quietAfter = 90_00
         const id = await rooms.create(options, input.settings);
         await rooms.seatPlayer(id, 0, me, name);
         heard.set(`${id}/0`, at);
-        await open(id, (await rooms.room(id))!);
+        await open(id, (await rooms.room(id))!, me);
+        await announce(id);
         return json({ id, seat: 0, waiting: true }, 201, cookie);
       });
     }
@@ -253,9 +332,13 @@ export function createLobby(rooms: Rooms, { mount = "/lobby", quietAfter = 90_00
 
     // POST /lobby/:id/sit { name } → { seat }: jump into an open table's first free seat
     if (action === "sit") {
+      const name = cleanName(input.name);
+      if (!okName(name)) return json({ error: BAD_NAME }, 400);
       return inTurn(async () => {
-        if (!(await settle(id))) return json({ error: "That table isn't open any more." }, 404, cookie);
-        const seat = await takeSeat(id, me, cleanName(input.name));
+        const t = await settle(id);
+        if (!t) return json({ error: "That table isn't open any more." }, 404, cookie);
+        if (t.entry.removed?.includes(me)) return json({ error: "You can't sit at that table." }, 403, cookie);
+        const seat = await takeSeat(id, me, name);
         return seat === null ? json({ error: "Someone just took the last seat." }, 409, cookie) : json({ id, seat }, 200, cookie);
       });
     }
@@ -280,10 +363,28 @@ export function createLobby(rooms: Rooms, { mount = "/lobby", quietAfter = 90_00
         if (room.seats.length < 2) return json({ error: "This is a game for one." }, 400);
         const holders = await rooms.holders(id);
         if (room.seats.every((s, i) => s.bot || holders[i])) return json({ error: "Every seat is taken. Free one up first, or deal." }, 409);
-        const problem = await open(id, room);
+        const fresh = !(await entry(id));
+        const problem = await open(id, room, player!);
         if (problem) return json({ error: problem }, 503);
         heard.set(`${id}/${seat}`, now());
+        if (fresh) await announce(id);
+        else await settle(id);
         return json({ open: true });
+      });
+    }
+
+    // POST /lobby/:id/remove { seat } → the host takes a player's seat away, before the deal, for good
+    if (action === "remove") {
+      return inTurn(async () => {
+        const t = await settle(id);
+        if (!t) return json({ error: "That table isn't open any more." }, 404);
+        if (t.entry.host !== player) return json({ error: "Only the table's host can remove a player." }, 403);
+        const target = Number(input.seat);
+        const who = Number.isInteger(target) ? t.holders[target] : null;
+        if (!who || who === player) return json({ error: "There's nobody to remove in that seat." }, 400);
+        await rooms.sync.write("lobby", "open", { [id]: { ...t.entry, removed: [...(t.entry.removed ?? []), who].slice(-50) } });
+        await rooms.unseat(id, target);
+        return json({ ok: true });
       });
     }
 

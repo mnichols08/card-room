@@ -126,6 +126,8 @@ export interface RoomDoc<Summary = unknown> {
   label?: string;
   /** Set by an app that lists the table somewhere public (a lobby), so its page can say so. */
   open?: boolean;
+  /** The seat of whoever runs a listed table (they can remove players), set by the app. */
+  host?: number | null;
   summary: Summary | null;
   /** The clock that's running, if the game has one (see RoomDefinition.deadline). */
   deadline?: DeadlineDoc | null;
