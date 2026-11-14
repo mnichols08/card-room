@@ -10,7 +10,7 @@ import { mulberry32, type PlayStyle } from "@spades/rules";
 /** The games that are played with cards. */
 export type CardGameId = "hearts" | "ohhell" | "euchre" | "crazy8" | "gin" | "pinochle" | "canasta" | "gofish" | "oldmaid" | "war" | "whist" | "golf" | "rummy500" | "president" | "klondike" | "freecell" | "handfoot" | "cribbage" | "fivedraw" | "holdem" | "bluff" | "liarspoker" | "switch" | "thirtyone" | "kingscorner" | "blackjack" | "spite" | "pitch" | "fivehundred" | "durak" | "bridge" | "fruitsalad" | "slapjack" | "speed" | "memory" | "sevens" | "cuckoo" | "contractrummy" | "spider" | "pyramid" | "ridethebus" | "kingscup" | "horserace" | "drinkingpyramid";
 /** The games that are played on a board. */
-export type BoardGameId = "tictactoe" | "reversi";
+export type BoardGameId = "tictactoe" | "dropfour" | "combat" | "reversi";
 /** Every game on the kit. (Rooms, houses and saved rules have always called these "kit" games.) */
 export type KitGameId = CardGameId | BoardGameId;
 
@@ -108,6 +108,20 @@ export type RuleField<R> =
   | { key: keyof R & string; label: string; hint?: string; kind: "number"; min: number; max: number; step?: number };
 
 /**
+ * A clock of the game's own: a shot clock, a chess clock, a window for claiming a discard. The
+ * table keeps the time (the server for a family table, the browser in practice) and makes `move`
+ * as `seat` if nothing else happens first.
+ */
+export interface GameDeadline<M = Record<string, unknown>> {
+  /** How long the seat has, in ms, counted from the last move anyone made (or the deal). */
+  after: number;
+  /** Whose clock it is: the table counts down on this seat. */
+  seat: number;
+  /** The move made as that seat when time runs out. It goes through `apply` like any other. */
+  move: M;
+}
+
+/**
  * A game, apart from what its table looks like: `View` is what one seat sees (a `KitView` for a
  * card game, a `BoardView` for a board game).
  */
@@ -142,6 +156,14 @@ export interface TableGame<R extends BaseRules = BaseRules, S = unknown, M = Rec
    * gives a number, it's used as is, whatever pace the table is set to, so a person can win the race.
    */
   reactionTime?(state: S, seat: number, style: PlayStyle): number | null;
+  /**
+   * The game's own clock in this state, if one is running: null (or no `deadline` at all) when the
+   * game waits as long as it takes. Asked again after every move, so it describes this state only,
+   * and like everything else here it must be worked out from the state alone, never from the time
+   * of day. The table's turn timer is separate; when both are running, the sooner one counts. A
+   * computer player in the seat is never held to it (and never takes longer than it).
+   */
+  deadline?(state: S): GameDeadline<M> | null;
   summary(state: S): KitSummary;
 }
 

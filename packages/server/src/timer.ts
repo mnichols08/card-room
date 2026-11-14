@@ -57,3 +57,14 @@ export function turnDeadline(state: AnyState, table: TableInfo, bot: Bot): Deadl
   // The move is only worked out if the time really runs out: a bot's think can be a long one.
   return { after: ms, seat, move: () => bot(seat, name) };
 }
+
+/**
+ * Of a game's own deadline and the table's turn timer, the one that runs out first (the game's, on a
+ * tie: its timeout move is part of its rules). Both count from the last move, so `after` and the
+ * grace say which that is; a deadline at a fixed time (`at`) can't be weighed here and is taken as is.
+ */
+export function sooner<Move>(own: Deadline<Move> | null, timer: Deadline<Move> | null): Deadline<Move> | null {
+  if (!own || !timer) return own ?? timer;
+  if (own.after === undefined || timer.after === undefined) return own;
+  return timer.after + (timer.grace ?? 0) < own.after + (own.grace ?? 0) ? timer : own;
+}

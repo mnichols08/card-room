@@ -1,6 +1,6 @@
 # Card Room
 
-Family card and board games online: fifty games with house rules saved as presets, family
+Family card and board games online: fifty-two games with house rules saved as presets, family
 **houses** with their own tables, leaderboards and tournaments, computer players with personalities,
 challenge links, and a widget that puts a game on any site, including [open.blog](https://github.com/journey-to-code-org/open.blog) ones.
 
@@ -9,10 +9,10 @@ yourself (Docker or Railway), and practice games work anywhere, including the Gi
 
 ## The games
 
-Spades and Palace have tables of their own; the other forty-eight are built on a shared game kit
+Spades and Palace have tables of their own; the other fifty are built on a shared game kit
 (`packages/games`), so they all get the same setup screen, house rules editor, computer players,
 houses, challenges and tournaments. The kit has two tables: one that draws any card game, and one
-that draws any board game (Tic-Tac-Toe is the first).
+that draws any board game (Tic-Tac-Toe was the first).
 
 | Game | Players | |
 | --- | --- | --- |
@@ -47,10 +47,6 @@ that draws any board game (Tic-Tac-Toe is the first).
 | War | 2 to 4 | Flip, and the highest card takes all |
 | Slapjack | 2 to 6 | Flip, and slap the jacks first |
 | Speed | 2 | No turns: play faster than the other player |
-| Sevens | 3 to 7 | Build out from the 7s |
-| Cuckoo | 3 to 10 | One card each; don't get stuck with the lowest |
-| Contract Rummy | 3 to 8 | Seven rounds, seven contracts to lay down |
-| Memory | 1 to 6 | Find the pairs (great for grandkids) |
 | Kings in the Corner | 2 to 4 | Solitaire for the whole table |
 | Spite and Malice | 2 to 4 | Race to play off your pile; kings are wild |
 | Five Card Draw | 2 to 6 | Poker for chips: bet, swap, bet, show |
@@ -67,6 +63,8 @@ that draws any board game (Tic-Tac-Toe is the first).
 | Horse Race 🍺 | 2 to 10 | Drinking game: bet sips on an ace |
 | Drinking Pyramid 🍺 | 2 to 8 | Drinking game: remember your cards, match, bluff |
 | Tic-Tac-Toe | 2 | A board game: three in a row, Ultimate's nine boards, or Gomoku's five in a row on 15×15 |
+| Drop Four | 2 | A board game: drop discs down a rack, four in a row wins; bigger racks, Pop Out, five in a row |
+| Combat | 2 | A board game: hide your fleet, then take turns calling shots. Classic, Admirals (ten ships that can't touch), Salvo, or a quick 7×7 |
 | Reversi | 2 | A board game: trap their discs between yours and flip them, on 6×6, 8×8 or 10×10 |
 
 Poker and Blackjack are for chips only: everyone starts with the same stack, and the chips are
@@ -74,7 +72,9 @@ just for keeping score.
 
 The 🍺 games are drinking games for adults (water counts). Party games (Thirty-One, President,
 Bluff, Liar's Poker, Durak, Slapjack, Sevens, Cuckoo) also have a drinking-mode house rule, off
-unless a table turns it on. Kids' games have none.
+unless a table turns it on. Kids' games have none. Drop Four's drinking mode is a shot clock: once
+the other player's disc lands you have three seconds to drop yours, or you take a drink and lose
+your turn.
 
 ## The turn timer
 
@@ -94,6 +94,9 @@ before the end.
 - The server keeps the time, and it survives a restart (see [Clocks and deadlines](#clocks-and-deadlines)).
   "A day" is for games played a move at a time over a week.
 - Practice games on your own device have no timer: nobody is waiting on you.
+- A game can have a clock of its own as well, which is part of its rules and not a table setting
+  (Drop Four's shot clock in drinking mode). When both are running, whichever runs out first counts.
+  A game's own clock runs in practice too.
 
 ## Finding people to play with
 
@@ -143,7 +146,7 @@ host, no chat filter and no mute; an admin can still block there.
 
 | Package | |
 | --- | --- |
-| [`packages/games`](packages/games) | The game kit and the forty-eight games built on it: `table.ts` (the `TableGame` engine contract every game shares), `kit.ts` (the card kit: `CardGame`, cards, decks, `KitView`) and `board.ts` (the board kit: `BoardGame`, grids, pieces, `BoardView`) |
+| [`packages/games`](packages/games) | The game kit and the fifty games built on it: `table.ts` (the `TableGame` engine contract every game shares), `kit.ts` (the card kit: `CardGame`, cards, decks, `KitView`) and `board.ts` (the board kit: `BoardGame`, grids, pieces, `BoardView`) |
 | [`packages/rules`](packages/rules) | Spades rules engine, bots, and the personas who play every game |
 | [`packages/palace`](packages/palace) | Palace rules engine: house-rule presets, seat views, bots and table talk |
 | [`packages/physics`](packages/physics) | A small deterministic 2D physics core for the ball games to come: the same shot gives the same table on the server and in every browser |
@@ -201,7 +204,26 @@ returns.
    or a kind of piece in your reserve) with where each can go, sending `{ type, from, to }`. List
    exactly the legal moves: the table offers nothing else, and `apply` still refuses the rest.
    `tictactoe.ts` is the worked example, with three computer players: a solved 3×3, a scored
-   search for bigger boards, and a look-ahead for Ultimate.
+   search for bigger boards, and a look-ahead for Ultimate. `dropfour.ts` is the drop game (column
+   taps, a rack with `gravity`), and the example of a game with a clock of its own (`deadline`).
+   `combat.ts` is the worked example for everything Tic-Tac-Toe doesn't need:
+   - **Hidden information.** A seat's view must hold nothing that seat shouldn't know, in cells,
+     labels, marks or narration. Combat builds the view and the computer player's move from one
+     function (`seen`) that is the only code to read the other seat's ships, and its tests move
+     the hidden ships about and check the view doesn't change by a character. `summary` is public:
+     keep secrets out of it too.
+   - **A second, private grid** (`owner` is the seat it belongs to). The first grid is the main
+     one; the second is drawn smaller beside it (on a phone, beside the notes and buttons). With
+     two grids every board move carries `grid`.
+   - **Everyone moving at once** (placing ships): `turn` is null and each seat's view offers its
+     own moves. The turn timer goes on whoever the computer player would still move for.
+   - **Reserves you place from:** a `select` source whose `from` is the `kind` of a piece in your
+     reserve. `select.suggest` names a source the table picks up for you while you hold nothing
+     else, so placing is one tap a piece. A button (`choices`) pressed while something is picked
+     up leaves it in your hand, which is how a ship is turned before it's put down.
+   - **Pieces longer than a cell:** give every cell of one the same `span`. The table joins them
+     into one shape, and a tap on any of its cells picks up the whole piece (list it once in
+     `select`, by any one of its cells).
 2. **Register it:** add its id to `BoardGameId` in `table.ts`, add it to `BOARD_GAMES` in
    `registry.ts`, and export it from `index.ts`.
 3. **Tests:** `packages/games/test/<game>.test.ts` for its rules. The shared board tests
@@ -245,9 +267,48 @@ which is what makes a chess clock replay: `after: state.bank[state.turn]`, and `
 
 Every game in the card room already has one deadline, the [turn timer](#the-turn-timer)
 (`packages/server/src/timer.ts`). A game on the kit gets it for nothing: it needs `view().turn` to
-say whose move it is and `bot()` to give a move for any seat that owes one. A game with a clock of
-its own (a shot clock, a claim window) would return its deadline ahead of the turn timer's in
-`tableRoom.deadline` in [`packages/server/src/games.ts`](packages/server/src/games.ts).
+say whose move it is and `bot()` to give a move for any seat that owes one.
+
+### A game's own clock
+
+A game on the kit can also have a clock that is part of its rules: a shot clock, a chess clock, a
+window for claiming a discard. It says so from its state, with the optional `deadline` of
+`TableGame` (`packages/games/src/table.ts`):
+
+```ts
+deadline(state) {
+  // Drop Four in drinking mode: three seconds, once the other player's disc has landed.
+  return state.clock ? { after: 3000, seat: state.turn, move: { type: "timeout" } } : null;
+},
+```
+
+`after` counts from the last move anyone made, `seat` is whose clock it is, and `move` is made as
+that seat when time runs out. It's a move like any other: `apply` decides what it does (in Drop
+Four, a drink and a lost turn) and refuses it when no clock is running, and it goes into the move
+log. `deadline` must be worked out from the state alone, never from the time of day.
+
+- **Wired once.** `kitRoom.deadline` (`packages/server/src/kit.ts`) turns it into the room's
+  deadline for every game, and `tableRoom.deadline` (`games.ts`) weighs it against the turn timer
+  with `sooner` (`timer.ts`): whichever runs out first is the room's one deadline, and the game's
+  own wins a tie. With no clock of its own running, the turn timer is all there is.
+- **A little grace.** The clock is meant to run from when you can see the other player's move, and
+  both that and your answer take a moment to travel. So the server waits `GAME_CLOCK_GRACE_MS`
+  (400 ms, in `kit.ts`) past a game's own clock before it makes the timeout move, using the room
+  deadline's `grace`. Pages count down to the time without it, and a move that arrives inside the
+  grace is taken like any other. The turn timer has no grace: its shortest setting is 15 seconds.
+- **Computer players** aren't held to a game's own clock (no deadline is armed on a bot's seat), and
+  `botDelay` keeps them inside six tenths of it whatever the table's pace, so a person is never
+  waiting longer for a bot than they'd be allowed themselves.
+- **Replays and restarts.** A timeout is in the move log, so a replay gives the same game with the
+  missed turn in it. After a restart a clock that was running is armed again from the last move's
+  logged time, but never with less than the room's `deadlineGrace` (five seconds) from the restart:
+  for a three-second clock that means a restart gives the seat five seconds, not a lost turn.
+  Changing the table's settings mid-clock never puts off a clock that's already running.
+- **Practice.** `LocalKit` runs the same `deadline` in the browser, on your own seat, with no grace
+  (there's no trip to make), and shows the same countdown.
+- **Not yet:** a clock that banks time (chess) needs to know how long each move took. Rooms hand
+  that to `act` as `{ at, elapsed }`; `TableGame.apply` doesn't take it yet, and passing it through
+  `kitRoom.act` is the one line to add when the first such game arrives.
 
 ## Putting a game on a site
 
