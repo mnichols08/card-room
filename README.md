@@ -274,3 +274,4 @@ the browser.
 Keep the card room in a project of its own, so `railway config apply` can never touch another app.
 
 See [docs/SPEC.md](docs/SPEC.md) for the original plan.
+See [docs/ROADMAP.md](docs/ROADMAP.md) for what's next: board games, dice, tiles and table sports.
