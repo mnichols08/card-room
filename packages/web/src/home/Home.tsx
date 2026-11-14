@@ -9,7 +9,8 @@ import GameChooser from "./GameChooser.vue";
 const card = (rank: number, suit: string) => ({ kind: "pip" as const, rank, suit });
 
 /** Each game's fan of cards on its tile: a hand that says what the game is about. */
-const FANS: Record<string, ReturnType<typeof card>[]> = {
+const fruit = (fruit: string | null, face: number | string) => ({ kind: "fruit" as const, fruit, face });
+const FANS: Record<string, object[]> = {
   spades: [card(12, "spades"), card(13, "spades"), card(14, "spades")],
   palace: [card(10, "clubs"), card(2, "hearts"), card(14, "diamonds")],
   hearts: [card(13, "hearts"), card(12, "spades"), card(14, "hearts")],
@@ -43,6 +44,7 @@ const FANS: Record<string, ReturnType<typeof card>[]> = {
   fivehundred: [card(11, "hearts"), card(11, "diamonds"), card(14, "hearts")],
   durak: [card(6, "spades"), card(9, "spades"), card(7, "hearts")],
   bridge: [card(14, "spades"), card(13, "spades"), card(12, "spades")],
+  fruitsalad: [fruit("cherry", 7), fruit("lemon", "plus2"), fruit(null, "salad")],
 };
 
 const SEATS: Record<string, { seats: [number, number]; teams: boolean }> = {
