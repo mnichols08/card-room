@@ -63,10 +63,11 @@ type KitRules = { id: string; name: string } & Record<string, unknown>;
 interface Rooms {
   sync: {
     write(collection: string, key: string, fields: Record<string, unknown>): Promise<unknown>;
-    documents(): Promise<{ get(collection: string, key: string): Record<string, unknown> | undefined }>;
+    documents(): Promise<{ get(collection: string, key: string): Record<string, unknown> | undefined; all(collection: string): ({ key: string } & Record<string, unknown>)[] }>;
   };
   create(options: TableOptions, settings?: unknown): Promise<string>;
   room(id: string): Promise<RoomDoc<unknown> | undefined>;
+  holders(id: string): Promise<(string | null)[]>;
   seatPlayer(id: string, seat: number, player: string, name: string): Promise<void>;
   seatBot(id: string, seat: number, name: string): Promise<void>;
   start(id: string): Promise<string | null>;
@@ -408,7 +409,13 @@ export function createHouses(rooms: Rooms, { mount = "/houses", push, ai = creat
       // A new provider needs its own key; otherwise the saved one stays.
       const key = pasted ? ai.seal(pasted) : provider === house.ai?.provider ? house.ai.key : "";
       if (!key) return json({ error: "Paste an API key for that account." }, 400);
-      const model = typeof input.model === "string" && /^[\w.:\/-]{1,80}$/.test(input.model.trim()) ? input.model.trim() : provider === house.ai?.provider ? house.ai.model : defaultModel(provider);
+      // The model they chose; else the one already saved; else whichever small model this account has.
+      const model =
+        typeof input.model === "string" && /^[\w.:\/-]{1,80}$/.test(input.model.trim())
+          ? input.model.trim()
+          : provider === house.ai?.provider
+            ? house.ai.model
+            : await ai.models({ provider, key }).then((m) => m.suggested, () => defaultModel(provider));
       const context = typeof input.context === "string" ? input.context.trim().slice(0, CONTEXT_LIMIT) : (house.ai?.context ?? "");
       const next: HouseAi = { provider, key, model, context, on: typeof input.on === "boolean" ? input.on : (house.ai?.on ?? true) };
       // A new key or model is tried before it's saved, so a typo shows up now and not mid-game.
@@ -422,6 +429,18 @@ export function createHouses(rooms: Rooms, { mount = "/houses", push, ai = creat
       house.ai = next;
       await save(house);
       return json(await forMember(house, me));
+    }
+    // POST /houses/:slug/ai-models { provider, key? } → the models that account can use, and one to start with
+    if (action === "ai-models") {
+      const pasted = typeof input.key === "string" ? input.key.trim() : "";
+      const provider = input.provider === "server" || isProvider(input.provider) ? input.provider : house.ai?.provider;
+      const key = pasted ? ai.seal(pasted) : provider === house.ai?.provider ? house.ai!.key : "";
+      if (!provider || (provider !== "server" && !key)) return json({ error: "Paste an API key first." }, 400);
+      try {
+        return json(await ai.models({ provider, key }));
+      } catch (e) {
+        return json({ error: e instanceof Error ? e.message : "The AI service didn't answer." }, 400);
+      }
     }
     // POST /houses/:slug/ai-test → a hello in a bot's voice, with the saved connection
     if (action === "ai-test") {
@@ -555,8 +574,23 @@ export function createHouses(rooms: Rooms, { mount = "/houses", push, ai = creat
     async aiFor(table: string): Promise<{ who: string; limit: number; name: string; ai: HouseAi } | null> {
       const slug = houseOf.get(table) ?? ((await docs).get("tablehouse", table)?.house as string | undefined);
       const house = slug ? await get(slug) : undefined;
+      const usable = (c: HouseAi | null | undefined): c is HouseAi => !!c?.on && (c.provider !== "server" || ai.shared);
+      if (!house) {
+        // A table outside any house (a quick table, a challenge): if someone sitting at it belongs to
+        // a house with bot talk on, the bots talk through that house's account. The family's notes
+        // come along only when everyone at the table is in that house.
+        const seated = (await rooms.holders(table)).filter((p): p is string => p !== null);
+        const all = seated.length ? (await docs).all("houses") : [];
+        for (const player of seated) {
+          const found = all.find((h) => usable((h as unknown as HouseDoc).ai) && (h as unknown as HouseDoc).members?.some((m) => m.player === player));
+          const theirs = found && (await get(found.key));
+          if (!theirs?.ai) continue;
+          const family = seated.every((p) => theirs.members.some((m) => m.player === p));
+          return { who: theirs.slug, limit: DAILY_LINES, name: family ? theirs.name : "the Card Room", ai: family ? theirs.ai : { ...theirs.ai, context: "" } };
+        }
+      }
       const connected = house?.ai ?? ai.fallback();
-      if (!connected?.on || (connected.provider === "server" && !ai.shared)) return null;
+      if (!usable(connected)) return null;
       return house ? { who: house.slug, limit: DAILY_LINES, name: house.name, ai: connected } : { who: `table/${table}`, limit: TABLE_LINES, name: "the Card Room", ai: connected };
     },
     /** Answers house requests; null for anything else. */

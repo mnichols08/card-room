@@ -148,6 +148,8 @@ export const houses = {
   newLink: (slug: string) => call<House>(at(slug, "new-link"), {}),
   /** Connect or change the house's AI (the key and model are tried before they're saved), or { disconnect: true }. */
   saveAi: (slug: string, change: { provider?: AiProvider | "server"; key?: string; model?: string; context?: string; on?: boolean; disconnect?: boolean }) => call<House>(at(slug, "ai"), change),
+  /** The models an account can use (with the pasted key, or the saved one), and one to start with. */
+  aiModels: (slug: string, provider: AiProvider | "server", key?: string) => call<{ models: string[]; suggested: string }>(at(slug, "ai-models"), { provider, key }),
   testAi: (slug: string) => call<{ line: string }>(at(slug, "ai-test"), {}),
   tournament: (slug: string, id: string) => call<Tournament>(at(slug, `tournaments/${encodeURIComponent(id)}`)),
   newTournament: (slug: string, name: string, game: GameId, presetId: string, settings: TableSettings) => call<Tournament>(at(slug, "tournaments"), { name, game, presetId, settings }),

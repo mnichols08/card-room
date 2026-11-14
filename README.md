@@ -195,6 +195,11 @@ a bot's name, gets an answer too.
   family notes. Never a hand.
 - The house's account pays for the lines (a few words each, at most 600 a day per house). If the
   model is slow, out of credit or switched off, the bots say their own lines.
+- Leave the model empty and the card room picks a small one the account has, or tap **Choose from
+  this account's models** to pick from the account's own list.
+- A table outside the house (a quick table, a challenge) talks through the house's account too
+  when one of its members is sitting at it. The family notes are only used when everyone at that
+  table is in the house.
 - The key is tried before it's saved, kept on the server (encrypted when `CARDROOM_SECRET` is
   set) and never sent to a page again: admins see its last four characters. A changed or lost
   `CARDROOM_SECRET` means pasting the keys again.

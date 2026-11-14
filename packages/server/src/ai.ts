@@ -183,6 +183,35 @@ export function createAi(options: AiOptions = {}) {
     return line;
   }
 
+  /**
+   * The chat models an account can use, newest first, and the one to start with: the usual small
+   * model if the account has it, else its newest small one. Throws like `ask`.
+   */
+  async function models(asked: Pick<HouseAi, "provider" | "key">): Promise<{ models: string[]; suggested: string }> {
+    const ai = resolve({ ...asked, model: "", context: "", on: true });
+    const key = ai && open(ai.key);
+    if (!ai || !key) throw new Error("The saved key can't be read any more. Paste it again.");
+    const anthropic = ai.provider === "anthropic";
+    const response = await send(anthropic ? "https://api.anthropic.com/v1/models?limit=100" : "https://api.openai.com/v1/models", {
+      signal: AbortSignal.timeout(timeout),
+      headers: anthropic ? { "x-api-key": key, "anthropic-version": "2023-06-01" } : { authorization: `Bearer ${key}` },
+    });
+    const data = (await response.json().catch(() => ({}))) as { data?: { id?: unknown; created?: number; line?: string | null }[] };
+    if (response.status === 401 || response.status === 403) throw new Error("That key was refused. Check it and paste it again.");
+    if (!response.ok || !Array.isArray(data.data)) throw new Error(`The AI service answered ${response.status}.`);
+    let list = data.data.filter((m): m is { id: string; created?: number; line?: string | null } => typeof m.id === "string" && /^[\w.:\/-]{1,80}$/.test(m.id));
+    if (!anthropic) {
+      // OpenAI lists everything the account has: keep the ones that chat, newest first.
+      list = list
+        .filter((m) => /^(gpt-|chat|o\d)/.test(m.id) && !/audio|realtime|image|transcribe|tts|search|embedding|codex|moderation|instruct|live/.test(m.id))
+        .sort((a, b) => (b.created ?? 0) - (a.created ?? 0));
+    }
+    const ids = list.map((m) => m.id);
+    const usual = defaultModel(ai.provider);
+    const small = list.find((m) => (anthropic ? m.line === "haiku" || m.id.includes("haiku") : /luna|mini|nano/.test(m.id)));
+    return { models: ids, suggested: ids.includes(usual) ? usual : (small?.id ?? ids[0] ?? usual) };
+  }
+
   // Each house's lines today, so a busy night can't run up a bill. Kept in memory: a restart resets it.
   const used = new Map<string, { day: string; lines: number }>();
   const today = () => new Date().toISOString().slice(0, 10);
@@ -201,6 +230,7 @@ export function createAi(options: AiOptions = {}) {
 
   return {
     seal,
+    models,
     /** Whether a sealed key can still be opened here. */
     readable: (ai: HouseAi) => open(ai.key) !== null,
     /** Whether the card room has a key of its own. */

@@ -12,9 +12,11 @@ afterEach(() => {
 });
 
 /** A stand-in for the AI services: remembers what it was sent and answers with `say`. */
-function service(say: (body: any, url: string) => { status?: number; line?: string } = () => ({ line: "Well hello there, sugar 🥰" })) {
+function service(say: (body: any, url: string) => { status?: number; line?: string } = () => ({ line: "Well hello there, sugar 🥰" }), has: string[] | null = null) {
   const calls: { url: string; headers: Record<string, string>; body: any }[] = [];
   const fake = (async (url: string | URL | Request, init?: RequestInit) => {
+    // The account's list of models: `has`, or no list at all.
+    if (String(url).includes("/v1/models")) return new Response(JSON.stringify(has ? { data: has.map((id, i) => ({ id, created: 100 - i })) } : {}), { status: has ? 200 : 500 });
     const body = JSON.parse(String(init?.body));
     calls.push({ url: String(url), headers: init?.headers as Record<string, string>, body });
     const { status = 200, line = "" } = say(body, String(url));
@@ -129,7 +131,7 @@ describe("a house's AI connection", () => {
     expect(prompt).not.toMatch(/"suit"|"rank"|"hand":/);
   }, 10_000);
 
-  it("the bots say their own lines when the model fails, and at tables outside the house", async () => {
+  it("the bots say their own lines when the model fails, and for people outside the house", async () => {
     let fail = false;
     const { fake, calls } = service(() => (fail ? { status: 500 } : { line: "Model says hello!" }));
     const { phone } = setup(fake);
@@ -147,17 +149,70 @@ describe("a house's AI connection", () => {
     expect(dot.length).toBeGreaterThan(0);
     expect(dot.some((m) => m.text === "Model says hello!")).toBe(false);
 
-    // A table that isn't the house's never calls the service.
+    // A table with nobody from a connected house at it never calls the service.
     fail = false;
     const n = calls.length;
-    const open = (await grammi.send("/rooms", { options: {} })).body.id;
-    await grammi.send(`/rooms/${open}/sit`, { seat: 0, name: "brokennil" });
-    for (const [seat, name] of [[1, "Hank"], [2, "Dot"], [3, "Lou"]] as const) await grammi.send(`/rooms/${open}/bot`, { seat, name });
-    await grammi.send(`/rooms/${open}/start`, {});
-    await grammi.send(`/rooms/${open}/say`, { text: "Dot, what's for dessert?" });
+    const stranger = phone();
+    const open = (await stranger.send("/rooms", { options: {} })).body.id;
+    await stranger.send(`/rooms/${open}/sit`, { seat: 0, name: "Passerby" });
+    for (const [seat, name] of [[1, "Hank"], [2, "Dot"], [3, "Lou"]] as const) await stranger.send(`/rooms/${open}/bot`, { seat, name });
+    await stranger.send(`/rooms/${open}/start`, {});
+    await stranger.send(`/rooms/${open}/say`, { text: "Dot, what's for dessert?" });
     await new Promise((r) => setTimeout(r, 2500));
     expect(calls.length).toBe(n);
   }, 12_000);
+});
+
+describe("models, and tables outside a house", () => {
+  it("picks a small model the account has, and lists them for the admin to choose", async () => {
+    const { fake, calls } = service(undefined, ["gpt-7-sol", "gpt-7-luna", "gpt-7-audio", "text-embedding-9", "gpt-6-mini"]);
+    const { phone } = setup(fake);
+    const grammi = phone();
+    await grammi.send("/houses", { name: "Grammi's House", you: "brokennil" });
+    const listed = await grammi.send("/houses/grammis-house/ai-models", { provider: "openai", key: KEY });
+    // The usual model isn't on this account: its newest small one is suggested. Nothing that can't chat is listed.
+    expect(listed.body).toEqual({ models: ["gpt-7-sol", "gpt-7-luna", "gpt-6-mini"], suggested: "gpt-7-luna" });
+    expect((await grammi.send("/houses/grammis-house/ai-models", { provider: "openai" })).status).toBe(400);
+
+    // Connecting without naming a model uses that one, and tries it before saving.
+    const saved = await grammi.send("/houses/grammis-house/ai", { provider: "openai", key: KEY });
+    expect(saved.body.ai).toMatchObject({ provider: "openai", model: "gpt-7-luna" });
+    expect(calls.at(-1)!.body.model).toBe("gpt-7-luna");
+    // Afterwards the list comes from the saved key.
+    expect((await grammi.send("/houses/grammis-house/ai-models", { provider: "openai" })).body.suggested).toBe("gpt-7-luna");
+  });
+
+  it("a member's table outside the house talks through the house's account; the family notes stay in the family", async () => {
+    const { fake, calls } = service(() => ({ line: "Model says hello!" }));
+    const { phone } = setup(fake);
+    const grammi = phone();
+    const rick = phone();
+    const stranger = phone();
+    const made = await grammi.send("/houses", { name: "Grammi's House", you: "brokennil" });
+    await rick.send("/houses/grammis-house/join", { code: made.body.code, name: "Rick" });
+    await grammi.send("/houses/grammis-house/ai", { provider: "anthropic", key: KEY, context: "Grammi bakes the pies." });
+
+    const play = async (other: ReturnType<typeof phone>) => {
+      const id = (await grammi.send("/rooms", { options: {} })).body.id;
+      await grammi.send(`/rooms/${id}/sit`, { seat: 0, name: "brokennil" });
+      await other.send(`/rooms/${id}/sit`, { seat: 1, name: "Them" });
+      for (const [seat, name] of [[2, "Pearl"], [3, "Lou"]] as const) await grammi.send(`/rooms/${id}/bot`, { seat, name });
+      const from = calls.length;
+      await grammi.send(`/rooms/${id}/start`, {});
+      await grammi.send(`/rooms/${id}/say`, { text: "Pearl, what's for dessert?" });
+      await new Promise((r) => setTimeout(r, 2800));
+      return JSON.stringify(calls.slice(from).map((c) => c.body));
+    };
+    // Two of the family at a quick table: the house's account, and its notes.
+    const family = await play(rick);
+    expect(family).toContain("what's for dessert?");
+    expect(family).toContain("Grammi bakes the pies.");
+    // With someone from outside the house at the table, the bots still talk but the notes aren't used.
+    const mixed = await play(stranger);
+    expect(mixed).toContain("what's for dessert?");
+    expect(mixed).not.toContain("Grammi bakes the pies.");
+    expect(mixed).not.toContain("Grammi's House");
+  }, 15_000);
 });
 
 describe("the card room's own key", () => {
