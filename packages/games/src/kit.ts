@@ -363,3 +363,19 @@ export function drinkLine(seats: number[], n: number): string {
 export const withDrinks = (on: boolean, narration: string | null, seats: number[], n: number): string | null =>
   on && seats.length && n > 0 ? [narration, drinkLine(seats, n)].filter(Boolean).join(" · ") : narration;
 
+/** Give a game a drinking mode: the house-rule switch, and a line in its rules when it's on. */
+export function withDrinking<R extends BaseRules & { drinking?: boolean }, S, M>(game: CardGame<R, S, M>, hint: string, line: string): CardGame<R, S, M> {
+  return {
+    ...game,
+    // A preset too, so it's one pick in the house-rules list.
+    presets: [...game.presets, { ...game.presets[0]!, id: `${game.presets[0]!.id}-drinking`, name: `Drinking ${game.name} 🍺`, drinking: true }],
+    fields: [...game.fields, drinkingField<R>(hint)],
+    normalize: (rules) => {
+      const given = rules as { id?: string; drinking?: unknown } | undefined;
+      const preset = given?.id === `${game.presets[0]!.id}-drinking`;
+      return { ...game.normalize(preset ? { ...given, id: game.presets[0]!.id } : rules), ...(preset ? { id: given!.id, name: `Drinking ${game.name} 🍺` } : {}), drinking: given?.drinking !== undefined ? !!given.drinking : preset };
+    },
+    describe: (r) => [...game.describe(r), ...(r.drinking ? [`🍺 Drinking mode: ${line}`] : [])],
+  };
+}
+

@@ -3,11 +3,13 @@
 // each bid higher than the last, or call "Liar!". Everyone shows: if the hand is there, the caller
 // loses a life; if not, the bidder does. Lose all your lives and you're out; the last one left wins.
 import type { PlayStyle } from "@spades/rules";
-import { clone, FULL, GameError, makeDeck, markReady, nextRandom, rankSeats, shuffled, SUITS, thinkFor, who, type BaseRules, type CardGame, type Choice, type KCard, type KitView, type Meld, type PipCard } from "./kit.js";
+import { clone, FULL, GameError, makeDeck, markReady, nextRandom, rankSeats, shuffled, SUITS, thinkFor, who, withDrinking, withDrinks, type BaseRules, type CardGame, type Choice, type KCard, type KitView, type Meld, type PipCard } from "./kit.js";
 
 export interface LiarsRules extends BaseRules {
   lives: number;
   cards: number;
+  /** Drinking mode, a house rule: see the game's describe(). */
+  drinking?: boolean;
 }
 
 export const classicLiars: LiarsRules = { id: "liars-classic", name: "Liar's Poker (3 lives)", lives: 3, cards: 5 };
@@ -168,6 +170,7 @@ function apply(state: LiarsState, seat: number, move: Move): LiarsState {
       s.call = { caller: seat, bidder: s.bid.seat, bid: s.bid.bid, there, loser };
       s.narration = there ? `${who(seat)} called liar, but there is ${bidName(s.bid.bid)}: ${who(seat)} loses a life` : `${who(seat)} called liar, and there's no ${bidName(s.bid.bid).replace(/^(a|an) /, "")}: ${who(s.bid.seat)} loses a life`;
       if (s.lives[loser] === 0) s.narration += `, and is out`;
+      s.narration = withDrinks(!!s.rules.drinking, s.narration, [loser], s.lives[loser] === 0 ? 99 : 2);
       s.ready = s.lives.map((l, i) => l <= 0 && i !== loser);
       s.phase = alive(s).length <= 1 ? "finished" : "reveal";
       return s;
@@ -263,7 +266,7 @@ function bot(s: LiarsState, seat: number, style: PlayStyle): Move | null {
   return { type: "bid", at: pick };
 }
 
-export const liarsPoker: CardGame<LiarsRules, LiarsState, Move> = {
+const liarsPokerGame: CardGame<LiarsRules, LiarsState, Move> = {
   id: "liarspoker",
   name: "Liar's Poker",
   emoji: "🗣️",
@@ -312,3 +315,5 @@ export const liarsPoker: CardGame<LiarsRules, LiarsState, Move> = {
     };
   },
 };
+
+export const liarsPoker = withDrinking(liarsPokerGame, "Adults only. Lose a life and drink 2; lose your last and finish your drink (or sip water).", "lose a life and drink 2; lose your last one and finish your drink.");

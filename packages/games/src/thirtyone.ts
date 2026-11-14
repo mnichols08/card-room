@@ -18,6 +18,8 @@ import {
   SYMBOL,
   thinkFor,
   who,
+  withDrinking,
+  withDrinks,
   type BaseRules,
   type CardGame,
   type KCard,
@@ -31,6 +33,8 @@ export interface ThirtyOneRules extends BaseRules {
   trips: boolean;
   /** A knocker with the lowest hand loses two lives. */
   knockerPays: boolean;
+  /** Drinking mode, a house rule: see the game's describe(). */
+  drinking?: boolean;
 }
 
 export const classicThirtyOne: ThirtyOneRules = { id: "31-classic", name: "Thirty-One (3 lives)", lives: 3, trips: true, knockerPays: true };
@@ -154,6 +158,10 @@ function showdown(s: ThirtyOneState, blitz?: number) {
     }
     const out = living.filter((i) => s.lives[i] === 0);
     if (out.length) s.narration += `. ${out.map(who).join(" and ")} ${out.length > 1 ? "are" : "is"} out`;
+    if (s.rules.drinking) {
+      for (const n of [1, 2]) s.narration = withDrinks(true, s.narration, living.filter((i) => lost[i] === n && s.lives[i]! > 0), n * 2);
+      s.narration = withDrinks(true, s.narration, out, 99);
+    }
   }
   s.ready = s.lives.map((l, i) => l <= 0 && !lost[i]);
   s.phase = alive(s).length <= 1 ? "finished" : "reveal";
@@ -323,7 +331,7 @@ function bot(s: ThirtyOneState, seat: number, style: PlayStyle): Move | null {
   return { type: "draw" };
 }
 
-export const thirtyOne: CardGame<ThirtyOneRules, ThirtyOneState, Move> = {
+const thirtyOneGame: CardGame<ThirtyOneRules, ThirtyOneState, Move> = {
   id: "thirtyone",
   name: "Thirty-One",
   emoji: "🎯",
@@ -377,3 +385,5 @@ export const thirtyOne: CardGame<ThirtyOneRules, ThirtyOneState, Move> = {
     };
   },
 };
+
+export const thirtyOne = withDrinking(thirtyOneGame, "Adults only. Two sips for every life lost; out and you finish your drink (or sip water).", "two sips for every life you lose; lose your last and finish your drink.");
