@@ -35,5 +35,6 @@ export * from "./bridge.js";
 export * from "./fruitsalad.js";
 export * from "./slapjack.js";
 export * from "./speed.js";
+export * from "./memory.js";
 export * from "./registry.js";
 export * from "./talk.js";

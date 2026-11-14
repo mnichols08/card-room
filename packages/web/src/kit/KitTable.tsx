@@ -395,7 +395,7 @@ export function KitTable({
         <div className="me-badge">
           <KitSeat view={view} seat={me} name={names[me] ?? "You"} row />
         </div>
-        {view.handHidden ? (
+        {view.handHidden === "none" ? null : view.handHidden ? (
           <div
             className="my-pile"
             aria-label={`Your pile: ${view.players[me]?.cards ?? 0} cards, face down`}
@@ -601,6 +601,12 @@ function CenterArea({
   if (center.kind === "solitaire")
     return <SolitaireArea center={center} send={send} />;
   if (center.kind === "cross") return <CrossArea center={center} send={send} />;
+  if (center.kind === "board")
+    return (
+      <div className="board-area" style={{ "--cols": center.cols } as React.CSSProperties}>
+        <CardGrid grid={{ cols: center.cols, cards: center.cards, empty: center.empty }} size="table" tap={center.tap} send={send} />
+      </div>
+    );
   if (center.kind === "pairs") {
     return (
       <div className="pairs-area">
