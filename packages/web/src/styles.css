@@ -512,6 +512,16 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; }
 .table-slot .down-card { position: absolute; top: 0; left: 0; }
 .table-slot .up-card { position: absolute; top: calc(var(--trick-h) * 0.16); left: 0; }
 .center-info { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+/* On a phone the pile sits between the players at its sides, and the news gets a row of its own
+   under them, the full width of the table. Inside the middle column a long line ("Waiting for
+   everyone to lay down their cards…") made that column as wide as the line, and ran under the
+   side players' cards. */
+@media (max-width: 1023px) {
+  .palace-felt { grid-template-rows: auto 1fr auto auto; grid-template-areas: "top top top" "left center right" "info info info" "mine mine mine"; }
+  .palace-felt .center { display: contents; }
+  .palace-felt .pile-area { grid-area: center; }
+  .palace-felt .center-info { grid-area: info; min-width: 0; padding: 0 8px; text-wrap: balance; }
+}
 /* Palace buttons live in the felt, not floating over your face-up cards. */
 .felt-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: center; }
 .felt-actions p { margin: 0; width: 100%; text-align: center; }
