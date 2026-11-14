@@ -226,7 +226,7 @@ describe("watching", () => {
   it("keeps the computers to a few tables at a time", async () => {
     const { phone } = setup();
     const visitor = phone();
-    expect((await visitor("/spectate", { game: "checkers" })).status).toBe(400);
+    expect((await visitor("/spectate", { game: "tiddlywinks" })).status).toBe(400);
     expect((await visitor("/spectate", { game: "spades" })).status).toBe(201);
     const soon = await visitor("/spectate", { game: "spades" });
     expect(soon.status).toBe(429);

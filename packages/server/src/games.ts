@@ -79,7 +79,11 @@ export function watchView(game: GameId, views: unknown[]): unknown {
   const seats = views as Any[];
   if (game === "spades") return sharedView(seats, { blank: { hand: [], legal: [], myPass: null }, from: { seat: 0, keys: ["seat", "team", "partner", "teamSeats"] } });
   if (game === "palace") return sharedView(seats, { blank: { hand: [], can: null }, from: { seat: 0, keys: ["you"] } });
-  const view = sharedView(seats, { blank: { hand: [], tap: null, pick: null, choices: null, gridTap: null }, from: { seat: 0, keys: ["me"] } });
+  // A board that belongs to one seat (a fleet in Combat) is nobody else's, and neither is what that
+  // seat holds off the board. Left in, two fleets that happened to overlap would show where: the
+  // seats' views are compared part by part, and a watcher can be someone sitting at the table.
+  const open = seats.map((v) => (Array.isArray(v.grids) && v.grids.some((g) => (g as Any).owner !== undefined) ? { ...v, grids: v.grids.filter((g) => (g as Any).owner === undefined), reserves: [] } : v));
+  const view = sharedView(open, { blank: { hand: [], tap: null, pick: null, choices: null, gridTap: null }, from: { seat: 0, keys: ["me"] } });
   // A line of table talk only one seat was shown ("You were passed…") is nobody else's.
   if (Array.isArray(view.info)) view.info = view.info.filter((line) => typeof line === "string");
   return view;
