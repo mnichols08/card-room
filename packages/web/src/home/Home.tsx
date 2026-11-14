@@ -61,7 +61,7 @@ const FANS: Record<string, object[]> = {
 };
 
 /** A board game's tile shows a little board instead: a position that says what the game is about. */
-type MiniBoard = { cols: number; cells: ({ glyph: string; tone: string } | null)[]; shade?: "green" };
+type MiniBoard = { cols: number; cells: ({ glyph: string; tone: string; shade?: "dark" } | null)[]; shade?: "green" };
 const X = { glyph: "✕", tone: "red" };
 const O = { glyph: "◯", tone: "blue" };
 const DARK = { glyph: "●", tone: "dark" };
@@ -71,6 +71,11 @@ const HIT = { glyph: "✕", tone: "red" };
 const MISS = { glyph: "•", tone: "blue" };
 const RED = { glyph: "●", tone: "red" };
 const YEL = { glyph: "●", tone: "gold" };
+// Checkers: a corner of the board, played on the dark squares.
+const SQUARE = { glyph: "", tone: "none", shade: "dark" as const };
+const MAN_DARK = { ...SQUARE, glyph: "●", tone: "dark" };
+const MAN_LIGHT = { ...SQUARE, glyph: "●", tone: "light" };
+const KING_DARK = { ...SQUARE, glyph: "♛", tone: "dark" };
 const BOARDS: Record<string, MiniBoard> = {
   tictactoe: { cols: 3, cells: [X, O, null, null, X, O, O, null, X] },
   // The bottom of a rack: red about to make four on the slant.
@@ -78,6 +83,7 @@ const BOARDS: Record<string, MiniBoard> = {
   combat: { cols: 4, cells: [SHIP, SHIP, SHIP, null, null, null, MISS, null, MISS, null, HIT, null, null, null, HIT, null] },
   // Light to move: c1 traps the dark disc beside it.
   reversi: { cols: 4, shade: "green", cells: [null, null, null, null, null, DARK, LIGHT, null, DARK, DARK, DARK, null, null, null, LIGHT, null] },
+  checkers: { cols: 4, cells: [null, MAN_LIGHT, null, MAN_LIGHT, SQUARE, null, KING_DARK, null, null, MAN_LIGHT, null, SQUARE, MAN_DARK, null, MAN_DARK, null] },
 };
 const EMPTY_BOARD: MiniBoard = { cols: 3, cells: Array(9).fill(null) };
 

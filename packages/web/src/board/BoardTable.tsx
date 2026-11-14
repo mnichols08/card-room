@@ -5,9 +5,14 @@
 //
 // Every cell is a button with a spoken name ("centre: X, yours"), the arrow keys walk the board,
 // and what just happened is read out, so the board can be played without seeing it.
+//
+// A piece that moves (the view's `select`) is played by tapping it and then where it goes: tapping
+// another piece picks that one up instead, tapping it again or anywhere else (or Escape) puts it
+// down. It can be dragged there too. From the keyboard it is the same two presses of Enter, and
+// each cell says whether its piece "can move" and, once one is picked up, where it "can go".
 import { cellName, colOf, kitGame, rowOf, type BoardGrid, type BoardPiece, type BoardReserve, type BoardView } from "@cardroom/games";
 import { type TableSettings } from "@spades/rules";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Bubble, TableChat, useBubbles, type ChatProps } from "../Chat";
 import { Confetti } from "../Confetti";
 import { loadFeedbackSettings, play, saveFeedbackSettings } from "../feedback/sounds";
@@ -51,7 +56,7 @@ const toneOf = (piece: BoardPiece) => piece.tone ?? (piece.owner === null ? "dar
 
 function Piece({ piece, small }: { piece: BoardPiece; small?: boolean }) {
   return (
-    <span className={`piece tone-${toneOf(piece)} kind-${piece.kind}${piece.faded ? " faded" : ""}${small ? " small" : ""}`} data-flip={small ? undefined : piece.id} aria-hidden>
+    <span className={`piece tone-${toneOf(piece)} kind-${piece.kind}${piece.faded ? " faded" : ""}${small ? " small" : ""}${!small && piece.id ? " slides" : ""}`} data-flip={small ? undefined : piece.id} aria-hidden>
       {piece.glyph}
     </span>
   );
@@ -71,11 +76,15 @@ export function BoardTable({ view, names, act, onLeave, banner, chat, settings }
   const draw = !!view.over && view.over.winners.length === view.seats && view.seats > 1;
   const won = !!view.over && !draw && view.over.winners.includes(me);
 
-  // Whatever was picked up is put down when the board moves on, unless it can still be picked up:
-  // a ship in your hand stays there while you press the button that turns it.
+  // Whatever was picked up is put down when the board moves on, unless it can still be picked up
+  // (a ship in your hand stays there while you press the button that turns it), or the view says a
+  // piece is still in hand (the middle of a run of jumps): then that one is picked up already.
   const offered = (p: Picked) => !!view.grids.find((g) => g.id === p.grid)?.select?.sources.some((s) => s.from === p.from);
-  const selectKey = JSON.stringify(view.grids.map((g) => g.select?.sources ?? null));
-  useEffect(() => setPicked((p) => (p && offered(p) ? p : null)), [selectKey]);
+  const selectKey = JSON.stringify(view.grids.map((g) => g.select ?? null));
+  useEffect(() => {
+    const inHand = view.grids.find((g) => g.select?.held !== undefined);
+    setPicked((p) => (inHand ? { grid: inHand.id, from: inHand.select!.held! } : p && offered(p) ? p : null));
+  }, [selectKey]);
   // With nothing picked up, you hold what the view suggests (the next ship to place), if anything.
   const suggesting = view.grids.find((g) => g.select?.suggest !== undefined);
   const held: Picked | null = picked ?? (suggesting ? { grid: suggesting.id, from: suggesting.select!.suggest! } : null);
@@ -131,7 +140,8 @@ export function BoardTable({ view, names, act, onLeave, banner, chat, settings }
     }
     if (picked) return setPicked(null);
     if (grid.tap || sources.length) {
-      setError("You can't play there.");
+      // One of your own pieces that isn't on offer: say that, so it doesn't read as a missed tap.
+      setError(sources.length && grid.cells[cell]?.owner === me ? "That piece can't move." : "You can't play there.");
       play("nope");
     }
   }
@@ -199,7 +209,7 @@ export function BoardTable({ view, names, act, onLeave, banner, chat, settings }
 
         <div className={`boards${view.grids.length > 1 ? " many" : ""}`}>
           {view.grids.map((grid, i) => (
-            <Grid key={grid.id} grid={grid} view={view} names={names} side={i > 0} titled={view.grids.length > 1} picked={held?.grid === grid.id ? held.from : null} onCell={(cell) => tapCell(grid, cell)} />
+            <Grid key={grid.id} grid={grid} view={view} names={names} side={i > 0} titled={view.grids.length > 1} picked={held?.grid === grid.id ? held.from : null} onCell={(cell) => tapCell(grid, cell)} onPick={(cell) => setPicked({ grid: grid.id, from: cell })} onMove={(from, to) => void send({ type: grid.select!.type, from, to, ...onGrid(grid) })} />
           ))}
         </div>
 
@@ -333,13 +343,44 @@ function Reserve({ reserve, names, picked, canPick, onPick }: { reserve: BoardRe
   );
 }
 
-const MARK_WORDS: Record<string, string> = { last: "last move", from: "moved from here", win: "winning line", threat: "under threat", flipped: "just flipped", hint: "you can move here" };
+const MARK_WORDS: Record<string, string> = { last: "last move", from: "moved from here", win: "winning line", threat: "under threat", flipped: "just flipped", hint: "you can move here", must: "has to move" };
 
-function Grid({ grid, view, names, side, titled, picked, onCell }: { grid: BoardGrid; view: BoardView; names: string[]; side: boolean; titled: boolean; picked: number | string | null; onCell: (cell: number) => void }) {
+interface GridProps {
+  grid: BoardGrid;
+  view: BoardView;
+  names: string[];
+  side: boolean;
+  titled: boolean;
+  picked: number | string | null;
+  /** A tap (or Enter) on a cell. */
+  onCell: (cell: number) => void;
+  /** A piece pressed to drag it: pick it up, so the places it can go show. */
+  onPick: (cell: number) => void;
+  /** A piece dragged to one of the places it can go. */
+  onMove: (from: number, to: number) => void;
+}
+
+/** A piece being dragged: where the press began, and whether it has moved far enough to be a drag and not a tap. */
+interface Drag {
+  cell: number;
+  x: number;
+  y: number;
+  piece: HTMLElement | null;
+  moved: boolean;
+  /** The press picked the piece up, so the click that ends it mustn't put it down again. */
+  pickedUp: boolean;
+}
+
+function Grid({ grid, view, names, side, titled, picked, onCell, onPick, onMove }: GridProps) {
   const me = view.me;
   const el = useRef<HTMLDivElement>(null);
+  // Turned half round for a seat that plays from the far side: the cells are drawn last to first,
+  // so the tab order, the arrow keys and the edges all follow what is on the screen.
+  const flip = !!grid.flip;
+  const size = grid.rows * grid.cols;
+  const shown = (cell: number) => (flip ? size - 1 - cell : cell);
   // One cell is in the tab order; the arrow keys move from it.
-  const [focus, setFocus] = useState(0);
+  const [focus, setFocus] = useState(flip ? size - 1 : 0);
   const marks = useMemo(() => {
     const at = new Map<number, string[]>();
     for (const m of grid.marks ?? []) at.set(m.cell, [...(at.get(m.cell) ?? []), m.mark]);
@@ -372,16 +413,85 @@ function Grid({ grid, view, names, side, titled, picked, onCell }: { grid: Board
 
   function onKey(e: React.KeyboardEvent) {
     const step = { ArrowLeft: [0, -1], ArrowRight: [0, 1], ArrowUp: [-1, 0], ArrowDown: [1, 0] }[e.key];
-    const r = rowOf(grid.cols, focus);
-    const c = colOf(grid.cols, focus);
+    // Worked out where the cells are on the screen, then turned back into a cell.
+    const at = shown(focus);
+    const r = rowOf(grid.cols, at);
+    const c = colOf(grid.cols, at);
     let next: number | null = null;
     if (step) next = Math.min(grid.rows - 1, Math.max(0, r + step[0]!)) * grid.cols + Math.min(grid.cols - 1, Math.max(0, c + step[1]!));
     else if (e.key === "Home") next = r * grid.cols;
     else if (e.key === "End") next = r * grid.cols + grid.cols - 1;
     if (next === null) return;
     e.preventDefault();
+    next = shown(next);
     setFocus(next);
     el.current?.querySelector<HTMLElement>(`[data-cell="${next}"]`)?.focus();
+  }
+
+  // Dragging a piece to where it goes. A press on a piece that can move picks it up (so the places
+  // it can go light up) and the piece follows the pointer; letting go over one of those places
+  // plays the move, and anywhere else leaves it picked up to be tapped instead. A press that never
+  // moves is a tap, and the click that follows is handled as one.
+  const drag = useRef<Drag | null>(null);
+  const skipClick = useRef<{ cell: number; until: number } | null>(null);
+  const dropped = useRef<{ piece: HTMLElement; id: string | undefined; timer: ReturnType<typeof setTimeout> } | null>(null);
+  /** Put a piece that was dropped back as it was, if it is still there (the move was refused). */
+  function settle() {
+    const d = dropped.current;
+    if (!d) return;
+    clearTimeout(d.timer);
+    dropped.current = null;
+    d.piece.style.translate = "";
+    d.piece.style.transition = "";
+    if (d.id !== undefined) d.piece.dataset.flip = d.id;
+    d.piece.closest(".cell")?.classList.remove("dragging");
+  }
+  useLayoutEffect(() => () => settle(), []);
+  function onDown(e: React.PointerEvent<HTMLButtonElement>, cell: number) {
+    if (e.button !== 0 || !sources.some((s) => s.from === cell)) return;
+    settle();
+    const pickedUp = picked !== cell;
+    drag.current = { cell, x: e.clientX, y: e.clientY, piece: e.currentTarget.querySelector<HTMLElement>(".piece"), moved: false, pickedUp };
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    if (pickedUp) onPick(cell);
+  }
+  function onDrag(e: React.PointerEvent<HTMLButtonElement>) {
+    const d = drag.current;
+    if (!d?.piece) return;
+    const dx = e.clientX - d.x;
+    const dy = e.clientY - d.y;
+    if (!d.moved && Math.hypot(dx, dy) < 8) return;
+    d.moved = true;
+    e.currentTarget.classList.add("dragging");
+    d.piece.style.translate = `${dx}px ${dy}px`;
+  }
+  function onUp(e: React.PointerEvent<HTMLButtonElement>, cancelled = false) {
+    const d = drag.current;
+    drag.current = null;
+    if (!d) return;
+    const cellEl = e.currentTarget;
+    const back = () => {
+      if (d.piece) d.piece.style.translate = "";
+      cellEl.classList.remove("dragging");
+    };
+    if (cancelled) return back();
+    // The click that follows this press: after a drag it isn't a tap at all, and after a press
+    // that picked the piece up it would put it straight back down.
+    if (d.moved || d.pickedUp) skipClick.current = { cell: d.cell, until: performance.now() + 120 };
+    if (!d.moved) return;
+    const over = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>("[data-cell]");
+    const to = over && el.current?.contains(over) ? Number(over.dataset.cell) : null;
+    if (to === null || !d.piece || !sources.find((s) => s.from === d.cell)?.to.includes(to)) return back();
+    // Leave it where it was dropped, squared up on the cell, until the board answers: the piece
+    // that arrives there is a new element, so this one is taken out of the slide animation.
+    const a = cellEl.getBoundingClientRect();
+    const b = over!.getBoundingClientRect();
+    d.piece.style.transition = "translate 90ms ease-out";
+    d.piece.style.translate = `${b.left + b.width / 2 - (a.left + a.width / 2)}px ${b.top + b.height / 2 - (a.top + a.height / 2)}px`;
+    const id = d.piece.dataset.flip;
+    delete d.piece.dataset.flip;
+    dropped.current = { piece: d.piece, id, timer: setTimeout(settle, 1500) };
+    onMove(d.cell, to);
   }
 
   function shadeOf(cell: number): string {
@@ -393,7 +503,12 @@ function Grid({ grid, view, names, side, titled, picked, onCell }: { grid: Board
     const piece = grid.cells[cell];
     const whose = !piece || piece.owner === null ? "" : piece.owner === me ? ", yours" : `, ${names[piece.owner] ?? `Seat ${piece.owner + 1}`}'s`;
     const block = blocks?.states[blockOf(cell)]?.label;
-    const notes = [...(marks.get(cell) ?? []).map((m) => MARK_WORDS[m] ?? m), ...(block ? [`board ${block}`] : []), ...(isPicked(cell) ? ["picked up"] : []), ...(targets.has(cell) ? ["can go here"] : [])];
+    const notes = [
+      ...(marks.get(cell) ?? []).map((m) => MARK_WORDS[m] ?? m),
+      ...(block ? [`board ${block}`] : []),
+      ...(isPicked(cell) ? ["picked up"] : sourceAt(grid, cell) ? ["can move"] : []),
+      ...(targets.has(cell) ? ["can go here"] : []),
+    ];
     return `${cellName(grid, cell)}: ${piece ? `${piece.label}${whose}` : "empty"}${notes.length ? `, ${notes.join(", ")}` : ""}`;
   }
 
@@ -403,29 +518,34 @@ function Grid({ grid, view, names, side, titled, picked, onCell }: { grid: Board
       {titled && <h3 className="board-title">{named(grid.label, names)}</h3>}
       {grid.coords && (
         <div className="coords cols" aria-hidden>
-          {grid.coords.cols.map((c, i) => (
+          {(flip ? [...grid.coords.cols].reverse() : grid.coords.cols).map((c, i) => (
             <span key={i}>{c}</span>
           ))}
         </div>
       )}
       {grid.coords && (
         <div className="coords rows" aria-hidden>
-          {grid.coords.rows.map((r, i) => (
+          {(flip ? [...grid.coords.rows].reverse() : grid.coords.rows).map((r, i) => (
             <span key={i}>{r}</span>
           ))}
         </div>
       )}
       <div ref={el} className={`board-grid${grid.points ? " points" : ""}${grid.gravity ? " gravity" : ""}${blocks ? " blocked" : ""}${grid.cols > 9 ? " fine-lines" : ""}`} role="group" aria-label={`${named(grid.label, names)}, ${grid.rows} by ${grid.cols}. Arrow keys move around it.`} onKeyDown={onKey} onPointerLeave={() => setOverCol(null)}>
-        {grid.cells.map((piece, cell) => {
-          const r = rowOf(grid.cols, cell);
-          const c = colOf(grid.cols, cell);
+        {grid.cells.map((_, at) => {
+          // `at` is the place on the screen, `cell` the cell drawn there.
+          const cell = shown(at);
+          const piece = grid.cells[cell];
+          const r = rowOf(grid.cols, at);
+          const c = colOf(grid.cols, at);
           const tappable = canTap(cell);
+          const source = sources.some((s) => s.from === cell);
           const state = blocks?.states[blockOf(cell)];
           const cls = [
             "cell",
             `shade-${shadeOf(cell)}`,
             ...(marks.get(cell) ?? []).map((m) => `mark-${m}`),
             tappable ? "can" : "",
+            source ? "source" : "",
             isPicked(cell) ? "picked" : "",
             ...joins(cell),
             targets.has(cell) ? "target" : "",
@@ -453,7 +573,16 @@ function Grid({ grid, view, names, side, titled, picked, onCell }: { grid: Board
               aria-pressed={isPicked(cell) ? true : undefined}
               aria-label={label(cell)}
               onFocus={() => setFocus(cell)}
-              onClick={() => onCell(cell)}
+              onPointerDown={(e) => onDown(e, cell)}
+              onPointerMove={onDrag}
+              onPointerUp={(e) => onUp(e)}
+              onPointerCancel={(e) => onUp(e, true)}
+              onClick={() => {
+                const skip = skipClick.current;
+                skipClick.current = null;
+                if (skip?.cell === cell && performance.now() < skip.until) return;
+                onCell(cell);
+              }}
               onPointerEnter={tapCols ? (e) => e.pointerType === "mouse" && setOverCol(c) : undefined}
               // How far a piece falls to get here, for a board that stands on its edge.
               style={grid.gravity ? ({ "--row": r } as React.CSSProperties) : undefined}
@@ -465,7 +594,7 @@ function Grid({ grid, view, names, side, titled, picked, onCell }: { grid: Board
         })}
         {blocks && (
           <div className="board-blocks" aria-hidden style={{ "--block-cols": blocks.cols, "--block-rows": blocks.rows } as React.CSSProperties}>
-            {blocks.states.map((b, i) => (
+            {(flip ? [...blocks.states].reverse() : blocks.states).map((b, i) => (
               <div key={i} className={`block${b.active ? " active" : ""}${b.closed ? " closed" : ""}${b.owner != null ? ` tone-${blockTone(b.owner)}` : ""}`}>
                 {b.glyph}
               </div>

@@ -37,6 +37,8 @@ export function checkBoardView(v: BoardView, seat: number) {
       expect(s.to.length).toBeGreaterThan(0);
       for (const to of s.to) expect(on(to)).toBe(true);
     }
+    // What is already in hand is something that can be put down.
+    if (g.select?.held !== undefined) expect(g.select.sources.some((s) => s.from === g.select!.held)).toBe(true);
     // What the table picks up for you is something you could have picked up yourself.
     if (g.select?.suggest !== undefined) expect(g.select.sources.some((s) => s.from === g.select!.suggest)).toBe(true);
     // A piece that covers several cells lies in one unbroken straight line of them.
