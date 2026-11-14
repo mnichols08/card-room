@@ -24,9 +24,10 @@ import { liarsPoker } from "./liarspoker.js";
 import { switchGame } from "./switch.js";
 import { thirtyOne } from "./thirtyone.js";
 import { kingsCorner } from "./kingscorner.js";
+import { blackjack } from "./blackjack.js";
 import type { CardGame, KitGameId } from "./kit.js";
 
-export const KIT_GAMES: CardGame<any, any, any>[] = [hearts, ohHell, euchre, crazy8, gin, pinochle, canasta, goFish, oldMaid, war, whist, golf, rummy500, president, klondike, freeCell, handFoot, cribbage, fiveDraw, holdem, bluff, liarsPoker, switchGame, thirtyOne, kingsCorner];
+export const KIT_GAMES: CardGame<any, any, any>[] = [hearts, ohHell, euchre, crazy8, gin, pinochle, canasta, goFish, oldMaid, war, whist, golf, rummy500, president, klondike, freeCell, handFoot, cribbage, fiveDraw, holdem, bluff, liarsPoker, switchGame, thirtyOne, kingsCorner, blackjack];
 
 export const kitGame = (id: unknown): CardGame<any, any, any> | undefined => KIT_GAMES.find((g) => g.id === id);
 export const isKitGame = (id: unknown): id is KitGameId => KIT_GAMES.some((g) => g.id === id);

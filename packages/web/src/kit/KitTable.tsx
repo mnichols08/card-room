@@ -531,7 +531,7 @@ function KitSeat({
         )}
       </strong>
       {p.line && <span>{named(p.line, [])}</span>}
-      {!row && !view.grids && (
+      {!row && !view.grids && p.cards > 0 && (
         <small>
           {p.cards} card{p.cards === 1 ? "" : "s"}
         </small>
@@ -697,7 +697,7 @@ function CenterArea({
         )}
         {center.spread && (
           <div className="pile pile-spread-area">
-            {center.discard.length ? (
+            {center.discard.length + (center.spreadHidden ?? 0) ? (
               <div
                 className="pile-spread"
                 style={{ "--n": center.discard.length } as React.CSSProperties}
@@ -721,6 +721,11 @@ function CenterArea({
                     </span>
                   ),
                 )}
+                {Array.from({ length: center.spreadHidden ?? 0 }, (_, i) => (
+                  <span key={`hidden-${i}`} className="spread-card">
+                    <PlayingCard back size="table" />
+                  </span>
+                ))}
               </div>
             ) : (
               <div className="empty-slot">
