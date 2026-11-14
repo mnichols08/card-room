@@ -3,7 +3,7 @@
 // A room's options say which game it is. Spades rooms keep the options they always had (the house
 // rules themselves), so tables and logs from before there were other games still work; any other
 // game's options carry `game`.
-import { KIT_GAMES, isKitGame, kitGame, kitGreet, reactToKit, type KitGameId } from "@cardroom/games";
+import { KIT_GAMES, isBoardGame, isKitGame, kitGame, kitGreet, reactToKit, type KitGameId } from "@cardroom/games";
 import { palaceGreet, palaceReplyTo, reactToPalace, type PalaceState } from "@cardroom/palace";
 import { sharedView, type RoomDefinition } from "@spades/rooms/server";
 import { cleanSettings, greet, reactToMove, replyTo, type GameState, type RulePreset, type Seat } from "@spades/rules";
@@ -82,7 +82,9 @@ export function watchView(game: GameId, views: unknown[]): unknown {
   // A board that belongs to one seat (a fleet in Combat) is nobody else's, and neither is what that
   // seat holds off the board. Left in, two fleets that happened to overlap would show where: the
   // seats' views are compared part by part, and a watcher can be someone sitting at the table.
-  const open = seats.map((v) => (Array.isArray(v.grids) && v.grids.some((g) => (g as Any).owner !== undefined) ? { ...v, grids: v.grids.filter((g) => (g as Any).owner === undefined), reserves: [] } : v));
+  // Only on a board: a card game's grids (Golf's cards in front of each player) have an owner too,
+  // and those are for everyone to see.
+  const open = !isBoardGame(game) ? seats : seats.map((v) => (Array.isArray(v.grids) && v.grids.some((g) => (g as Any).owner !== undefined) ? { ...v, grids: v.grids.filter((g) => (g as Any).owner === undefined), reserves: [] } : v));
   const view = sharedView(open, { blank: { hand: [], tap: null, pick: null, choices: null, gridTap: null }, from: { seat: 0, keys: ["me"] } });
   // A line of table talk only one seat was shown ("You were passed…") is nobody else's.
   if (Array.isArray(view.info)) view.info = view.info.filter((line) => typeof line === "string");
