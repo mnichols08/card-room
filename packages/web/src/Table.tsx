@@ -184,10 +184,10 @@ export function Table({ table: t, names, onLeave, banner, chat, settings }: Prop
         </div>
       </section>
 
-      {/* Bubbles float above everything, near the seat that spoke. */}
+      {/* Bubbles float above everything, beside the seat that spoke. */}
       <div className="bubble-layer" aria-live="polite">
         {[...bubbles.entries()].map(([s, m]) => (
-          <Bubble key={`${s}-${m.at}`} message={m} side={side(s as Seat)} />
+          <Bubble key={`${s}-${m.at}`} message={m} seat={s} />
         ))}
       </div>
 
