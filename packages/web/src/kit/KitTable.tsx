@@ -18,7 +18,7 @@ import {
   play,
   saveFeedbackSettings,
 } from "../feedback/sounds";
-import { lift, motionScale, useCardFlip, useFlash } from "../motion";
+import { EASE_OUT, glideFrom, lift, motionScale, reducedMotion, useCardFlip, useFlash } from "../motion";
 import { seatAround } from "../palace/PalaceTable";
 import { TableSettingsButton } from "../TableSettings";
 import { HandSortBar, useHandOrder } from "../HandSort";
@@ -268,6 +268,7 @@ export function KitTable({
             <TableSettingsButton
               settings={settings.value}
               onChange={settings.change}
+              solo={view.seats === 1}
             />
           )}
           <button
@@ -914,7 +915,13 @@ function CenterArea({
   return null;
 }
 
-/** A solitaire layout: stock, turned cards, free cells, foundations, then the columns. Tap a card to move it. */
+/** How far a pressed card has to travel before it's a drag and not a tap. */
+const DRAG_START = 8;
+
+/**
+ * A solitaire layout: stock, turned cards, free cells, foundations, then the columns. Tap a card and
+ * it goes to its best place; drag it (with the cards on it) to put it exactly where you want.
+ */
 function SolitaireArea({
   center,
   send,
@@ -924,7 +931,102 @@ function SolitaireArea({
 }) {
   const can = new Set(center.tap?.cards ?? []);
   const cols = center.columns.length;
-  const tapCard = (c: KCard, last: boolean, i: number) =>
+  const drop = center.drop ?? null;
+  const area = useRef<HTMLDivElement>(null);
+  const drag = useRef<{
+    id: string;
+    pointer: number;
+    x: number;
+    y: number;
+    /** The pressed card and the ones lying on it: they travel together. Empty until it's a drag. */
+    els: HTMLElement[];
+    over: HTMLElement | null;
+  } | null>(null);
+  /** A drag ends with a click on the card that was dragged: that one isn't a tap. */
+  const dragged = useRef(false);
+
+  /** The place under the pointer: a foundation or free cell, or the column in line with it, however short. */
+  const placeAt = (x: number, y: number): HTMLElement | null => {
+    const places = [...(area.current?.querySelectorAll<HTMLElement>("[data-drop]") ?? [])];
+    const columns = places.filter((p) => p.dataset.drop!.startsWith("column"));
+    const top = Math.min(...columns.map((p) => p.getBoundingClientRect().top));
+    if (y >= top - 4) {
+      const near = columns
+        .map((p) => ({ p, r: p.getBoundingClientRect() }))
+        .map(({ p, r }) => ({ p, off: Math.abs(x - (r.left + r.width / 2)), reach: r.width * 0.75 }))
+        .sort((a, b) => a.off - b.off)[0];
+      return near && near.off <= near.reach ? near.p : null;
+    }
+    return (
+      places.find((p) => {
+        if (p.dataset.drop!.startsWith("column")) return false;
+        const r = p.getBoundingClientRect();
+        return x >= r.left - 4 && x <= r.right + 4 && y >= r.top - 4 && y <= r.bottom + 4;
+      }) ?? null
+    );
+  };
+  const mark = (place: HTMLElement | null) => {
+    const d = drag.current;
+    if (!d || d.over === place) return;
+    d.over?.classList.remove("drop-over");
+    place?.classList.add("drop-over");
+    d.over = place;
+  };
+  const press = (e: React.PointerEvent<HTMLButtonElement>, id: string) => {
+    if (!drop || drag.current || (e.pointerType === "mouse" && e.button !== 0)) return;
+    drag.current = { id, pointer: e.pointerId, x: e.clientX, y: e.clientY, els: [], over: null };
+    // Thin strips of overlapped cards: keep hold of the card once the pointer leaves it.
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const pull = (e: React.PointerEvent<HTMLButtonElement>) => {
+    const d = drag.current;
+    if (!d || d.pointer !== e.pointerId) return;
+    const dx = e.clientX - d.x;
+    const dy = e.clientY - d.y;
+    if (!d.els.length) {
+      if (Math.hypot(dx, dy) < DRAG_START) return;
+      const el = e.currentTarget;
+      d.els = [el];
+      if (el.parentElement?.classList.contains("sol-col"))
+        for (let next = el.nextElementSibling; next; next = next.nextElementSibling) d.els.push(next as HTMLElement);
+      d.els.forEach((x) => x.classList.add("dragging"));
+    }
+    d.els.forEach((x) => (x.style.translate = `${dx}px ${dy}px`));
+    const place = placeAt(e.clientX, e.clientY);
+    mark(place === e.currentTarget.closest("[data-drop]") ? null : place);
+  };
+  const letGo = (e: React.PointerEvent<HTMLButtonElement>, cancelled = false) => {
+    const d = drag.current;
+    if (!d || d.pointer !== e.pointerId) return;
+    const place = d.over;
+    mark(null);
+    drag.current = null;
+    if (!d.els.length) return; // Never moved: it's a tap, and the click that follows handles it.
+    dragged.current = true;
+    setTimeout(() => (dragged.current = false), 300);
+    const offset = d.els[0]!.style.translate;
+    const settle = () =>
+      d.els.forEach((x) => {
+        x.style.translate = "";
+        x.classList.remove("dragging");
+      });
+    if (!cancelled && place && drop) {
+      // Let the glide to the new place start from where the cards were let go.
+      for (const x of d.els) {
+        const host = x.querySelector<HTMLElement>("[data-flip]");
+        if (host) glideFrom(host.dataset.flip!, host.getBoundingClientRect());
+      }
+      settle();
+      const [to, index] = place.dataset.drop!.split(":");
+      send({ type: drop.type, card: d.id, to, index: Number(index) });
+      return;
+    }
+    // Dropped nowhere, or back where it came from: slide home.
+    settle();
+    if (!reducedMotion()) d.els.forEach((x) => x.animate([{ translate: offset, zIndex: 20 }, { translate: "0px 0px", zIndex: 20 }], { duration: 160, easing: EASE_OUT }));
+  };
+
+  const tapCard = (c: KCard, last: boolean, i: number, place?: string) =>
     can.has(c.id) ? (
       <button
         key={c.id}
@@ -932,7 +1034,18 @@ function SolitaireArea({
         className={`sol-card${last ? " last" : ""}`}
         style={{ "--i": i } as React.CSSProperties}
         aria-label={`Move the ${c.kind === "pip" ? c.rank : "card"}`}
-        onClick={() => send({ type: center.tap!.type, card: c.id })}
+        data-drop={place}
+        onPointerDown={(e) => press(e, c.id)}
+        onPointerMove={pull}
+        onPointerUp={(e) => letGo(e)}
+        onPointerCancel={(e) => letGo(e, true)}
+        onClick={() => {
+          if (dragged.current) {
+            dragged.current = false;
+            return;
+          }
+          send({ type: center.tap!.type, card: c.id });
+        }}
       >
         <PlayingCard card={c} size="table" data-flip={c.id} />
       </button>
@@ -941,18 +1054,19 @@ function SolitaireArea({
         key={c.id}
         className={`sol-card${last ? " last" : ""}`}
         style={{ "--i": i } as React.CSSProperties}
+        data-drop={place}
       >
         <PlayingCard card={c} size="table" data-flip={c.id} />
       </span>
     );
-  const slot = (label: string, key: string) => (
-    <div key={key} className="sol-slot" aria-label={label}>
+  const slot = (label: string, key: string, place?: string) => (
+    <div key={key} className="sol-slot" aria-label={label} data-drop={place}>
       <span>{label}</span>
     </div>
   );
   const SUIT_MARKS = ["♠", "♥", "♦", "♣"];
   return (
-    <div className="sol" style={{ "--cols": cols } as React.CSSProperties}>
+    <div className={`sol${drop ? " draggable" : ""}`} ref={area} style={{ "--cols": cols } as React.CSSProperties}>
       <div className="sol-top">
         {center.stock !== null && (
           <div className="sol-stock">
@@ -994,25 +1108,25 @@ function SolitaireArea({
         {center.cells && (
           <div className="sol-cells">
             {center.cells.map((c, i) =>
-              c ? tapCard(c, true, 0) : slot("", `cell-${i}`),
+              c ? tapCard(c, true, 0, drop ? `cell:${i}` : undefined) : slot("", `cell-${i}`, drop ? `cell:${i}` : undefined),
             )}
           </div>
         )}
         <div className="sol-found">
           {center.foundations.map((c, i) =>
             c ? (
-              <span key={i} className="sol-card">
+              <span key={i} className="sol-card" data-drop={drop?.foundations ? `foundation:${i}` : undefined}>
                 <PlayingCard card={c} size="table" data-flip={c.id} />
               </span>
             ) : (
-              slot(center.foundationLabels?.[i] ?? SUIT_MARKS[i] ?? "", `f-${i}`)
+              slot(center.foundationLabels?.[i] ?? SUIT_MARKS[i] ?? "", `f-${i}`, drop?.foundations ? `foundation:${i}` : undefined)
             ),
           )}
         </div>
       </div>
       <div className="sol-cols">
         {center.columns.map((col, ci) => (
-          <div key={ci} className="sol-col" aria-label={`Column ${ci + 1}`}>
+          <div key={ci} className="sol-col" aria-label={`Column ${ci + 1}`} data-drop={drop ? `column:${ci}` : undefined}>
             {col.down === 0 && col.up.length === 0 && slot("", `col-${ci}`)}
             {Array.from({ length: col.down }, (_, i) => (
               <span key={`d${i}`} className="sol-card down">

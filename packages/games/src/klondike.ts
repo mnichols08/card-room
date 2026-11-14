@@ -1,6 +1,7 @@
 // Klondike, the classic solitaire. Seven columns, the first card of each face up; build down in
 // alternating colours, kings into empty columns; build each suit up from the ace on the four
-// foundations; turn the stock one or three at a time. Tap a card and it goes to its best place.
+// foundations; turn the stock one or three at a time. Tap a card and it goes to its best place, or
+// drag it to the place you choose.
 import type { PlayStyle, Suit } from "@spades/rules";
 import { clone, FULL, GameError, makeDeck, nextRandom, rankLabel, shuffled, SUITS, SYMBOL, type BaseRules, type CardGame, type KCard, type KitView, type PipCard } from "./kit.js";
 
@@ -140,7 +141,14 @@ function move(s: KlondikeState, where: Where, target: Target) {
 /** Everything is face up and the stock is used up: the rest can go home on its own. */
 const canFinish = (s: KlondikeState) => !s.stock.length && !s.waste.length && s.columns.every((c) => !c.down.length);
 
-type Move = { type: "auto"; card: string } | { type: "draw" } | { type: "undo" } | { type: "finish" } | { type: "resign" };
+type Move =
+  | { type: "auto"; card: string }
+  /** The card (and anything on it) to a place you choose: a column by its index, or home. */
+  | { type: "move"; card: string; to: "foundation" | "column"; index?: number }
+  | { type: "draw" }
+  | { type: "undo" }
+  | { type: "finish" }
+  | { type: "resign" };
 
 function apply(state: KlondikeState, seat: number, mv: Move): KlondikeState {
   if (seat !== 0) throw new GameError("This is a game for one.");
@@ -175,6 +183,26 @@ function apply(state: KlondikeState, seat: number, mv: Move): KlondikeState {
       const target = bestTarget(s, card, where);
       if (!target) throw new GameError(`The ${name(card)} has nowhere to go.`);
       move(s, where, target);
+      return s;
+    }
+    case "move": {
+      const where = locate(s, mv.card);
+      if (!where) throw new GameError("You can't move that card now.");
+      const card = where.from === "waste" ? s.waste.at(-1)! : where.from === "foundation" ? s.foundations[where.suit]!.at(-1)! : s.columns[where.index]!.up[where.at]!;
+      const stack = where.from === "column" ? s.columns[where.index]!.up.length - where.at : 1;
+      if (mv.to === "foundation") {
+        if (where.from === "foundation") throw new GameError(`The ${name(card)} is already home.`);
+        if (stack > 1) throw new GameError("Only one card goes home at a time.");
+        if (!fitsFoundation(s, card)) throw new GameError(`The ${name(card)} can't go home yet.`);
+        move(s, where, { to: "foundation" });
+        return s;
+      }
+      const index = Number(mv.index);
+      const col = mv.to === "column" ? s.columns[index] : undefined;
+      if (!col) throw new GameError("That's not a place for a card.");
+      if (where.from === "column" && where.index === index) throw new GameError(`The ${name(card)} is already there.`);
+      if (!fitsColumn(card, col)) throw new GameError(col.up.length ? `The ${name(card)} doesn't go on the ${name(col.up.at(-1)!)}.` : "Only a king goes in an empty column.");
+      move(s, where, { to: "column", index });
       return s;
     }
     case "finish": {
@@ -232,6 +260,7 @@ function view(s: KlondikeState, seat: number): KitView {
       columns: s.columns.map((c) => ({ down: c.down.length, up: c.up })),
       cells: null,
       tap: over ? null : { type: "auto", cards: tappable },
+      drop: over ? null : { type: "move", foundations: true },
       drawMove: over || (!s.stock.length && !s.waste.length) ? null : { type: "draw" },
       stockLabel: s.stock.length ? `${s.stock.length} left` : s.waste.length ? "Turn over" : "",
     },
@@ -288,7 +317,7 @@ export const klondike: CardGame<KlondikeRules, KlondikeState, Move> = {
       "Build the columns down in alternating colours (a red 6 on a black 7). Move a run of face-up cards together. Only a king goes in an empty column.",
       "Build each suit up on its foundation, ace to king. Win by getting all 52 home.",
       `Turn the stock ${r.draw === 3 ? "three cards at a time (only the top one plays)" : "one card at a time"}, and turn the pile over to go round again as often as you like.`,
-      "Tap a card and it goes to its best place. Undo takes back a move; Finish sends everything home once it's all face up.",
+      "Tap a card and it goes to its best place, or drag it where you want it. Undo takes back a move; Finish sends everything home once it's all face up.",
     ];
   },
   newGame: newKlondike,
