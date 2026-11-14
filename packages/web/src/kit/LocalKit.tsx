@@ -6,6 +6,7 @@ import type { ChatMessage } from "@spades/rooms/client";
 import { mulberry32, paceDelay, personaFor, pickPersonas, styleFor } from "@spades/rules";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadTableSettings, saveTableSettings } from "../storage";
+import { TurnClock } from "../TurnClock";
 import { GameTable } from "./GameTable";
 
 export function LocalKit({ game: id, name, rules, seats, seed, onLeave }: { game: KitGameId; name: string; rules: unknown; seats: number; seed: number; onLeave: () => void }) {
@@ -30,6 +31,24 @@ export function LocalKit({ game: id, name, rules, seats, seed, onLeave }: { game
     }
   }, []);
 
+  // A clock of the game's own (Drop Four's shot clock in drinking mode) runs here as it does at a
+  // family table: on your seat only, from the moment the state changed, with the game's timeout move
+  // when it runs out. There's no turn timer in practice (nobody is waiting on you), but a game that
+  // is played against a clock isn't the same game without it. Computer players aren't held to it,
+  // and move well inside it.
+  const own = useMemo(() => game.deadline?.(state) ?? null, [state]);
+  const insideTheClock = (seat: number, delay: number) => (own && own.seat === seat ? Math.min(delay, Math.round(own.after * 0.6)) : delay);
+  const [deadline, setDeadline] = useState<{ at: number; seat: number } | null>(null);
+  useEffect(() => {
+    if (!own || own.seat !== 0) return setDeadline(null);
+    setDeadline({ at: Date.now() + own.after, seat: 0 });
+    const timer = setTimeout(() => {
+      // Only if nothing has happened since: a move made as the clock ran out is the one that counts.
+      if (latest.current === state) void act(own.move);
+    }, own.after);
+    return () => clearTimeout(timer);
+  }, [own]);
+
   // A computer player moves after a humanlike pause: the first one with something to do. A pause
   // already running isn't restarted when someone else moves (in Speed, a quick person mustn't keep
   // resetting the computer's clock); when it ends, the move is worked out from the table as it is then.
@@ -53,7 +72,7 @@ export function LocalKit({ game: id, name, rules, seats, seed, onLeave }: { game
         }
       });
       setTick((t) => t + 1);
-    }, game.reactionTime?.(state, seat, styleFor(personaFor(bots[seat - 1]!).style, settings.skill)) ?? paceDelay(settings.pace, () => Math.round(game.thinkingTime(state, seat) * personaFor(bots[seat - 1]!).pace * (0.8 + Math.random() * 0.5))));
+    }, game.reactionTime?.(state, seat, styleFor(personaFor(bots[seat - 1]!).style, settings.skill)) ?? insideTheClock(seat, paceDelay(settings.pace, () => Math.round(game.thinkingTime(state, seat) * personaFor(bots[seat - 1]!).pace * (0.8 + Math.random() * 0.5)))));
   }, [state, bots, settings, tick]);
   useEffect(
     () => () => {
@@ -101,19 +120,22 @@ export function LocalKit({ game: id, name, rules, seats, seed, onLeave }: { game
 
   const view = useMemo(() => game.view(state, 0), [state]);
   return (
-    <GameTable
-      view={view}
-      names={names}
-      act={act}
-      onLeave={onLeave}
-      chat={{ messages, mySeat: 0, send }}
-      settings={{
-        value: settings,
-        change: (next) => {
-          saveTableSettings(next);
-          setSettings(next);
-        },
-      }}
-    />
+    <>
+      <GameTable
+        view={view}
+        names={names}
+        act={act}
+        onLeave={onLeave}
+        chat={{ messages, mySeat: 0, send }}
+        settings={{
+          value: settings,
+          change: (next) => {
+            saveTableSettings(next);
+            setSettings(next);
+          },
+        }}
+      />
+      <TurnClock deadline={deadline} mySeat={0} now={Date.now} />
+    </>
   );
 }

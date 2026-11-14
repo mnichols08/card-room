@@ -10,7 +10,7 @@ import { cleanSettings, greet, reactToMove, replyTo, type GameState, type RulePr
 import { palaceOptions, palaceRoom, type PalaceOptions } from "./palace.js";
 import { spadesRoom } from "./spades.js";
 import { kitOptions, kitRoom, type KitOptions } from "./kit.js";
-import { turnDeadline } from "./timer.js";
+import { sooner, turnDeadline } from "./timer.js";
 
 export type GameId = "spades" | "palace" | KitGameId;
 export const GAMES: { id: GameId; name: string; emoji: string; seats: [number, number]; teams: boolean }[] = [
@@ -62,8 +62,10 @@ export const tableRoom: RoomDefinition<AnyState, unknown, unknown, TableOptions,
   settings: cleanSettings,
   botDelay: (s, seat, name, settings) => byState(s).botDelay?.(s, seat, name, settings) ?? 700,
   bot: (s, seat, name, settings) => byState(s).bot?.(s, seat, name, settings) ?? null,
-  // The turn timer (a table setting): the game's computer player moves for a person who runs out of time.
-  deadline: (s, table) => turnDeadline(s, table, (seat, name) => byState(s).bot?.(s, seat, name, table.settings) ?? null),
+  // Two clocks can be running: the game's own (a shot clock, which makes the game's timeout move) and
+  // the turn timer (a table setting: the game's computer player moves for a person who runs out of
+  // time). Whichever runs out first is the room's deadline.
+  deadline: (s, table) => sooner(byState(s).deadline?.(s, table) ?? null, turnDeadline(s, table, (seat, name) => byState(s).bot?.(s, seat, name, table.settings) ?? null)),
 };
 
 /**
@@ -77,7 +79,11 @@ export function watchView(game: GameId, views: unknown[]): unknown {
   const seats = views as Any[];
   if (game === "spades") return sharedView(seats, { blank: { hand: [], legal: [], myPass: null }, from: { seat: 0, keys: ["seat", "team", "partner", "teamSeats"] } });
   if (game === "palace") return sharedView(seats, { blank: { hand: [], can: null }, from: { seat: 0, keys: ["you"] } });
-  const view = sharedView(seats, { blank: { hand: [], tap: null, pick: null, choices: null, gridTap: null }, from: { seat: 0, keys: ["me"] } });
+  // A board that belongs to one seat (a fleet in Combat) is nobody else's, and neither is what that
+  // seat holds off the board. Left in, two fleets that happened to overlap would show where: the
+  // seats' views are compared part by part, and a watcher can be someone sitting at the table.
+  const open = seats.map((v) => (Array.isArray(v.grids) && v.grids.some((g) => (g as Any).owner !== undefined) ? { ...v, grids: v.grids.filter((g) => (g as Any).owner === undefined), reserves: [] } : v));
+  const view = sharedView(open, { blank: { hand: [], tap: null, pick: null, choices: null, gridTap: null }, from: { seat: 0, keys: ["me"] } });
   // A line of table talk only one seat was shown ("You were passed…") is nobody else's.
   if (Array.isArray(view.info)) view.info = view.info.filter((line) => typeof line === "string");
   return view;

@@ -3,7 +3,7 @@
 // here looks inside a view, so it doesn't matter what a game's table is made of.
 import { kitGame, SPORT_GAMES, type BoardView, type KitGameId, type KitSummary, type KitView, type SportView, type TableGame } from "@cardroom/games";
 import { paceDelay, personaFor, styleFor, type TableSettings } from "@spades/rules";
-import type { RoomDefinition } from "@spades/rooms/server";
+import type { Deadline, RoomDefinition, TableInfo } from "@spades/rooms/server";
 
 export interface KitOptions {
   game: KitGameId;
@@ -22,6 +22,30 @@ export function kitOptions(game: TableGame<any, any, any, any>, rules: unknown, 
     rules: { ...clean, name: String(clean.name ?? "").trim().slice(0, 30) || game.presets[0].name },
     seats: game.teams ? 4 : fits ? n : game.seats.default,
   };
+}
+
+/**
+ * How long past a game's own clock the server waits before it makes the timeout move, in ms. A shot
+ * clock counts from when you can see the other player's move, and that takes a moment to reach your
+ * screen, as your answer does to get back; without this a move made with a blink to spare would
+ * lose to the clock on a slow connection. Pages count down to the time without it.
+ */
+export const GAME_CLOCK_GRACE_MS = 400;
+
+/**
+ * A game's own clock (see `TableGame.deadline`) as a room deadline. A computer player's seat has
+ * none: bots keep their own time, and `botDelay` below keeps them inside it.
+ */
+function gameDeadline(state: { game: KitGameId } & Record<string, unknown>, table: TableInfo): Deadline<Record<string, unknown>> | null {
+  const due = gameFor(state.game).deadline?.(state);
+  if (!due || !table.seats[due.seat] || table.seats[due.seat]!.bot) return null;
+  return { after: due.after, grace: GAME_CLOCK_GRACE_MS, seat: due.seat, move: () => due.move };
+}
+
+/** A computer player on the game's own clock moves well inside it, whatever the table's pace. */
+function insideTheClock(state: { game: KitGameId } & Record<string, unknown>, seat: number, delay: number): number {
+  const due = gameFor(state.game).deadline?.(state);
+  return due && due.seat === seat ? Math.min(delay, Math.round(due.after * 0.6)) : delay;
 }
 
 const gameFor = (id: unknown) => {
@@ -43,8 +67,10 @@ export const kitRoom: RoomDefinition<{ game: KitGameId } & Record<string, unknow
   finished: (state) => gameFor(state.game).summary(state).over,
   botDelay: (state, seat, name, settings?: TableSettings) =>
     gameFor(state.game).reactionTime?.(state, seat, styleFor(personaFor(name).style, settings?.skill)) ??
-    paceDelay(settings?.pace ?? "natural", () => Math.round(gameFor(state.game).thinkingTime(state, seat) * personaFor(name).pace * (0.8 + Math.random() * 0.5))),
+    insideTheClock(state, seat, paceDelay(settings?.pace ?? "natural", () => Math.round(gameFor(state.game).thinkingTime(state, seat) * personaFor(name).pace * (0.8 + Math.random() * 0.5)))),
   bot: (state, seat, name, settings?: TableSettings) => gameFor(state.game).bot(state, seat, styleFor(personaFor(name).style, settings?.skill)),
+  // The game's own clock, if it has one running (a shot clock). The table's turn timer is added in games.ts.
+  deadline: gameDeadline,
 };
 
 /**
