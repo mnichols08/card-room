@@ -8,6 +8,7 @@ import { HousePage } from "./HousePage";
 import { houses } from "./housesApi";
 import { lobby } from "./lobbyApi";
 import { AdminPage } from "./AdminPage";
+import { setBugContext } from "./bugReport";
 import { LobbyPage } from "./LobbyPage";
 import { LocalTable } from "./LocalTable";
 import { RoomTable } from "./RoomTable";
@@ -75,6 +76,17 @@ export function App() {
     setScreen({ kind: "setup" });
     scrollTo(0, 0);
   };
+
+  // A bug report says which screen and game it came from.
+  useEffect(() => {
+    const practice = screen.kind === "local" || screen.kind === "local-palace" || screen.kind === "local-kit";
+    const itsGame = screen.kind === "local" ? "spades" : screen.kind === "local-palace" ? "palace" : screen.kind === "local-kit" ? screen.game : screen.kind === "setup" ? game : undefined;
+    setBugContext({
+      screen: practice ? "practice table" : screen.kind === "room" ? "table" : `${screen.kind}${embedded ? " (embedded)" : ""}`,
+      game: itsGame,
+      table: screen.kind === "room" ? screen.id : undefined,
+    });
+  }, [screen, game, embedded]);
 
   useEffect(() => {
     const onPop = () => {

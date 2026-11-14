@@ -7,12 +7,13 @@ import { createHouses } from "./houses.js";
 import { createAi, type AiOptions } from "./ai.js";
 import { personaFor } from "@spades/rules";
 import { createAdmin, type AdminOptions } from "./admin.js";
+import { createBugs, REPORT_LIMIT, type BugOptions } from "./bugs.js";
 import { createLobby, type LobbyOptions } from "./lobby.js";
 import { createPush, type PushOptions } from "./push.js";
 import { playerOf } from "@spades/rooms/server";
 import { gameName, gameOfOptions, tableRoom, talk, type GameId, type Remark } from "./games.js";
 
-export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: boolean; push?: PushOptions; ai?: AiOptions; lobby?: LobbyOptions; admin?: AdminOptions } = {}) {
+export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: boolean; push?: PushOptions; ai?: AiOptions; lobby?: LobbyOptions; admin?: AdminOptions; bugs?: BugOptions } = {}) {
   const talking = options.talk ?? true;
   const timers = new Set<ReturnType<typeof setTimeout>>();
   const lastWord = new Map<string, number>();
@@ -126,6 +127,8 @@ export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: b
   // Whoever runs the card room: they can block a player from all of it, and act as host at any open table.
   const admin = createAdmin(rooms, { ...options.admin, evict: (id, seat) => lobby.evict(id, seat) });
   const lobby = createLobby(rooms, { push, isAdmin: admin.isAdmin, ...options.lobby });
+  // "Report a problem": a player's report becomes an issue on GitHub.
+  const bugs = createBugs(rooms, options.bugs);
 
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
   /** A blocked player's browser can look, but can't do anything (the admin's own pages aside). */
@@ -162,6 +165,7 @@ export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: b
     houses,
     lobby,
     admin,
+    bugs,
     /** Answers houses, rooms and sync requests; null for anything else. */
     push,
     async fetch(request: Request): Promise<Response | null> {
@@ -169,6 +173,7 @@ export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: b
         (await refused(request)) ??
         (await admin.fetch(request)) ??
         (await pushRoutes(request)) ??
+        (await bugs.fetch(request)) ??
         (await challenges.fetch(request)) ??
         (await lobby.fetch(request)) ??
         (await houses.fetch(request)) ??
@@ -178,16 +183,25 @@ export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: b
     /** For Node's http: answers and resolves true, or resolves false for anything else. */
     async handle(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
       const url = new URL(req.url ?? "/", "http://localhost");
-      const ours = ["/houses", "/challenges", "/push", "/lobby", "/admin"].some((m) => url.pathname === m || url.pathname.startsWith(`${m}/`));
+      const ours = ["/houses", "/challenges", "/push", "/lobby", "/admin", "/bugs"].some((m) => url.pathname === m || url.pathname.startsWith(`${m}/`));
       if (ours) {
         const chunks: Buffer[] = [];
-        for await (const chunk of req) chunks.push(chunk as Buffer);
+        let size = 0;
+        for await (const chunk of req) {
+          // Nothing here is bigger than a bug report with its screenshot; stop reading anything that is.
+          if ((size += (chunk as Buffer).length) > REPORT_LIMIT) {
+            res.writeHead(413, { "content-type": "application/json", connection: "close" });
+            res.end(JSON.stringify({ error: "That's too big to send." }));
+            return true;
+          }
+          chunks.push(chunk as Buffer);
+        }
         const request = new Request(url, {
           method: req.method,
           headers: req.headers as Record<string, string>,
           body: req.method === "GET" || req.method === "HEAD" ? undefined : Buffer.concat(chunks),
         });
-        const response = (await refused(request)) ?? (await admin.fetch(request)) ?? (await pushRoutes(request)) ?? (await challenges.fetch(request)) ?? (await lobby.fetch(request)) ?? (await houses.fetch(request))!;
+        const response = (await refused(request)) ?? (await admin.fetch(request)) ?? (await pushRoutes(request)) ?? (await bugs.fetch(request)) ?? (await challenges.fetch(request)) ?? (await lobby.fetch(request)) ?? (await houses.fetch(request))!;
         res.writeHead(response.status, Object.fromEntries(response.headers));
         res.end(Buffer.from(await response.arrayBuffer()));
         return true;

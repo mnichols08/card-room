@@ -1027,3 +1027,41 @@ button.cross-pile.can::after {
 .turn-clock.pulse { animation: clock-pulse 1s ease-in-out infinite; }
 @keyframes clock-pulse { 50% { transform: translate(-70%, -45%) scale(1.12); } }
 @media (prefers-reduced-motion: reduce) { .turn-clock.pulse { animation: none; } }
+
+/* Report a problem: a small bug in the corner of every screen, and its sheet above everything. */
+.report-toggle {
+  position: fixed; left: max(8px, env(safe-area-inset-left)); bottom: max(8px, env(safe-area-inset-bottom)); z-index: 30;
+  width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%;
+  background: rgba(0, 0, 0, 0.3); color: var(--cream); font-size: 1rem; line-height: 1; opacity: 0.7;
+}
+.report-toggle:hover, .report-toggle:focus-visible { opacity: 1; }
+.report-toggle:disabled { cursor: progress; }
+/* At a table on a phone the corners are cards: there, it's a line under the table's ⚙︎ instead. */
+@media (max-width: 1023px) { body:has(main.table) .report-toggle { display: none; } }
+.sheet .report-link { color: var(--felt); align-self: flex-start; text-align: left; }
+.report-backdrop { z-index: 60; background: rgba(0, 0, 0, 0.5); }
+.sheet.report-sheet {
+  z-index: 61; top: 50%; transform: translate(-50%, -50%); max-height: calc(100dvh - 24px); overflow-y: auto; overscroll-behavior: contain;
+  /* zubra-ui's switches, on cream */
+  --card: #fffdf7; --primary: var(--felt); --foreground: var(--ink);
+}
+.report-form { display: flex; flex-direction: column; gap: 12px; }
+.report-words { display: flex; flex-direction: column; gap: 6px; font-weight: 600; }
+.report-words small { font-weight: 400; color: var(--muted); }
+.report-words textarea { font: inherit; font-weight: 400; padding: 10px 12px; border-radius: 10px; border: 1px solid #c9bfa8; background: #fffdf7; color: var(--ink); resize: vertical; min-height: 4.5em; }
+.report-words textarea:focus-visible { outline: 2px solid var(--felt); outline-offset: 1px; }
+.report-choice { display: flex; flex-direction: column; gap: 8px; }
+.report-shot { display: block; max-width: 100%; max-height: 180px; margin: 0 auto; border-radius: 8px; border: 1px solid #c9bfa8; object-fit: contain; }
+.report-details { font-size: 0.85rem; color: var(--muted); }
+.report-details summary { cursor: pointer; text-decoration: underline; }
+.report-details dl { margin: 6px 0 0; display: flex; flex-direction: column; gap: 4px; }
+.report-details dl div { display: flex; gap: 8px; }
+.report-details dt { flex: none; width: 9.5em; font-weight: 600; }
+.report-details dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.sheet.report-sheet .fine { text-align: left; color: var(--muted); }
+.sheet.report-sheet .error { color: var(--red); }
+.sheet.report-sheet a { color: var(--felt); }
+.report-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.report-actions .primary, .report-actions .secondary { padding: 10px 18px; font-size: 1rem; }
+.setup.crashed { justify-content: center; gap: 12px; }
+@media (prefers-reduced-motion: reduce) { .sheet.report-sheet { animation: none; } }

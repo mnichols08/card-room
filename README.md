@@ -117,6 +117,31 @@ Open tables are where strangers meet, so:
 - **A buzz when someone's waiting.** On the Open tables page, pick a game (or any game) and turn
   notifications on: your phone buzzes when a table opens for it, at most once every ten minutes.
 
+### Report a problem
+
+Players can report a bug without leaving the app or having a GitHub account. The 🐞 in the corner
+of every screen (at a table on a phone: under ⚙︎) opens a short form: what went wrong (optional),
+and two switches, one for a picture of the screen and one for the browser's details. The server
+then opens an issue on GitHub for them and tells them its number.
+
+To turn it on, make a [fine-grained token](https://github.com/settings/personal-access-tokens/new)
+for this repository only, with **Issues: Read and write** and nothing else, and set it as
+`CARDROOM_GITHUB_TOKEN`. Issues are opened in the name of the token's account, labelled `bug` and
+`player report`. Without a token the button isn't shown (nor on the GitHub Pages copy, which has no
+server).
+
+- **In every report:** the player's words, the screen and game, when their copy of the page was
+  built, the server's version, and the last few errors the page logged. From a table on the server:
+  its game, rules, settings, and how many people and computer players are seated.
+- **Only if the player agrees:** a picture of the screen (shown to them first), and their browser,
+  device and window size (also shown first).
+- **Never:** names, chat, the player's cookie, or a table's link. Issues are public, and the form
+  says so. Which table a report came from is kept on the server (`bugs/reports` in the log).
+- GitHub's API can't attach a picture to an issue, so screenshots are kept by the server (the
+  newest 30) and the issue links to `/bugs/shots/<id>.jpg`.
+- One browser can send 3 reports in ten minutes, and the whole card room 40 a day. A blocked player
+  can't send any. A player's words can't mention people or link other issues.
+
 ### The card room's admin
 
 Whoever runs the server can block a player from the whole card room. Set `CARDROOM_ADMIN_KEY`
@@ -275,6 +300,8 @@ docker run -p 8787:8787 -v spades:/data cardroom
 | `CARDROOM_AI_MODEL` | The model for that key. Default: `claude-haiku-5-5` or `gpt-5.6-luna`. |
 | `CARDROOM_AI_DAILY` | The most lines a day on that key, everyone together. Default 3000. |
 | `CARDROOM_ADMIN_KEY` | Optional: makes any device that enters it at `/?admin=1` the card room's admin, who can block players. 8 characters or more; keep it secret. |
+| `CARDROOM_GITHUB_TOKEN` | Optional: turns on **Report a problem**. A GitHub token that may open issues on the repository below; keep it secret. |
+| `CARDROOM_GITHUB_REPO` | Where reports are filed, as `owner/name`. Default `mnichols08/card-room`. |
 | `CARDROOM_BLOCKED_NAMES` | Optional: more words that names and chat at open tables may not contain, comma-separated |
 | `CARDROOM_BOT_DELAY` | Fixed thinking time for computer players, in milliseconds (handy for testing) |
 | `CARDROOM_WEB` | Where the built web app is, if not `packages/web/dist` |
