@@ -61,11 +61,17 @@ const FANS: Record<string, object[]> = {
 };
 
 /** A board game's tile shows a little board instead: a position that says what the game is about. */
-type MiniBoard = { cols: number; cells: ({ glyph: string; tone: string } | null)[] };
+type MiniBoard = { cols: number; cells: ({ glyph: string; tone: string; shade?: "dark" } | null)[] };
 const X = { glyph: "✕", tone: "red" };
 const O = { glyph: "◯", tone: "blue" };
+// Checkers: a corner of the board, played on the dark squares.
+const SQUARE = { glyph: "", tone: "none", shade: "dark" as const };
+const MAN_DARK = { ...SQUARE, glyph: "●", tone: "dark" };
+const MAN_LIGHT = { ...SQUARE, glyph: "●", tone: "light" };
+const KING_DARK = { ...SQUARE, glyph: "♛", tone: "dark" };
 const BOARDS: Record<string, MiniBoard> = {
   tictactoe: { cols: 3, cells: [X, O, null, null, X, O, O, null, X] },
+  checkers: { cols: 4, cells: [null, MAN_LIGHT, null, MAN_LIGHT, SQUARE, null, KING_DARK, null, null, MAN_LIGHT, null, SQUARE, MAN_DARK, null, MAN_DARK, null] },
 };
 const EMPTY_BOARD: MiniBoard = { cols: 3, cells: Array(9).fill(null) };
 

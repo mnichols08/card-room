@@ -52,7 +52,9 @@ export type CellMark =
   /** Part of the winning line. */
   | "win"
   /** In danger: a king in check, a ship just hit. */
-  | "threat";
+  | "threat"
+  /** Has to move: a piece that must capture in checkers. */
+  | "must";
 
 export interface BoardGrid {
   /** Names this grid in a move when a view has more than one: "board", "mine", "theirs". */
@@ -93,6 +95,12 @@ export interface BoardGrid {
   };
   marks?: { cell: number; mark: CellMark }[];
   /**
+   * Draw the board turned half way round, so the last row is at the top and this seat's own pieces
+   * are nearest them (the second player in checkers or chess). Only the drawing turns: cells keep
+   * their numbers and their names.
+   */
+  flip?: boolean;
+  /**
    * Cells you can tap now. Tapping one sends { type, cell } (plus `grid` when the view has more
    * than one). With `by: "col"` the whole column is the target and the move is { type, col }
    * (a drop game: any cell of the column drops a piece into it).
@@ -101,8 +109,10 @@ export interface BoardGrid {
   /**
    * Things you can pick up now, and where each can go: `from` is a cell of this grid, or the
    * `kind` of a piece in your reserve. Choosing one and then a destination sends { type, from, to }.
+   * `held` is a source that is already in hand (a checkers piece in the middle of a run of jumps):
+   * the table shows it picked up without being asked.
    */
-  select?: { type: string; sources: { from: number | string; to: number[] }[] } | null;
+  select?: { type: string; sources: { from: number | string; to: number[] }[]; held?: number | string } | null;
 }
 
 /** Pieces off the board, per side: captured pieces, stones or discs left, ships still to place. */

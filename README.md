@@ -1,6 +1,6 @@
 # Card Room
 
-Family card and board games online: forty-nine games with house rules saved as presets, family
+Family card and board games online: fifty games with house rules saved as presets, family
 **houses** with their own tables, leaderboards and tournaments, computer players with personalities,
 challenge links, and a widget that puts a game on any site, including [open.blog](https://github.com/journey-to-code-org/open.blog) ones.
 
@@ -9,7 +9,7 @@ yourself (Docker or Railway), and practice games work anywhere, including the Gi
 
 ## The games
 
-Spades and Palace have tables of their own; the other forty-seven are built on a shared game kit
+Spades and Palace have tables of their own; the other forty-eight are built on a shared game kit
 (`packages/games`), so they all get the same setup screen, house rules editor, computer players,
 houses, challenges and tournaments. The kit has two tables: one that draws any card game, and one
 that draws any board game (Tic-Tac-Toe is the first).
@@ -67,6 +67,7 @@ that draws any board game (Tic-Tac-Toe is the first).
 | Horse Race 🍺 | 2 to 10 | Drinking game: bet sips on an ace |
 | Drinking Pyramid 🍺 | 2 to 8 | Drinking game: remember your cards, match, bluff |
 | Tic-Tac-Toe | 2 | A board game: three in a row, Ultimate's nine boards, or Gomoku's five in a row on 15×15 |
+| Checkers | 2 | A board game: American, International on 10×10 with flying kings, Russian, or friendly with no forced jumps |
 
 Poker and Blackjack are for chips only: everyone starts with the same stack, and the chips are
 just for keeping score.
@@ -142,7 +143,7 @@ host, no chat filter and no mute; an admin can still block there.
 
 | Package | |
 | --- | --- |
-| [`packages/games`](packages/games) | The game kit and the forty-seven games built on it: `table.ts` (the `TableGame` engine contract every game shares), `kit.ts` (the card kit: `CardGame`, cards, decks, `KitView`) and `board.ts` (the board kit: `BoardGame`, grids, pieces, `BoardView`) |
+| [`packages/games`](packages/games) | The game kit and the forty-eight games built on it: `table.ts` (the `TableGame` engine contract every game shares), `kit.ts` (the card kit: `CardGame`, cards, decks, `KitView`) and `board.ts` (the board kit: `BoardGame`, grids, pieces, `BoardView`) |
 | [`packages/rules`](packages/rules) | Spades rules engine, bots, and the personas who play every game |
 | [`packages/palace`](packages/palace) | Palace rules engine: house-rule presets, seat views, bots and table talk |
 | [`packages/physics`](packages/physics) | A small deterministic 2D physics core for the ball games to come: the same shot gives the same table on the server and in every browser |
@@ -201,6 +202,16 @@ returns.
    exactly the legal moves: the table offers nothing else, and `apply` still refuses the rest.
    `tictactoe.ts` is the worked example, with three computer players: a solved 3×3, a scored
    search for bigger boards, and a look-ahead for Ultimate.
+
+   `checkers.ts` is the worked example for pieces that move (`select`). The table lets a piece be
+   tapped and then its destination, dragged there, or played from the keyboard, and slides any
+   piece that has an `id` to where it went. Three things in the kit came with it and are there
+   for the next game: `flip` on a grid draws the board from the far side for the seat that sits
+   there (cells keep their numbers and names; only the drawing turns); `held` in `select` names a
+   piece that is already in hand, for a move made in several taps (a run of jumps is one hop per
+   move, the seat keeps the turn, and the capture in progress lives in the engine's state); and
+   the `must` mark rings a piece that has to move. A piece with `faded` set is drawn faintly: a
+   piece jumped but not yet taken off.
 2. **Register it:** add its id to `BoardGameId` in `table.ts`, add it to `BOARD_GAMES` in
    `registry.ts`, and export it from `index.ts`.
 3. **Tests:** `packages/games/test/<game>.test.ts` for its rules. The shared board tests

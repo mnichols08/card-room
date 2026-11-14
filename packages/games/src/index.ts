@@ -46,6 +46,7 @@ export * from "./ridethebus.js";
 export * from "./kingscup.js";
 export * from "./board.js";
 export * from "./tictactoe.js";
+export * from "./checkers.js";
 export * from "./horserace.js";
 export * from "./drinkingpyramid.js";
 export * from "./registry.js";
