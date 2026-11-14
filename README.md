@@ -51,9 +51,6 @@ that draws any board game (Tic-Tac-Toe is the first).
 | Cuckoo | 3 to 10 | One card each; don't get stuck with the lowest |
 | Contract Rummy | 3 to 8 | Seven rounds, seven contracts to lay down |
 | Memory | 1 to 6 | Find the pairs (great for grandkids) |
-| Ride the Bus | 2 to 8 | Drinking game: guess, match, and don't ride the bus |
-| Kings Cup | 2 to 10 | Drinking game: every card has a rule |
-| Horse Race | 2 to 10 | Drinking game: bet sips on an ace and watch them run |
 | Kings in the Corner | 2 to 4 | Solitaire for the whole table |
 | Spite and Malice | 2 to 4 | Race to play off your pile; kings are wild |
 | Five Card Draw | 2 to 6 | Poker for chips: bet, swap, bet, show |
