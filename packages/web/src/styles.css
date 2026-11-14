@@ -836,3 +836,37 @@ button.grid-cell { padding: 0; border: 0; background: none; cursor: pointer; bor
 button.spread-card { cursor: pointer; animation: none; }
 @media (hover: hover) { button.spread-card:hover { translate: 0 -8px; z-index: 2; } }
 @media (max-width: 599px) { .pile-spread { padding-left: calc(var(--trick-w) * 0.74); } .spread-card { margin-left: calc(var(--trick-w) * -0.74); } }
+
+/* Solitaire (Klondike, FreeCell): the felt is all yours. Columns line up under the top row. */
+.kit-felt.solo { grid-template-columns: minmax(0, 1fr); grid-template-areas: "center"; }
+.kit-felt.solo .opp-area { display: none; }
+.kit-felt.solo .center { grid-column: 1 / -1; width: 100%; }
+.sol {
+  --gap: calc(var(--trick-w) * 0.12);
+  --trick-w: min(calc((100vw - 24px) / (var(--cols) * 1.13)), 88px);
+  --trick-h: calc(var(--trick-w) * var(--card-ratio));
+  display: flex; flex-direction: column; align-items: center; gap: calc(var(--trick-h) * 0.18); width: 100%;
+}
+.sol-top { display: grid; grid-template-columns: repeat(var(--cols), var(--trick-w)); gap: var(--gap); align-items: start; }
+.sol-cols { display: grid; grid-template-columns: repeat(var(--cols), var(--trick-w)); gap: var(--gap); align-items: start; min-height: calc(var(--trick-h) * 2); }
+.sol-stock { grid-column: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.sol-stock small { font-size: calc(var(--ui-s) * 0.85); color: #cfe2d6; white-space: nowrap; }
+.sol-waste { grid-column: 2 / span 2; display: flex; }
+.sol-waste .sol-card + .sol-card { margin-left: calc(var(--trick-w) * -0.72); }
+.sol-cells { grid-column: 1 / span 4; display: grid; grid-template-columns: repeat(4, var(--trick-w)); gap: var(--gap); }
+.sol-found { grid-column: -5 / -1; display: grid; grid-template-columns: repeat(4, var(--trick-w)); gap: var(--gap); }
+.sol-col { display: flex; flex-direction: column; }
+.sol-col > * + * { margin-top: calc(var(--trick-h) * -0.7); }
+.sol-col > .down + * { margin-top: calc(var(--trick-h) * -0.86); }
+.sol-card { display: block; line-height: 0; padding: 0; border: 0; background: none; }
+button.sol-card { cursor: pointer; border-radius: calc(var(--trick-w) * 0.1); }
+@media (hover: hover) { button.sol-card:hover { filter: brightness(1.04); translate: 0 -2px; } }
+button.sol-card:focus-visible { outline: 3px solid #ffd76a; outline-offset: 1px; }
+.sol-slot {
+  width: var(--trick-w); height: var(--trick-h); border-radius: calc(var(--trick-w) * 0.1);
+  border: 2px dashed rgba(255, 255, 255, 0.22); display: grid; place-items: center; box-sizing: border-box;
+  color: rgba(255, 255, 255, 0.35); font-size: calc(var(--trick-w) * 0.4); background: rgba(0, 0, 0, 0.12);
+}
+button.sol-slot.again { cursor: pointer; color: var(--gold); border-color: rgba(232, 196, 106, 0.55); }
+.kit-felt.solo .center { flex-direction: column; align-items: center; }
+@media (min-width: 1024px) { .sol { --trick-w: min(calc((100vw - 200px) / (var(--cols) * 1.13)), 104px); } }

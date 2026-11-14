@@ -196,47 +196,55 @@ export function KitSetup({
       }
       actions={
         <>
+          {game.seats.max > 1 && (
+            <button
+              type="button"
+              className="primary deal"
+              disabled={errors.length > 0 || busy}
+              onClick={async () => {
+                setBusy(true);
+                setProblem(null);
+                remember();
+                try {
+                  await onFamilyTable(rules, game.teams ? 4 : seats);
+                } catch {
+                  setProblem(
+                    "Couldn't reach the card room. Try again in a minute.",
+                  );
+                  setBusy(false);
+                }
+              }}
+            >
+              Start a family table
+            </button>
+          )}
           <button
             type="button"
-            className="primary deal"
-            disabled={errors.length > 0 || busy}
-            onClick={async () => {
-              setBusy(true);
-              setProblem(null);
-              remember();
-              try {
-                await onFamilyTable(rules, game.teams ? 4 : seats);
-              } catch {
-                setProblem(
-                  "Couldn't reach the card room. Try again in a minute.",
-                );
-                setBusy(false);
-              }
-            }}
-          >
-            Start a family table
-          </button>
-          <button
-            type="button"
-            className="secondary"
+            className={game.seats.max > 1 ? "secondary" : "primary deal"}
             disabled={errors.length > 0}
             onClick={() => {
               remember();
               onPractice(name.trim() || "You", rules, game.teams ? 4 : seats);
             }}
           >
-            Practice against the computer
+            {game.seats.max > 1 ? "Practice against the computer" : "Deal"}
           </button>
           {problem && <p className="error">{problem}</p>}
         </>
       }
       more={
         <>
-          <ChallengeLink name={name} kitRules={{ [id]: rules }} />
-          <p className="fine">
-            Houses keep {game.name} rules, tables and a leaderboard too. Make
-            one from the Spades screen.
-          </p>
+          {game.seats.max > 1 && (
+            <ChallengeLink name={name} kitRules={{ [id]: rules }} />
+          )}
+          {game.seats.max > 1 ? (
+            <p className="fine">
+              Houses keep {game.name} rules, tables and a leaderboard too. Make
+              one from the Spades screen.
+            </p>
+          ) : (
+            <p className="fine">A game just for you: nobody's waiting on you, so take your time.</p>
+          )}
         </>
       }
     />

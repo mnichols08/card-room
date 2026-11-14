@@ -5,7 +5,7 @@
 // scores. One table screen draws every game from that, and one room runs them all on the server.
 import { mulberry32, type Card, type PlayStyle, type Suit } from "@spades/rules";
 
-export type KitGameId = "hearts" | "ohhell" | "euchre" | "crazy8" | "gin" | "pinochle" | "canasta" | "gofish" | "oldmaid" | "war" | "whist" | "golf" | "rummy500" | "president";
+export type KitGameId = "hearts" | "ohhell" | "euchre" | "crazy8" | "gin" | "pinochle" | "canasta" | "gofish" | "oldmaid" | "war" | "whist" | "golf" | "rummy500" | "president" | "klondike";
 
 /** A move that isn't allowed. The message is shown to the player as is. */
 export class GameError extends Error {}
@@ -130,6 +130,22 @@ export type Center =
       /** A card just drawn, shown beside the piles until it's placed (Golf). */
       held?: KCard | null;
       heldLabel?: string;
+    }
+  /**
+   * A solitaire layout (Klondike, FreeCell): the stock and the turned cards, the foundations (their
+   * top cards), free cells, and the columns (how many face down, then the face-up cards). Tapping one
+   * of `tap.cards` sends { type, card }; tapping the stock sends drawMove.
+   */
+  | {
+      kind: "solitaire";
+      stock: number | null;
+      waste: KCard[];
+      foundations: (KCard | null)[];
+      cells: (KCard | null)[] | null;
+      columns: { down: number; up: KCard[] }[];
+      tap: { type: string; cards: string[] } | null;
+      drawMove: Record<string, unknown> | null;
+      stockLabel?: string;
     }
   /** Another player's hand, face down: tap a card to take it (Old Maid). Sends { type: takeType, index }. */
   | { kind: "fan"; from: number; count: number; takeType: string | null; label?: string }

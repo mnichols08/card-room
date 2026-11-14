@@ -55,7 +55,7 @@ for (const game of KIT_GAMES) {
             const { state } = playOut(game, preset, seats, seed);
             const summary = game.summary(state);
             expect(summary.over).toBe(true);
-            expect(summary.winners!.length).toBeGreaterThan(0);
+            if (seats > 1) expect(summary.winners!.length).toBeGreaterThan(0);
             expect([...summary.order!].sort()).toEqual(Array.from({ length: seats }, (_, i) => i));
             const v = game.view(state, 0);
             expect(v.over).not.toBeNull();
