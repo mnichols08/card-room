@@ -3,13 +3,15 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Log } from "@zubra/sync/server";
 import { createRooms, type RoomDoc } from "@spades/rooms/server";
+import { createCatalogue } from "./catalogue.js";
 import { createChallenges } from "./challenges.js";
+import { createSpectate } from "./spectate.js";
 import { createDesigns } from "./designs.js";
 import { BLOCKED_MESSAGE, createModeration } from "./moderation.js";
 import { createHouses } from "./houses.js";
 import { createPush, type PushOptions } from "./push.js";
 import { playerOf } from "@spades/rooms/server";
-import { gameOfOptions, tableRoom, talk, type GameId, type Remark } from "./games.js";
+import { gameName, gameOfOptions, tableRoom, talk, type GameId, type Remark } from "./games.js";
 
 export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: boolean; push?: PushOptions; /** Turns moderation on (see moderation.ts). */ adminToken?: string } = {}) {
   const talking = options.talk ?? true;
@@ -40,6 +42,8 @@ export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: b
   const rooms = createRooms(tableRoom, {
     log: options.log,
     botDelay: options.botDelay,
+    // A game the host has switched off takes no new tables.
+    allow: async (given) => ((await catalogue.isOn(gameOfOptions(given))) ? null : `${gameName(gameOfOptions(given))} is switched off in this card room.`),
     onStart: ({ id, state, room }) => speak(id, talk.greet(state, castOf(room))),
     onMove: ({ id, before, after, room }) => {
       speak(id, talk.react(before, after, castOf(room)), talk.finished(after));
@@ -50,10 +54,12 @@ export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: b
     onSay: ({ id, message, room }) => speak(id, talk.reply(gameOfRoom(room), message.text, message.seat, castOf(room)), true),
   });
   const push = createPush(rooms.sync, options.push);
-  const houses = createHouses(rooms, { push });
-  const challenges = createChallenges(rooms, push);
+  const catalogue = createCatalogue(rooms.sync);
+  const houses = createHouses(rooms, { push, gameOn: catalogue.isOn });
+  const challenges = createChallenges(rooms, push, { gameOn: catalogue.isOn });
   const designs = createDesigns(rooms.sync);
-  const moderation = createModeration(rooms, designs, { token: options.adminToken });
+  const spectate = createSpectate(rooms, catalogue);
+  const moderation = createModeration(rooms, designs, { token: options.adminToken, houses, catalogue });
 
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
   /** /push: the public key, and saying yes (or no) to notifications on this phone. */
@@ -80,7 +86,7 @@ export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: b
   }
 
   /** Everything a blocked player may not do: sit, move, talk, make houses, challenges or designs. Reading is left alone. */
-  const ACTS = ["/rooms", "/houses", "/challenges", "/designs", "/push"];
+  const ACTS = ["/rooms", "/houses", "/challenges", "/designs", "/push", "/spectate"];
   const under = (pathname: string, mounts: string[]) => mounts.some((m) => pathname === m || pathname.startsWith(`${m}/`));
   async function refusal(request: Request): Promise<Response | null> {
     if (request.method === "GET" || request.method === "HEAD" || !under(new URL(request.url).pathname, ACTS)) return null;
@@ -88,13 +94,14 @@ export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: b
   }
   /** The routes that aren't the rooms kit's own. */
   const ours = async (request: Request) =>
-    (await refusal(request)) ?? (await moderation.fetch(request)) ?? (await pushRoutes(request)) ?? (await designs.fetch(request)) ?? (await challenges.fetch(request)) ?? (await houses.fetch(request));
+    (await refusal(request)) ?? (await moderation.fetch(request)) ?? (await pushRoutes(request)) ?? (await designs.fetch(request)) ?? (await catalogue.fetch(request)) ?? (await spectate.fetch(request)) ?? (await challenges.fetch(request)) ?? (await houses.fetch(request));
 
   return {
     rooms,
     houses,
     designs,
     moderation,
+    catalogue,
     push,
     /** Answers houses, designs, moderation, rooms and sync requests; null for anything else. */
     async fetch(request: Request): Promise<Response | null> {
@@ -108,7 +115,7 @@ export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: b
         res.writeHead(response.status, Object.fromEntries(response.headers));
         return response.arrayBuffer().then((body) => (res.end(Buffer.from(body)), true));
       };
-      if (under(url.pathname, ["/houses", "/challenges", "/push", "/designs", "/moderation"])) {
+      if (under(url.pathname, ["/houses", "/challenges", "/push", "/designs", "/moderation", "/catalogue", "/spectate"])) {
         const chunks: Buffer[] = [];
         for await (const chunk of req) chunks.push(chunk as Buffer);
         const request = new Request(url, {

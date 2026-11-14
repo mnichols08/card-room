@@ -69,6 +69,11 @@ export interface RoomDoc<Summary = unknown> {
   locked?: boolean;
   /** A name for the table, set by the server, for pages to show. */
   label?: string;
+  /**
+   * A table to watch: every seat is a computer player and anyone may read every seat's view. Only
+   * the server makes one (see `exhibit`).
+   */
+  watchable?: boolean;
   /** Why the server's admin closed this table. A closed table takes no more seats, moves or chat. */
   closed?: string;
   summary: Summary | null;
@@ -122,6 +127,8 @@ export interface RoomsOptions {
   log?: Log;
   /** A fixed time (ms) every bot waits before moving, overriding the room's own botDelay. For tests. */
   botDelay?: number;
+  /** Whether a page may open a room with these options: a reason to refuse, or null. Server code's own `create` isn't asked. */
+  allow?(options: unknown): string | null | Promise<string | null>;
   /** After every move is published. */
   onMove?(event: MoveEvent<any, any, any>): void;
   /** After a game starts. */
@@ -196,6 +203,8 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
       if (collection === "chat" && kind === "read") return true;
       if (collection === "views" && kind === "read") {
         const [id, seat] = splitViewKey(key);
+        // A table of computer players has no hands to keep secret.
+        if ((await room(id))?.watchable) return true;
         const player = playerOf(request);
         return player !== null && (await game(id))?.holders[seat] === player;
       }
@@ -309,6 +318,17 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
   /** Set the seats for good (after seating everyone from server code), and name the table. */
   async function lock(id: string, label?: string): Promise<void> {
     await sync.write("rooms", id, { locked: true, ...(label ? { label: label.slice(0, 60) } : {}) });
+  }
+
+  /**
+   * Make a table one to watch: its seats are set (all computer players, seated from server code)
+   * and anyone may read every seat's view. Refuses a table with a person at it.
+   */
+  async function exhibit(id: string, label?: string): Promise<void> {
+    const g = await game(id);
+    const r = await room(id);
+    if (!g || !r || g.holders.some(Boolean) || r.seats.some((s) => !s.bot)) throw new Error("Only a table of computer players can be watched this way.");
+    await sync.write("rooms", id, { locked: true, watchable: true, ...(label ? { label: label.slice(0, 60) } : {}) });
   }
 
   /**
@@ -450,6 +470,8 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     // POST /rooms { options, settings? } → { id }
     if (parts.length === 0 && method === "POST") {
       const { options: given, settings } = await body(request);
+      const refused = await options.allow?.(given ?? {});
+      if (refused) return json({ error: refused }, 403);
       return json({ id: await create((given ?? {}) as Options, settings) }, 201);
     }
 
@@ -562,6 +584,9 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     seatBot,
     start,
     lock,
+    exhibit,
+    /** Get a table's computer players moving again (after a restart, nothing else would wake a table with no people). */
+    nudge: (id: string) => void driveBots(id),
     holders,
     closeTable,
     unseat,

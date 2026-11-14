@@ -12,7 +12,9 @@
 //   moderation/log    server only: what the admin did, one field per action
 import { createHash, timingSafeEqual } from "node:crypto";
 import { playerOf, type ChatMessage, type RoomDoc } from "@spades/rooms/server";
+import type { Catalogue } from "./catalogue.js";
 import type { Designs } from "./designs.js";
+import type { HouseDoc } from "./houses.js";
 import { gameName, gameOfOptions } from "./games.js";
 
 interface Rooms {
@@ -26,6 +28,12 @@ interface Rooms {
   closeTable(id: string, reason: string): Promise<boolean>;
   unseat(id: string, seat: number, bot?: string): Promise<string | null>;
   redact(id: string, key: string): Promise<boolean>;
+}
+
+/** The parts of the houses module moderation uses. */
+interface Houses {
+  all(): Promise<HouseDoc[]>;
+  moderate(slug: string, change: { name?: unknown; removeMember?: string; owner?: string; delete?: true }): Promise<string | null>;
 }
 
 export interface Ban {
@@ -61,7 +69,7 @@ const finished = (summary: unknown) => {
 /** How many wrong tokens a minute before everyone waits. */
 const WRONG_TOKENS_PER_MINUTE = 20;
 
-export function createModeration(rooms: Rooms, designs: Designs, { token, mount = "/moderation", now = () => Date.now() }: { token?: string; mount?: string; now?: () => number } = {}) {
+export function createModeration(rooms: Rooms, designs: Designs, { token, houses, catalogue, mount = "/moderation", now = () => Date.now() }: { token?: string; houses?: Houses; catalogue?: Catalogue; mount?: string; now?: () => number } = {}) {
   const secret = token?.trim() ? digest(token.trim()) : null;
   const docs = rooms.sync.documents();
   let wrong: number[] = [];
@@ -260,6 +268,55 @@ export function createModeration(rooms: Rooms, designs: Designs, { token, mount 
         return json({ ok: true });
       }
       return json({ error: "Not found" }, 404);
+    }
+
+    if (area === "houses" && houses) {
+      const all = await houses.all();
+      const blocked = await bans();
+      // GET /moderation/houses → every house and who's in it
+      if (!id && method === "GET") {
+        return json({
+          houses: all
+            .map((h) => ({
+              slug: h.slug,
+              name: h.name,
+              tables: h.tables.length,
+              tournaments: h.tournaments?.length ?? 0,
+              members: h.members.map((m) => ({ id: m.id, name: m.name, role: m.role, joined: m.joined, player: playerRef(m.player), blocked: blocked.has(playerRef(m.player)) })),
+            }))
+            .sort((a, b) => a.name.localeCompare(b.name)),
+        });
+      }
+      const house = all.find((h) => h.slug === id);
+      if (!house || method !== "POST") return json({ error: "There's no such house." }, 404);
+      const member = house.members.find((m) => m.id === input.member);
+      const done = async (problem: string | null, what: string, target: string, note = "") => {
+        if (problem) return json({ error: problem }, 409);
+        await record(what, target, note);
+        return json({ ok: true });
+      };
+      // POST /moderation/houses/:slug/rename { name } → a new name (its link stays the same)
+      if (action === "rename") return done(await houses.moderate(id, { name: input.name }), "Renamed a house", house.name, `Now “${clean(input.name, 30)}”`);
+      // POST /moderation/houses/:slug/remove-member { member } → out of the house
+      if (action === "remove-member") return done(await houses.moderate(id, { removeMember: String(input.member ?? "") }), "Removed a member from a house", `${member?.name ?? "Someone"} from ${house.name}`);
+      // POST /moderation/houses/:slug/owner { member } → the house's new owner; the old one stays as an admin
+      if (action === "owner") return done(await houses.moderate(id, { owner: String(input.member ?? "") }), "Changed a house's owner", house.name, `Now ${member?.name ?? "someone"}`);
+      // POST /moderation/houses/:slug/delete → gone, for everyone; its tables carry on
+      if (action === "delete") return done(await houses.moderate(id, { delete: true }), "Deleted a house", house.name);
+      return json({ error: "Not found" }, 404);
+    }
+
+    if (area === "games" && catalogue) {
+      // GET /moderation/games → every game in order, on or off, and the watching switch
+      if (method === "GET") return json(await catalogue.state());
+      // POST /moderation/games { order?, off?, watching? } → the catalogue, changed
+      if (method === "POST") {
+        const problem = await catalogue.set({ order: input.order, off: input.off, watching: input.watching });
+        if (problem) return json({ error: problem }, 409);
+        const parts = [input.order !== undefined ? "order" : "", input.off !== undefined ? "which games are on" : "", input.watching !== undefined ? `watching ${input.watching === true ? "on" : "off"}` : ""].filter(Boolean);
+        await record("Changed the games", parts.join(", ") || "nothing");
+        return json(await catalogue.state());
+      }
     }
 
     if (area === "designs") {

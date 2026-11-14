@@ -60,7 +60,10 @@ type KitRules = { id: string; name: string } & Record<string, unknown>;
 interface Rooms {
   sync: {
     write(collection: string, key: string, fields: Record<string, unknown>): Promise<unknown>;
-    documents(): Promise<{ get(collection: string, key: string): Record<string, unknown> | undefined }>;
+    documents(): Promise<{
+      get(collection: string, key: string): Record<string, unknown> | undefined;
+      all(collection: string, prefix?: string): Array<{ key: string } & Record<string, unknown>>;
+    }>;
   };
   create(options: TableOptions, settings?: unknown): Promise<string>;
   room(id: string): Promise<RoomDoc<unknown> | undefined>;
@@ -136,16 +139,17 @@ function cleanPreset(value: unknown): RulePreset | string {
   return errors.length ? errors.join(" ") : preset;
 }
 
-export function createHouses(rooms: Rooms, { mount = "/houses", push }: { mount?: string; push?: Push } = {}) {
+export function createHouses(rooms: Rooms, { mount = "/houses", push, gameOn = () => true }: { mount?: string; push?: Push; /** Whether new tables of a game may be opened (the card room's catalogue). */ gameOn?: (game: GameId) => boolean | Promise<boolean> } = {}) {
   const docs = rooms.sync.documents();
   const get = async (slug: string) => {
     const doc = (await docs).get("houses", slug);
-    if (!doc) return undefined;
+    // A house the card room's host deleted is gone: its name is free again.
+    if (!doc || doc.deleted) return undefined;
     // Keep only the house's own fields (the view may carry sync bookkeeping such as $clocks).
     const { slug: s, name, code, members, presets, defaultPreset, palacePresets, palaceDefault, tables, tournaments, kitRules } = doc as unknown as HouseDoc;
     return structuredClone({ slug: s, name, code, members, presets: presets.map(renamedPreset), defaultPreset, palacePresets: (palacePresets ?? [familyPalace]).map((p) => normalizePalaceRules(p)), palaceDefault: palaceDefault ?? palacePresets?.[0]?.id ?? familyPalace.id, tables, tournaments: tournaments ?? [], kitRules: kitRules ?? {} }) as HouseDoc;
   };
-  const save = (house: HouseDoc) => rooms.sync.write("houses", house.slug, { ...house });
+  const save = (house: HouseDoc) => rooms.sync.write("houses", house.slug, { ...house, deleted: false });
   const tournaments = createTournaments(rooms, { push, saveHouse: (h) => save(h as HouseDoc) });
 
   /** What a member sees. No player secrets; the invite code, since members share the link. */
@@ -322,6 +326,7 @@ export function createHouses(rooms: Rooms, { mount = "/houses", push }: { mount?
     // POST /houses/:slug/tables { game?, presetId?, seats?, settings? } → a new table with house rules
     if (action === "tables") {
       const game = gameOf(input.game);
+      if (!(await gameOn(game))) return json({ error: `${gameName(game)} is switched off in this card room.` }, 403);
       let id: string;
       let rulesName: string;
       if (isKitGame(game)) {
@@ -468,7 +473,44 @@ export function createHouses(rooms: Rooms, { mount = "/houses", push }: { mount?
     return json({ error: "Not found" }, 404);
   }
 
+  /** Every house that hasn't been deleted, for server code (moderation). Holds player ids: never send one to a page as it is. */
+  async function all(): Promise<HouseDoc[]> {
+    const slugs = (await docs).all("houses").map((d) => String((d as { slug?: unknown }).slug ?? d.key));
+    return (await Promise.all(slugs.map(get))).filter((h): h is HouseDoc => !!h);
+  }
+  /** Change a house on its host's say-so (moderation). Resolves to a problem, or null. */
+  async function moderate(slug: string, change: { name?: unknown; removeMember?: string; owner?: string; delete?: true }): Promise<string | null> {
+    const house = await get(slug);
+    if (!house) return "There's no such house.";
+    if (change.delete) {
+      await rooms.sync.write("houses", slug, { deleted: true });
+      return null;
+    }
+    if (change.name !== undefined) {
+      const name = cleanName(change.name, "");
+      if (!name) return "A house needs a name.";
+      house.name = name;
+    }
+    if (change.removeMember !== undefined) {
+      const target = house.members.find((m) => m.id === change.removeMember);
+      if (!target) return "There's no such member.";
+      if (target.role === "owner") return "A house always has an owner. Make someone else the owner first.";
+      house.members = house.members.filter((m) => m !== target);
+    }
+    if (change.owner !== undefined) {
+      const target = house.members.find((m) => m.id === change.owner);
+      if (!target) return "There's no such member.";
+      // There is always exactly one owner: the old one stays on as an admin.
+      for (const m of house.members) if (m.role === "owner") m.role = "admin";
+      target.role = "owner";
+    }
+    await save(house);
+    return null;
+  }
+
   return {
+    all,
+    moderate,
     /** A table finished: if it was a tournament match, move its winner on. */
     tableFinished: (id: string, summary: unknown) => tournaments.tableFinished(id, summary, get),
     /** Answers house requests; null for anything else. */

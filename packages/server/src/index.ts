@@ -1,5 +1,5 @@
 // The Card Room server: rooms (moves, seats, bots), the sync log, and the built apps: the card room
-// itself at /, the card designer at /designer/ and the admin app at /admin/.
+// itself at /, the card designer at /designer/, the watch page at /watch/ and the admin app at /admin/.
 //
 //   PORT=8787 CARDROOM_DB=cardroom.db node dist/index.js
 //
@@ -23,6 +23,7 @@ const web = resolve(setting("WEB") ?? fileURLToPath(new URL("../../web/dist", im
 // The other apps live under the card room's address, each from its own build.
 const apps = [
   { at: "/designer/", root: resolve(setting("DESIGNER") ?? fileURLToPath(new URL("../../designer/dist", import.meta.url))), build: "npm run build -w @cardroom/designer" },
+  { at: "/watch/", root: resolve(setting("WATCH") ?? fileURLToPath(new URL("../../watch/dist", import.meta.url))), build: "npm run build -w @cardroom/watch" },
   { at: "/admin/", root: resolve(setting("ADMIN") ?? fileURLToPath(new URL("../../admin/dist/browser", import.meta.url))), build: "npm run build -w @cardroom/admin" },
 ];
 
