@@ -7,7 +7,7 @@ import { EmbedHome } from "./EmbedHome";
 import { HousePage } from "./HousePage";
 import { houses } from "./housesApi";
 import { lobby } from "./lobbyApi";
-import { AdminPage } from "./AdminPage";
+import { setBugContext } from "./bugReport";
 import { LobbyPage } from "./LobbyPage";
 import { LocalTable } from "./LocalTable";
 import { RoomTable } from "./RoomTable";
@@ -26,7 +26,6 @@ type Screen =
   | { kind: "home" }
   | { kind: "setup" }
   | { kind: "lobby" }
-  | { kind: "admin" }
   | { kind: "local"; name: string; preset: RulePreset; seed: number }
   | { kind: "local-palace"; name: string; rules: PalaceRules; seats: number; seed: number }
   | { kind: "local-kit"; game: KitGameId; name: string; rules: unknown; seats: number; seed: number }
@@ -47,7 +46,6 @@ function fromUrl(): Screen {
   const challenge = q.get("challenge");
   if (challenge) return { kind: "challenge", code: challenge };
   if (q.get("lobby")) return { kind: "lobby" };
-  if (q.get("admin")) return { kind: "admin" };
   // A game named in the address (or the blog embed) goes to its setup; otherwise the front page.
   return q.get("game") || q.get("embed") === "1" ? { kind: "setup" } : { kind: "home" };
 }
@@ -75,6 +73,17 @@ export function App() {
     setScreen({ kind: "setup" });
     scrollTo(0, 0);
   };
+
+  // A bug report says which screen and game it came from.
+  useEffect(() => {
+    const practice = screen.kind === "local" || screen.kind === "local-palace" || screen.kind === "local-kit";
+    const itsGame = screen.kind === "local" ? "spades" : screen.kind === "local-palace" ? "palace" : screen.kind === "local-kit" ? screen.game : screen.kind === "setup" ? game : undefined;
+    setBugContext({
+      screen: practice ? "practice table" : screen.kind === "room" ? "table" : `${screen.kind}${embedded ? " (embedded)" : ""}`,
+      game: itsGame,
+      table: screen.kind === "room" ? screen.id : undefined,
+    });
+  }, [screen, game, embedded]);
 
   useEffect(() => {
     const onPop = () => {
@@ -144,7 +153,6 @@ export function App() {
         <Home last={loadLastGame()} onPick={pickGame} onOpenHouse={openHouse} onLobby={openLobby} />
       </Suspense>
     );
-  if (screen.kind === "admin") return <AdminPage onLeave={home} />;
   if (screen.kind === "lobby") return <LobbyPage onOpenTable={(id) => openTable(id, null)} onLeave={home} />;
   if (screen.kind === "local") return <LocalTable key={screen.seed} {...screen} onLeave={home} />;
   if (screen.kind === "local-palace") return <LocalPalace key={screen.seed} {...screen} onLeave={home} />;

@@ -2,6 +2,7 @@ import { PACES, SKILLS, TURN_TIMERS, type TableSettings } from "@spades/rules";
 import { createContext, useContext, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Choice } from "./RulesEditor";
+import { ReportLink } from "./ReportProblem";
 import { loadTableSettings, saveTableSettings } from "./storage";
 import {
   loadDisplay,
@@ -30,11 +31,9 @@ export interface TablePlayersValue {
   players: TablePlayer[];
   /** Hide or show someone's chat, on this device only. */
   hide: (seat: number, hidden: boolean) => void;
-  /** For the table's host (and the card room's admin) at a table that is or was open to everyone. */
+  /** For the table's host, at a table that is or was open to everyone. */
   mute?: (seat: number, muted: boolean) => Promise<unknown>;
   remove?: (seat: number) => Promise<unknown>;
-  /** For the card room's admin, at any table. */
-  block?: (seat: number) => Promise<unknown>;
 }
 /** The other players at a table on the server, for the ⚙︎ sheet. Null at a table on this device. */
 export const TablePlayers = createContext<TablePlayersValue | null>(null);
@@ -77,17 +76,6 @@ export function PlayersFields() {
                   }}
                 >
                   Remove
-                </button>
-              )}
-              {!p.bot && table.block && (
-                <button
-                  type="button"
-                  className="link danger"
-                  onClick={() => {
-                    if (window.confirm(`Block ${p.name} from the whole card room?`)) attempt(() => table.block!(p.seat));
-                  }}
-                >
-                  Block
                 </button>
               )}
             </span>
@@ -243,6 +231,7 @@ export function TableSettingsButton({
               <PlayersFields />
               <h3>On this device</h3>
               <DisplayFields />
+              <ReportLink before={() => setOpen(false)} />
               <button
                 type="button"
                 className="primary"

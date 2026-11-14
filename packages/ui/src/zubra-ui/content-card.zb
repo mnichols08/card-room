@@ -1,0 +1,43 @@
+<!-- Copied from zubra-ui (ba5737e) components/content-card.zb: https://github.com/journey-to-code-org/zubra-ui. Ours to edit. -->
+<!--
+  A card: a picture, a heading, text and a footer, each optional. With `href` the heading is a
+  link and the whole card is the target (one link for screen readers and the keyboard, not one per
+  part), and buttons in the footer still work on their own.
+  @slot - The card's text.
+  @slot media - A picture or video at the top, edge to edge.
+  @slot heading - The heading (defaults to `heading`).
+  @slot footer - Actions or details at the bottom.
+-->
+<script>
+  import { hasSlot } from '@zubra/runtime'
+
+  const media = hasSlot('media')
+  const footer = hasSlot('footer')
+</script>
+<style>
+  :host { display: block; }
+  article { position: relative; display: flex; flex-direction: column; height: 100%; overflow: hidden; border: 1px solid var(--border, #e4e4e7); border-radius: var(--radius, 0.625rem); background: var(--card, #fff); color: var(--card-foreground, #18181b); box-shadow: 0 1px 2px #0000000d; transition: box-shadow var(--duration-normal, 200ms), border-color var(--duration-normal, 200ms); }
+  .card-linked:hover { border-color: color-mix(in oklab, var(--border, #e4e4e7) 50%, var(--foreground, #18181b)); box-shadow: 0 6px 20px #00000014; }
+  .card-linked:focus-within { outline: 2px solid var(--ring, #a1a1aa); outline-offset: 2px; }
+  .card-media > * { display: block; width: 100%; height: auto; }
+  .card-body { display: grid; gap: 0.5rem; padding: 1.1rem 1.2rem; flex: 1; align-content: start; }
+  h3 { margin: 0; font-size: 1.05rem; line-height: 1.3; }
+  h3 a { color: inherit; text-decoration: none; }
+  h3 a:focus-visible { outline: none; }
+  /* The heading's link covers the card, so a click anywhere opens it. */
+  .card-linked h3 a::after { content: ""; position: absolute; inset: 0; }
+  .card-text { color: color-mix(in oklab, var(--muted-foreground, #71717a) 75%, var(--foreground, #18181b)); }
+  footer { position: relative; font-size: 0.875rem; color: color-mix(in oklab, var(--muted-foreground, #71717a) 75%, var(--foreground, #18181b)); display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; padding: 0.8rem 1.2rem; border-top: 1px solid var(--border, #e4e4e7); }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 0s !important; animation-duration: 0s !important; animation-iteration-count: 1 !important; } }
+</style>
+<content-card heading="" href="">
+  <article class:card-linked={Boolean(href)}>
+    <div zb-if={media} class="card-media"><zb-slot name="media"></zb-slot></div>
+    <div class="card-body">
+      <!-- Without `href` the anchor has no href, so it isn't a link: just the heading's text. -->
+      <h3><a href={href || null}><zb-slot name="heading">{heading}</zb-slot></a></h3>
+      <div class="card-text"><zb-slot></zb-slot></div>
+    </div>
+    <footer zb-if={footer}><zb-slot name="footer"></zb-slot></footer>
+  </article>
+</content-card>

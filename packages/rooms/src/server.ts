@@ -8,6 +8,7 @@
 //   rooms/<id>          public: seats (names, bots), whether it started, a summary,
 //                       and the deadline that's running, if any                      (everyone reads)
 //   views/<id>/<seat>   one seat's view of the game                                  (that seat only)
+//   views/<id>/watch    what someone watching may see: nobody's hand                 (everyone, if watching is allowed)
 //   games/<id>          options, seed, when it was dealt, and seat holders           (server only)
 //   moves/<id>          every move and its time, one field per move, for replays     (server only)
 //   chat/<id>           the table's chat, one field per message                       (everyone)
@@ -27,6 +28,12 @@ export interface RoomDefinition<State, Move, View, Options, Summary = unknown> {
   act(state: State, seat: number, move: Move, time: MoveTime): State;
   /** What one seat may see. */
   view(state: State, seat: number): View;
+  /**
+   * What someone watching the table may see, from the state and every seat's view (in seat order).
+   * Without it a table can't be watched. `sharedView` builds one from the views: what every seat
+   * can see already.
+   */
+  watch?(state: State, views: View[]): unknown;
   /** What everyone may see (lobby, scoreboards, a blog embed). */
   summary?(state: State): Summary;
   /** What everyone may see before the game starts, from the room's options: its game and rules, say. */
@@ -136,6 +143,15 @@ export interface RoomDoc<Summary = unknown> {
   host?: number | null;
   /** Seats that may not chat, set by the app. */
   muted?: number[];
+  /**
+   * A table to watch: every seat is a computer player and anyone may read every seat's view. Only
+   * the server makes one (see `exhibit`).
+   */
+  watchable?: boolean;
+  /** What the cards look like at this table, for everyone at it and watching: the app's to define (see `setDeck`). */
+  deck?: unknown;
+  /** Why the server's admin closed this table. A closed table takes no more seats, moves or chat. */
+  closed?: string;
   summary: Summary | null;
   /** The clock that's running, if the game has one (see RoomDefinition.deadline). */
   deadline?: DeadlineDoc | null;
@@ -150,7 +166,12 @@ export interface ChatMessage {
   /** Server time (ms). */
   at: number;
   bot: boolean;
+  /** A moderator took the words away; `text` says so instead. */
+  removed?: boolean;
 }
+
+/** What a removed chat message says instead. */
+export const REMOVED_TEXT = "(removed by a moderator)";
 
 /** How long a message may be, and how often one player may send. */
 export const CHAT_LIMIT = 280;
@@ -210,6 +231,10 @@ export interface RoomsOptions {
    * a restart with its time already up, or a setting that puts the clock on someone mid-turn. Default 5000.
    */
   deadlineGrace?: number;
+  /** Whether people who aren't at a table may read its watch view. Default: they may. */
+  spectators?(): boolean | Promise<boolean>;
+  /** Whether a page may open a room with these options: a reason to refuse, or null. Server code's own `create` isn't asked. */
+  allow?(options: unknown): string | null | Promise<string | null>;
   /** After every move is published. */
   onMove?(event: MoveEvent<any, any, any>): void;
   /** After the seats change before a game starts: someone sat, stood up, or a bot was added or removed. */
@@ -291,7 +316,11 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
       if (collection === "rooms") return true; // reading, and presence (who's at the table)
       if (collection === "chat" && kind === "read") return true;
       if (collection === "views" && kind === "read") {
+        // The watch view holds only what every seat can already see.
+        if (key.endsWith("/watch")) return (await options.spectators?.()) ?? true;
         const [id, seat] = splitViewKey(key);
+        // A table of computer players has no hands to keep secret.
+        if ((await room(id))?.watchable) return true;
         const player = playerOf(request);
         return player !== null && (await game(id))?.holders[seat] === player;
       }
@@ -515,6 +544,7 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     await sync.write("games", id, { holders });
     await sync.write("rooms", id, { seats });
     if (!r.started) return await seatsChanged(id), true;
+    if (r.closed) return true; // nothing plays on at a closed table
     const entry = await stateOf(id);
     entry.table = { ...entry.table, seats };
     if (entry.timer) {
@@ -566,6 +596,52 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     await sync.write("rooms", id, { locked: true, ...(label ? { label: label.slice(0, 60) } : {}) });
   }
 
+  /**
+   * Make a table one to watch: its seats are set (all computer players, seated from server code)
+   * and anyone may read every seat's view. Refuses a table with a person at it.
+   */
+  async function exhibit(id: string, label?: string): Promise<void> {
+    const g = await game(id);
+    const r = await room(id);
+    if (!g || !r || g.holders.some(Boolean) || r.seats.some((s) => !s.bot)) throw new Error("Only a table of computer players can be watched this way.");
+    await sync.write("rooms", id, { locked: true, watchable: true, ...(label ? { label: label.slice(0, 60) } : {}) });
+  }
+
+  /**
+   * Close a table for good (moderation): bots stop, and every later seat, move or message is
+   * refused with `reason`. Pages see `closed` on the room. Resolves false when there's no such table.
+   */
+  async function closeTable(id: string, reason: string): Promise<boolean> {
+    if (!(await room(id))) return false;
+    await sync.write("rooms", id, { closed: reason.replace(/\s+/g, " ").trim().slice(0, 200) || "This table was closed." });
+    const entry = live.get(id);
+    if (entry?.timer) clearTimeout(entry.timer);
+    live.delete(id);
+    return true;
+  }
+
+  /**
+   * Take a person out of a seat (moderation). Before the game starts the seat is simply free again;
+   * once it has, a bot called `bot` plays the seat on, so the others can finish. Resolves to a
+   * problem, or null.
+   */
+  async function removePlayer(id: string, seat: number, bot = "Bot"): Promise<string | null> {
+    const g = await game(id);
+    const r = await room(id);
+    if (!g || !r) return "No such table.";
+    if (!Number.isInteger(seat) || seat < 0 || seat >= r.seats.length || !g.holders[seat]) return "Nobody's sitting there.";
+    const gone = r.started ? await replaceWithBot(id, seat, bot.trim().slice(0, 20) || "Bot") : await unseat(id, seat);
+    return gone ? null : "Nobody's sitting there.";
+  }
+
+  /** Take the words out of a chat message (moderation). `key` is the message's field in `chat/<id>`. */
+  async function redact(id: string, key: string): Promise<boolean> {
+    const message = ((await docs).get("chat", id) ?? {})[key] as ChatMessage | undefined;
+    if (!/^m\d+$/.test(key) || !message) return false;
+    await sync.write("chat", id, { [key]: { ...message, text: REMOVED_TEXT, removed: true } });
+    return true;
+  }
+
   /** Who holds each seat (player ids), for server code. Never send these to a page. */
   async function holders(id: string): Promise<(string | null)[]> {
     return (await game(id))?.holders ?? [];
@@ -589,8 +665,9 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     const writes: Promise<unknown>[] = [];
     if (entry.state !== null) {
       const n = (await game(id))?.holders.length ?? 0;
-      for (let seat = 0; seat < n; seat++)
-        writes.push(sync.write("views", `${id}/${seat}`, { view: def.view(entry.state, seat), version: entry.version }));
+      const views = Array.from({ length: n }, (_, seat) => def.view(entry.state as State, seat));
+      for (const [seat, view] of views.entries()) writes.push(sync.write("views", `${id}/${seat}`, { view, version: entry.version }));
+      if (def.watch) writes.push(sync.write("views", `${id}/watch`, { view: def.watch(entry.state, views), version: entry.version }));
     }
     writes.push(
       sync.write("rooms", id, {
@@ -627,7 +704,9 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
   async function driveBots(id: string) {
     const entry = await stateOf(id);
     if (!def.bot || entry.state === null || entry.timer) return;
-    const seats = (await room(id))?.seats ?? [];
+    const current = await room(id);
+    if (current?.closed) return;
+    const seats = current?.seats ?? [];
     // A room from before it had settings plays with the defaults.
     const settings = (await game(id))?.settings ?? def.settings?.(undefined);
     if (entry.timer) return; // set while this was reading
@@ -670,6 +749,8 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     // POST /rooms { options, settings? } → { id }
     if (parts.length === 0 && method === "POST") {
       const { options: given, settings } = await body(request);
+      const refused = await options.allow?.(given ?? {});
+      if (refused) return json({ error: refused }, 403);
       return json({ id: await create((given ?? {}) as Options, settings) }, 201);
     }
 
@@ -686,6 +767,7 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     if (action === "" && method === "GET") return json({ id, ...r, seat: mySeat >= 0 ? mySeat : null, now: Date.now() });
 
     if (method !== "POST") return json({ error: "Not found" }, 404);
+    if (r.closed) return json({ error: r.closed }, 410);
     const input = await body(request);
 
     if (action === "sit") {
@@ -815,7 +897,15 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     replaceWithBot,
     start,
     lock,
+    exhibit,
+    /** Set what the cards look like at a table (anything the app's pages understand), or null for the app's own. */
+    setDeck: async (id: string, deck: unknown) => void (await sync.write("rooms", id, { deck: deck ?? null })),
+    /** Get a table's computer players moving again (after a restart, nothing else would wake a table with no people). */
+    nudge: (id: string) => void driveBots(id),
     holders,
+    closeTable,
+    removePlayer,
+    redact,
     /** The public room doc, or undefined. */
     room,
     /** How many rooms have their state in memory (finished ones are dropped). */
@@ -854,4 +944,57 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
       }
     },
   };
+}
+
+const same = (a: unknown, b: unknown): boolean => {
+  if (a === b) return true;
+  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  const ka = Object.keys(a);
+  const kb = Object.keys(b);
+  return ka.length === kb.length && ka.every((k) => same((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]));
+};
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+
+/** What a list of values have in common: the value where they all agree; where they don't, nothing (see sharedView). */
+function common(values: unknown[]): unknown {
+  const first = values[0];
+  if (values.every((v) => same(v, first))) return first;
+  // Lists of the same length are compared place by place: a list of seats, a grid of cards.
+  if (values.every(Array.isArray)) {
+    const lists = values as unknown[][];
+    return lists.every((l) => l.length === lists[0]!.length) ? lists[0]!.map((_, i) => common(lists.map((l) => l[i]))) : [];
+  }
+  // Records with the same keys are compared key by key. Anything else that differs is simply not shown.
+  if (values.every(isRecord)) {
+    const records = values as Record<string, unknown>[];
+    const keys = Object.keys(records[0]!);
+    if (records.every((r) => Object.keys(r).length === keys.length && keys.every((k) => k in r))) return Object.fromEntries(keys.map((k) => [k, common(records.map((r) => r[k]))]));
+  }
+  return null;
+}
+
+/**
+ * A view for someone watching, made from every seat's view: whatever all the seats see alike is
+ * kept, and whatever differs between them (a hand, the moves on offer, a card only one player has
+ * peeked at) becomes null, or an empty list. A watcher so learns nothing that every player at the
+ * table doesn't already know, in any game, without the game saying which parts are private.
+ *
+ * Name a game's private parts in `blank` anyway (their values replace the seats' own before
+ * comparing): two hands that happened to match in some detail would otherwise show it. `from`
+ * takes the named keys from one seat's view as they are, for the parts that say where the viewer
+ * sits rather than what they know.
+ */
+export function sharedView<View extends object>(views: View[], { blank = {}, from }: { blank?: Partial<View>; from?: { seat: number; keys: (keyof View)[] } } = {}): View {
+  if (!views.length) throw new Error("A table has at least one seat.");
+  const placed = from ? views[from.seat] ?? views[0]! : null;
+  const comparable = views.map((v) => {
+    const copy = { ...v, ...blank } as Record<string, unknown>;
+    // Where the viewer sits differs by definition; it's set from one seat below.
+    for (const key of from?.keys ?? []) delete copy[key as string];
+    return copy;
+  });
+  const shared = common(comparable) as Record<string, unknown>;
+  for (const key of from?.keys ?? []) shared[key as string] = (placed as Record<string, unknown>)[key as string];
+  return shared as View;
 }

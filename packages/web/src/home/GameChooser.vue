@@ -122,6 +122,10 @@ const hello = computed(() => (props.name ? `Welcome back, ${props.name}.` : "Spa
     </section>
 
     <p class="fine">Pick a game to practice against the computer, start a family table, find players, or take on a challenger.</p>
+    <p class="fine links">
+      <a class="design" href="watch/">👀 Watch a game</a>
+      <a class="design" href="designer/">🎨 Design your own deck of cards</a>
+    </p>
   </div>
 </template>
 
@@ -220,4 +224,7 @@ h2 { margin: 0; font-size: clamp(1.3rem, 2vw, 1.7rem); color: var(--gold); }
 }
 @media (prefers-reduced-motion: reduce) { .tile, .fan-card, .mini-board { transition: none; } }
 .none, .fine { text-align: center; color: #b9d0c2; margin: 0; }
+.links { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.5rem 1.5rem; }
+.design { color: var(--gold); font-weight: 600; text-underline-offset: 3px; }
+.design:focus-visible { outline: 3px solid #ffd76a; outline-offset: 3px; border-radius: 4px; }
 </style>

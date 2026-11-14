@@ -9,7 +9,7 @@ import {
   type Meld,
 } from "@cardroom/games";
 import { type TableSettings } from "@spades/rules";
-import PlayingCard from "@spades/ui/playing-card.zb";
+import PlayingCard from "../PlayingCard";
 import { useEffect, useRef, useState } from "react";
 import { Bubble, TableChat, useBubbles, type ChatProps } from "../Chat";
 import { Confetti } from "../Confetti";
@@ -34,6 +34,8 @@ export interface KitTableProps {
     value: TableSettings;
     change: (next: TableSettings) => Promise<void> | void;
   };
+  /** Nobody's playing `view.me` from here: the table is being watched. */
+  watching?: boolean;
 }
 
 /** Engines name seats as {0}, {1}…: put the players' names in. */
@@ -110,6 +112,7 @@ export function KitTable({
   banner,
   chat,
   settings,
+  watching,
 }: KitTableProps) {
   const game = kitGame(view.game)!;
   const me = view.me;
@@ -206,7 +209,7 @@ export function KitTable({
 
   const status = error ? (
     <span className="error">{error}</span>
-  ) : view.over || view.seats === 1 ? null : view.turn === me ? (
+  ) : view.over || view.seats === 1 ? null : view.turn === me && !watching ? (
     <span className="mine">
       {view.pick?.prompt || view.gridTap?.prompt || "Your turn"}
     </span>

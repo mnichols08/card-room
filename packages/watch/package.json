@@ -1,0 +1,25 @@
+{
+  "name": "@cardroom/watch",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Watch a game: the tables playing now, and tables of computer players to learn from. Solid, on Zubra components.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@zubra/runtime": "^5.9.2",
+    "solid-js": "^1.9.19"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "@zubra/compiler": "^5.9.2",
+    "@zubra/unplugin": "^5.9.2",
+    "typescript": "^5.6.0",
+    "vite": "^8.3.8",
+    "vite-plugin-solid": "^2.11.16"
+  }
+}

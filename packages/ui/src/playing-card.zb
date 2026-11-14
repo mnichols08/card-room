@@ -4,6 +4,9 @@
   `{ kind: "fruit", fruit: "cherry" | "lemon" | "pear" | "grape" | null, face: 0–9 | "hop" | "turn" | "plus2" | "salad" | "salad4" }`.
   Sizes come from the page: --card-w / --card-h for the hand, --trick-w / --trick-h for size="table".
   Everything inside scales with the card itself (container units), so one design serves every size.
+  A deck's look comes from the page too: the --deck-* variables (`deckVars` in @cardroom/decks) set
+  the back's pattern, frame and emblem, the paper, each suit's ink, the lettering and the corners.
+  Without them it's the card room's own deck.
   @fires pick - A playable card was tapped.
 -->
 <script>
@@ -59,8 +62,8 @@
 <style>
   :host { display: inline-block; flex: none; }
   .card {
-    --ink-black: #1d1a16;
-    --ink-red: #b3261e;
+    --ink-black: var(--deck-black, #1d1a16);
+    --ink-red: var(--deck-red, #b3261e);
     position: relative;
     display: block;
     width: var(--card-w, 56px);
@@ -68,9 +71,9 @@
     padding: 0;
     overflow: hidden;
     container-type: inline-size;
-    border-radius: var(--card-radius, 7px);
+    border-radius: calc(var(--card-w, 56px) * var(--deck-corner, 0.1));
     border: 1px solid rgba(40, 30, 15, 0.16);
-    background: linear-gradient(170deg, #fffefb 0%, #fbf7ee 60%, #f3ede0 100%);
+    background: var(--deck-paper-image, linear-gradient(170deg, #fffefb 0%, #fbf7ee 60%, #f3ede0 100%));
     color: var(--ink-black);
     font: inherit;
     text-align: left;
@@ -80,16 +83,19 @@
       box-shadow var(--dur-1, 120ms) var(--ease-out, ease-out),
       filter var(--dur-1, 120ms);
   }
-  .card[data-size=table] { width: var(--trick-w, 52px); height: var(--trick-h, 74px); border-radius: calc(var(--trick-w, 52px) * 0.1); }
+  .card[data-size=table] { width: var(--trick-w, 52px); height: var(--trick-h, 74px); border-radius: calc(var(--trick-w, 52px) * var(--deck-corner, 0.1)); }
   /* Mini: the cards in front of the other players. */
-  .card[data-size=mini] { width: var(--mini-w, 34px); height: var(--mini-h, 48px); border-radius: calc(var(--mini-w, 34px) * 0.1); }
+  .card[data-size=mini] { width: var(--mini-w, 34px); height: var(--mini-h, 48px); border-radius: calc(var(--mini-w, 34px) * var(--deck-corner, 0.1)); }
   .card.red { color: var(--ink-red); }
+  /* A four-colour deck gives clubs and diamonds inks of their own. */
+  .card.clubs { color: var(--deck-clubs, var(--ink-black)); }
+  .card.diamonds { color: var(--deck-diamonds, var(--ink-red)); }
   .glyph { font-family: "Apple Symbols", "Segoe UI Symbol", "Noto Sans Symbols 2", system-ui, sans-serif; font-style: normal; font-variant-emoji: text; line-height: 1; }
 
   /* The corner index: what shows in an overlapped hand, so it's big. */
   .index { position: absolute; display: flex; flex-direction: column; align-items: center; line-height: 0.9; }
   .index.tl { top: 5cqw; left: 6cqw; }
-  .index b { font: 800 30cqw/0.9 system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: -0.06em; font-variant-numeric: tabular-nums; }
+  .index b { font: 800 30cqw/0.9 var(--deck-font, system-ui, -apple-system, "Segoe UI", sans-serif); letter-spacing: -0.06em; font-variant-numeric: tabular-nums; }
   .index b.ten { letter-spacing: -0.12em; margin-left: -0.08em; }
   .index i { font-size: 24cqw; margin-top: 1cqw; }
   .index.br { bottom: 5cqw; right: 6cqw; rotate: 180deg; display: none; }
@@ -145,27 +151,33 @@
   .card.shake { animation: card-shake 220ms linear; }
   @keyframes card-shake { 25% { translate: -4px 0; } 50% { translate: 4px 0; } 75% { translate: -3px 0; } }
 
-  /* The back: burgundy lattice, cream border with a gold hairline, a gold medallion with a spade. */
+  /* The back: burgundy lattice, cream border with a gold hairline, a gold medallion with a spade;
+     or whatever the deck's design says. The back is a container, so its pattern (drawn on ::before)
+     is measured in hundredths of the card's width (cqw) at every size. */
   .back {
-    --bw: var(--card-w, 56px);
-    --u: calc(var(--bw) / 100);
     position: relative;
-    width: var(--bw);
+    width: var(--card-w, 56px);
     height: var(--card-h, 80px);
-    border-radius: var(--card-radius, 7px);
-    background:
-      radial-gradient(circle at 50% 50%, #e8c46a 0 calc(var(--u) * 9), transparent calc(var(--u) * 9.5)),
-      radial-gradient(circle at 50% 50%, #7a1f2b 0 calc(var(--u) * 13), transparent calc(var(--u) * 13.5)),
-      repeating-linear-gradient(45deg, rgba(232, 196, 106, 0.22) 0 1px, transparent 1px calc(var(--u) * 7)),
-      repeating-linear-gradient(-45deg, rgba(232, 196, 106, 0.22) 0 1px, transparent 1px calc(var(--u) * 7)),
-      linear-gradient(160deg, #8e2a36, #6a1a25);
-    box-shadow: var(--elev-1, 0 2px 5px rgba(0, 0, 0, 0.3)), inset 0 0 0 calc(var(--u) * 4) #fffdf8, inset 0 0 0 calc(var(--u) * 5) rgba(232, 196, 106, 0.7);
+    overflow: hidden;
+    container-type: inline-size;
+    border-radius: calc(var(--card-w, 56px) * var(--deck-corner, 0.1));
+    box-shadow: var(--elev-1, 0 2px 5px rgba(0, 0, 0, 0.3));
   }
-  .back[data-size=table] { --bw: var(--trick-w, 52px); height: var(--trick-h, 74px); border-radius: calc(var(--trick-w, 52px) * 0.1); }
-  .back[data-size=mini] { --bw: var(--mini-w, 34px); height: var(--mini-h, 48px); border-radius: calc(var(--mini-w, 34px) * 0.1); }
+  .back[data-size=table] { width: var(--trick-w, 52px); height: var(--trick-h, 74px); border-radius: calc(var(--trick-w, 52px) * var(--deck-corner, 0.1)); }
+  .back[data-size=mini] { width: var(--mini-w, 34px); height: var(--mini-h, 48px); border-radius: calc(var(--mini-w, 34px) * var(--deck-corner, 0.1)); }
+  .back::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit;
+    background: var(--deck-back-image,
+      radial-gradient(circle at 50% 50%, #e8c46a 0 9cqw, transparent 9.5cqw),
+      radial-gradient(circle at 50% 50%, #7a1f2b 0 13cqw, transparent 13.5cqw),
+      repeating-linear-gradient(45deg, rgba(232, 196, 106, 0.22) 0 1px, transparent 1px 7cqw),
+      repeating-linear-gradient(-45deg, rgba(232, 196, 106, 0.22) 0 1px, transparent 1px 7cqw),
+      linear-gradient(160deg, #8e2a36, #6a1a25));
+    box-shadow: var(--deck-back-frame, inset 0 0 0 4cqw #fffdf8, inset 0 0 0 5cqw rgba(232, 196, 106, 0.7));
+  }
   .back::after {
-    content: "♠\FE0E"; position: absolute; inset: 0; display: grid; place-items: center;
-    font-size: calc(var(--u) * 12); line-height: 1; color: #7a1f2b; font-variant-emoji: text;
+    content: var(--deck-emblem, "♠\FE0E"); position: absolute; inset: 0; display: grid; place-items: center;
+    font-size: 12cqw; line-height: 1; color: var(--deck-emblem-ink, #7a1f2b); font-variant-emoji: text;
   }
 
   /* Fruit Salad: the fruit's colour, a cream disc with the fruit and the face, the face in the corners. */

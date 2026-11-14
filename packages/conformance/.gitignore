@@ -1,0 +1,6 @@
+dist/
+angular/zubra/
+.angular/
+out-tsc/
+test-results/
+playwright-report/

@@ -3,7 +3,7 @@
 // of the cards that just left, where they were, animated away. They never take a tap.
 import type { PalaceView } from "@cardroom/palace";
 import { cardId, type Card } from "@spades/rules";
-import PlayingCard from "@spades/ui/playing-card.zb";
+import PlayingCard from "../PlayingCard";
 import { useLayoutEffect, useRef, useState, type MutableRefObject, type RefObject } from "react";
 import { EASE_BACK, EASE_IN, EASE_OUT, rectOf, reducedMotion, type Seen } from "../motion";
 
