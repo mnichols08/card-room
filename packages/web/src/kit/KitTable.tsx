@@ -37,15 +37,20 @@ export interface KitTableProps {
 }
 
 /** Engines name seats as {0}, {1}…: put the players' names in. */
+/** After "You", the verb agrees: "You win", not "You wins". */
+const YOU_VERBS: Record<string, string> = { wins: "win", takes: "take", has: "have", is: "are", gets: "get", pegs: "peg", leads: "lead", checks: "check", calls: "call", raises: "raise", bets: "bet", folds: "fold", stands: "stand", plays: "play", passes: "pass", goes: "go", makes: "make", picks: "pick", says: "say", was: "were" };
+
 export const named = (text: string, names: string[]) =>
-  text.replace(/\{(\d+)\}('s)?/g, (_, n: string, owns: string | undefined, at: number) => {
+  text.replace(/\{(\d+)\}('s)?( (\w+))?/g, (_, n: string, owns: string | undefined, gap: string | undefined, word: string | undefined, at: number) => {
     const name = names[Number(n)] ?? `Seat ${Number(n) + 1}`;
+    const rest = gap ?? "";
     // "You" mid-sentence reads as "you" ("two cards to you"), and "You's" as "Your" ("your crib").
     const before = text.slice(0, at).trimEnd();
     const start = !before || /[.!?:]$/.test(before);
-    if (name !== "You") return owns ? `${name}'s` : name;
-    if (owns) return start ? "Your" : "your";
-    return start ? "You" : "you";
+    if (name !== "You") return `${owns ? `${name}'s` : name}${rest}`;
+    if (owns) return `${start ? "Your" : "your"}${rest}`;
+    const verb = word && YOU_VERBS[word] ? ` ${YOU_VERBS[word]}` : rest;
+    return `${start ? "You" : "you"}${verb}`;
   });
 
 /** "Ann & Cy" for a side of the table. */

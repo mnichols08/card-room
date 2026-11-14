@@ -31,6 +31,7 @@ const FANS: Record<string, ReturnType<typeof card>[]> = {
   handfoot: [card(9, "spades"), card(9, "hearts"), card(9, "clubs")],
   cribbage: [card(5, "hearts"), card(5, "clubs"), card(11, "diamonds")],
   fivedraw: [card(14, "spades"), card(14, "hearts"), card(13, "clubs")],
+  holdem: [card(14, "spades"), card(13, "spades"), card(10, "diamonds")],
 };
 
 const SEATS: Record<string, { seats: [number, number]; teams: boolean }> = {
