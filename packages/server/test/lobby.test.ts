@@ -2,6 +2,7 @@ import { memoryLog } from "@zubra/sync/server";
 import { afterEach, describe, expect, it } from "vitest";
 import { createCardRoom } from "../src/app.js";
 import type { Notice } from "../src/push.js";
+import { playerRef } from "../src/moderation.js";
 
 const BASE = "http://test";
 let open: ReturnType<typeof createCardRoom>[] = [];
@@ -19,7 +20,6 @@ function setup() {
     talk: false,
     push: { send: async (s, payload) => void sent.push({ to: s.endpoint, notice: JSON.parse(payload) }) },
     lobby: { now: () => clock.now, quietAfter: 60_000, alertGap: 600_000, blockedNames: ["sucks"] },
-    admin: { key: "let-me-in-please" },
   });
   open.push(app);
   const phone = () => {
@@ -289,5 +289,34 @@ describe("the lobby", () => {
     await fam("/rooms/" + made + "/sit", { seat: 0, name: "Fam" });
     expect((await fam("/rooms/" + made + "/say", { text: "well shit" })).body).toMatchObject({ text: "well shit" });
     expect((await fam("/lobby/" + made + "/mute", { seat: 0 })).status).toBe(404);
+  });
+
+  it("goes by the card room host's rules: blocked players and switched-off games stay out of the lobby", async () => {
+    const app = createCardRoom({ log: memoryLog({ keep: "latest" }), botDelay: 5, talk: false, adminToken: "a-long-admin-token" });
+    open.push(app);
+    const host = (path: string, body: unknown = {}) =>
+      app.fetch(new Request(BASE + path, { method: "POST", headers: { "content-type": "application/json", authorization: "Bearer a-long-admin-token" }, body: JSON.stringify(body) })).then(async (r) => ({ status: r!.status, body: await r!.json() }));
+    let cookie = "";
+    const pest = async (path: string, body?: unknown) => {
+      const r = (await app.fetch(new Request(BASE + path, { method: body ? "POST" : "GET", headers: { "content-type": "application/json", cookie }, body: body ? JSON.stringify(body) : undefined })))!;
+      cookie = r.headers.get("set-cookie")?.split(";")[0] ?? cookie;
+      return { status: r.status, body: await r.json() };
+    };
+    const { id } = (await pest("/lobby/join", { game: "hearts", name: "Pest" })).body;
+    expect((await pest("/lobby")).body.tables).toHaveLength(1);
+
+    // Blocked in the admin app: out of their seat, off the list, and no way back in through the lobby.
+    expect((await host(`/moderation/players/${playerRef(cookie.split("=")[1]!)}/block`, { reason: "rude" })).status).toBe(200);
+    expect((await pest("/lobby")).body.tables).toEqual([]);
+    expect((await pest("/rooms/" + id)).body).toMatchObject({ open: false, seat: null });
+    expect((await pest("/lobby/join", { game: "hearts", name: "Pest" })).status).toBe(403);
+    expect((await pest("/lobby/alerts", { games: ["any"] })).status).toBe(403);
+
+    // A game the host switched off can't be found players for.
+    expect((await host("/moderation/games", { off: ["gin"] })).status).toBe(200);
+    let other = "";
+    const r = (await app.fetch(new Request(BASE + "/lobby/join", { method: "POST", headers: { "content-type": "application/json", cookie: other }, body: JSON.stringify({ game: "gin", name: "G" }) })))!;
+    expect(r.status).toBe(403);
+    expect((await r.json()).error).toMatch(/switched off/);
   });
 });

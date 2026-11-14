@@ -1,0 +1,55 @@
+<!-- Copied from zubra-ui (ba5737e) components/modal-dialog.zb: https://github.com/journey-to-code-org/zubra-ui. Ours to edit. -->
+<!--
+  A modal dialog on the native <dialog>: the page behind is inert, focus moves into the dialog
+  and back to where it was, and Escape, the close button or a click on the backdrop closes it.
+  `open` is two-way.
+  @slot - The dialog's content.
+  @slot heading - Its title, which labels the dialog (defaults to `label`).
+  @slot actions - Buttons at the bottom, shown only when given. One with `data-close` closes the dialog.
+-->
+<script>
+  import { effect, hasSlot, id } from '@zubra/runtime'
+
+  const headingId = id()
+  const hasActions = hasSlot('actions')
+  let dialog = null
+  // A click on the backdrop closes the dialog, but not one that started inside it (a text
+  // selection dragged past the edge).
+  let pressedBackdrop = false
+
+  // Follow `open` (from outside or inside): show the dialog modally, or close it.
+  effect(() => {
+    if (!dialog) return
+    if (open && !dialog.open) dialog.showModal()
+    else if (!open && dialog.open) dialog.close()
+  })
+</script>
+<style>
+  dialog { padding: 0; border: 0; border-radius: calc(var(--radius, 0.625rem) * 1.44); width: min(32rem, calc(100vw - 2rem)); background: var(--card, #ffffff); color: var(--foreground, #1d2130); box-shadow: 0 24px 64px #0d122040; }
+  /* Opening and closing: scales up into place and fades, and back; the browser keeps it in the top layer until it's done. */
+  dialog { opacity: 0; scale: 0.96; translate: 0 0.5rem; transition: opacity var(--duration-normal, 200ms) var(--ease-out, ease-out), scale var(--duration-normal, 200ms) var(--ease-out, ease-out), translate var(--duration-normal, 200ms) var(--ease-out, ease-out), overlay var(--duration-normal, 200ms) allow-discrete, display var(--duration-normal, 200ms) allow-discrete; }
+  dialog[open] { opacity: 1; scale: 1; translate: 0; }
+  @starting-style { dialog[open] { opacity: 0; scale: 0.96; translate: 0 0.5rem; } }
+  dialog::backdrop { background: #0d122000; transition: background-color var(--duration-normal, 200ms) var(--ease-out, ease-out), overlay var(--duration-normal, 200ms) allow-discrete, display var(--duration-normal, 200ms) allow-discrete; }
+  dialog[open]::backdrop { background: #0d122066; }
+  @starting-style { dialog[open]::backdrop { background: #0d122000; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after, ::backdrop { transition-duration: 0s !important; animation-duration: 0s !important; } }
+  .panel { display: grid; gap: 1rem; padding: 1.1rem 1.25rem 1.25rem; }
+  header { display: flex; align-items: center; gap: 1rem; }
+  h2 { flex: 1; margin: 0; font-size: 1.1rem; }
+  .close { width: 2rem; height: 2rem; border: 0; border-radius: 50%; background: none; color: inherit; font-size: 1.4rem; line-height: 1; cursor: pointer; }
+  .close:hover { background: var(--accent, #f2f4f8); }
+  footer { display: flex; justify-content: flex-end; gap: 0.5rem; }
+</style>
+<modal-dialog open:model={false} label="Dialog">
+  <dialog ref={dialog} aria-labelledby={headingId} onclose={() => (open = false)} onpointerdown={(event) => (pressedBackdrop = event.target === dialog)} onclick.self={() => pressedBackdrop && (open = false)}>
+    <div class="panel">
+      <header>
+        <h2 id={headingId}><zb-slot name="heading">{label}</zb-slot></h2>
+        <button type="button" class="close" aria-label="Close" onclick={() => (open = false)}>×</button>
+      </header>
+      <div class="body"><zb-slot></zb-slot></div>
+      <footer zb-if={hasActions} onclick={(event) => event.target.closest?.("[data-close]") && (open = false)}><zb-slot name="actions"></zb-slot></footer>
+    </div>
+  </dialog>
+</modal-dialog>

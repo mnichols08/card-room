@@ -18,8 +18,8 @@
 // when a table opens for a game they like:
 //
 // After the deal the table stays the host's: they can still remove a player (a computer player takes
-// over the seat and plays on) and mute one, and its chat stays filtered. Whoever runs the card room
-// (admin.ts) can do the same at any of these tables.
+// over the seat and plays on) and mute one, and its chat stays filtered. Blocking someone from the
+// whole card room is its host's job, in the admin app (moderation.ts).
 //
 //   lobby/alerts   server only: one field per player who asked (the games they want to hear about)
 import { kitGame, isKitGame } from "@cardroom/games";
@@ -85,8 +85,8 @@ export interface LobbyOptions {
   alertGap?: number;
   /** More words that names on open tables may not contain. */
   blockedNames?: string[];
-  /** Whether a request comes from whoever runs the card room: they may do what a host may, at any open table. */
-  isAdmin?: (request: Request) => boolean;
+  /** Whether new tables of a game may be opened (the card room's catalogue). */
+  gameOn?: (game: GameId) => boolean | Promise<boolean>;
 }
 
 const json = (body: unknown, status = 200, headers: Record<string, string> = {}) =>
@@ -123,7 +123,7 @@ function fingerprint(game: GameId, options: TableOptions): string {
   return JSON.stringify([game, game === "spades" ? 4 : o.seats, stable(rules)]);
 }
 
-export function createLobby(rooms: Rooms, { mount = "/lobby", quietAfter = 90_000, limit = 200, now = Date.now, push, alertGap = 600_000, blockedNames = [], isAdmin = () => false }: LobbyOptions = {}) {
+export function createLobby(rooms: Rooms, { mount = "/lobby", quietAfter = 90_000, limit = 200, now = Date.now, push, alertGap = 600_000, blockedNames = [], gameOn = () => true }: LobbyOptions = {}) {
   const okName = (name: string) => nameOk(name, blockedNames);
   const lastBuzz = new Map<string, number>();
   const docs = rooms.sync.documents();
@@ -375,6 +375,7 @@ export function createLobby(rooms: Rooms, { mount = "/lobby", quietAfter = 90_00
         const at = now();
         if (at - (lastNew.get(me) ?? 0) < NEW_TABLE_GAP_MS) return json({ error: "Give it a second, then try again." }, 429, cookie);
         if (Object.values(await entries()).filter((e) => !e.dealt).length >= limit) return json({ error: "The lobby is full right now. Try again in a little while." }, 503, cookie);
+        if (!(await gameOn(game))) return json({ error: `${about.name} is switched off in this card room.` }, 403, cookie);
         lastNew.set(me, at);
         const id = await rooms.create(options, input.settings);
         await rooms.seatPlayer(id, 0, me, name);
@@ -404,15 +405,15 @@ export function createLobby(rooms: Rooms, { mount = "/lobby", quietAfter = 90_00
     const room = await rooms.room(id);
     if (!room) return json({ error: "There's no table with that code." }, 404);
 
-    // POST /lobby/:id/remove { seat } → the host (or the card room's admin) takes a player's seat away for
-    // good. Before the deal the seat is free again; after it, a computer player takes over.
-    // POST /lobby/:id/mute { seat, muted } → the host (or admin) stops a player chatting here, or lets them again.
+    // POST /lobby/:id/remove { seat } → the host takes a player's seat away for good. Before the deal
+    // the seat is free again; after it, a computer player takes over.
+    // POST /lobby/:id/mute { seat, muted } → the host stops a player chatting here, or lets them again.
     if (action === "remove" || action === "mute") {
       return inTurn(async () => {
         await settle(id);
         const e = await entry(id);
         if (!e) return json({ error: "That only works at an open table." }, 404);
-        if (e.host !== player && !isAdmin(request)) return json({ error: "Only the table's host can do that." }, 403);
+        if (!player || e.host !== player) return json({ error: "Only the table's host can do that." }, 403);
         const holders = await rooms.holders(id);
         const target = Number(input.seat);
         const who = Number.isInteger(target) ? holders[target] : null;
@@ -472,8 +473,6 @@ export function createLobby(rooms: Rooms, { mount = "/lobby", quietAfter = 90_00
     started: (id: string) => void inTurn(() => dealt(id)).catch((e) => console.error("lobby", e)),
     /** A game ended: nothing more to keep about its table. */
     finished: (id: string) => void inTurn(() => forget(id)).catch((e) => console.error("lobby", e)),
-    /** Take a person out of a seat at any table (see evict). For the card room's admin. */
-    evict: (id: string, seat: number) => inTurn(() => evict(id, seat)),
     /** A message on its way into a table's chat: at a table that is or was open, muted players are turned away and crude words covered. */
     async beforeSay(id: string, seat: number, text: string): Promise<string | { error: string }> {
       const e = await entry(id);

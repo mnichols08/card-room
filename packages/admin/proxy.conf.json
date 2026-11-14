@@ -1,0 +1,4 @@
+{
+  "/moderation": { "target": "http://localhost:8787" },
+  "/designs": { "target": "http://localhost:8787" }
+}

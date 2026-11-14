@@ -1,6 +1,6 @@
 # Card Room
 
-Family card and board games online: fifty games with house rules saved as presets, family
+Family card and board games online: fifty-one games with house rules saved as presets, family
 **houses** with their own tables, leaderboards and tournaments, computer players with personalities,
 challenge links, and a widget that puts a game on any site, including [open.blog](https://github.com/journey-to-code-org/open.blog) ones.
 
@@ -9,7 +9,7 @@ yourself (Docker or Railway), and practice games work anywhere, including the Gi
 
 ## The games
 
-Spades and Palace have tables of their own; the other forty-eight are built on a shared game kit
+Spades and Palace have tables of their own; the other forty-nine are built on a shared game kit
 (`packages/games`), so they all get the same setup screen, house rules editor, computer players,
 houses, challenges and tournaments. The kit has three tables: one that draws any card game, one
 that draws any board game (Tic-Tac-Toe is the first), and one that draws any table sport on a
@@ -64,6 +64,7 @@ canvas (Mini Golf is the first).
 | Horse Race 🍺 | 2 to 10 | Drinking game: bet sips on an ace |
 | Drinking Pyramid 🍺 | 2 to 8 | Drinking game: remember your cards, match, bluff |
 | Tic-Tac-Toe | 2 | A board game: three in a row, Ultimate's nine boards, or Gomoku's five in a row on 15×15 |
+| Checkers | 2 | A board game: American, International on 10×10 with flying kings, Russian, or friendly with no forced jumps |
 | Mini Golf | 1 to 6 | A table sport: nine holes of putting, in turn or everyone at once |
 
 Poker and Blackjack are for chips only: everyone starts with the same stack, and the chips are
@@ -72,6 +73,19 @@ just for keeping score.
 The 🍺 games are drinking games for adults (water counts). Party games (Thirty-One, President,
 Bluff, Liar's Poker, Durak, Slapjack, Sevens, Cuckoo) also have a drinking-mode house rule, off
 unless a table turns it on. Kids' games have none.
+
+## Holding your hand
+
+Above your cards is a small sort bar. **Suits** groups them by suit and **Ranks** lines them up
+in one run with the suits mixed; the button beside them flips between high to low (A → 2) and low
+to high (2 → A). **Auto** (every game but Spades, which already deals by suit) is the game's own
+order. The choice is remembered on the device, one per game.
+
+Or drag a card to wherever you want it: that's **Mine**, your own order for the hand. On a phone,
+drag sideways; in a hand too big for the screen (which scrolls), hold a card for a moment first.
+With a keyboard, Alt + ← / → moves the card you're on. New cards join at the right-hand end, and
+the next deal goes back to the sort you chose. It's only how your screen shows your hand; nobody
+else sees it.
 
 ## The turn timer
 
@@ -121,33 +135,55 @@ Open tables are where strangers meet, so:
 - **A buzz when someone's waiting.** On the Open tables page, pick a game (or any game) and turn
   notifications on: your phone buzzes when a table opens for it, at most once every ten minutes.
 
-### The card room's admin
+Blocking someone from the whole card room, closing a table and removing a chat message are the
+card room host's, in the admin app (see `CARDROOM_ADMIN_TOKEN`). Family tables that were never
+opened to everyone have no table host, no chat filter and no mute.
 
-Whoever runs the server can block a player from the whole card room. Set `CARDROOM_ADMIN_KEY`
-(8 characters or more), open `/?admin=1` and enter it once: that device is an admin from then on.
+### Report a problem
 
-- At any table, an admin sees **Block** next to each player (before the deal, in the seat list;
-  during a game, under ⚙︎). Blocking takes the player out of their seat, as removing does, and from
-  then on their browser can look but can't sit, chat, play, open tables or send challenges.
-- At a table that is or was open to everyone, an admin can also remove and mute, as its host can.
-- `/?admin=1` lists who's blocked and lets them back in.
+Players can report a bug without leaving the app or having a GitHub account. The 🐞 in the corner
+of every screen (at a table on a phone: under ⚙︎) opens a short form: what went wrong (optional),
+and two switches, one for a picture of the screen and one for the browser's details. The server
+then opens an issue on GitHub for them and tells them its number.
 
-A block follows the player's browser, not a person: it stops a casual pest, and someone who clears
-their cookies comes back as a new player. Family tables that were never opened to everyone have no
-host, no chat filter and no mute; an admin can still block there.
+To turn it on, make a [fine-grained token](https://github.com/settings/personal-access-tokens/new)
+for this repository only, with **Issues: Read and write** and nothing else, and set it as
+`CARDROOM_GITHUB_TOKEN`. Issues are opened in the name of the token's account, labelled `bug` and
+`player report`. Without a token the button isn't shown (nor on the GitHub Pages copy, which has no
+server).
+
+- **In every report:** the player's words, the screen and game, when their copy of the page was
+  built, the server's version, and the last few errors the page logged. From a table on the server:
+  its game, rules, settings, and how many people and computer players are seated.
+- **Only if the player agrees:** a picture of the screen (shown to them first), and their browser,
+  device and window size (also shown first).
+- **Never:** names, chat, the player's cookie, or a table's link. Issues are public, and the form
+  says so. Which table a report came from is kept on the server (`bugs/reports` in the log).
+- GitHub's API can't attach a picture to an issue, so screenshots are kept by the server (the
+  newest 30) and the issue links to `/bugs/shots/<id>.jpg`.
+- One browser can send 3 reports in ten minutes, and the whole card room 40 a day. A blocked player
+  can't send any. A player's words can't mention people or link other issues.
 
 ## Packages
 
 | Package | |
 | --- | --- |
-| [`packages/games`](packages/games) | The game kit and the forty-eight games built on it: `table.ts` (the `TableGame` engine contract every game shares), `kit.ts` (the card kit: `CardGame`, cards, decks, `KitView`), `board.ts` (the board kit: `BoardGame`, grids, pieces, `BoardView`) and `sport.ts` (the table-sports kit: `SportGame`, shots, `SportView`) |
+| [`packages/games`](packages/games) | The game kit and the forty-nine games built on it: `table.ts` (the `TableGame` engine contract every game shares), `kit.ts` (the card kit: `CardGame`, cards, decks, `KitView`), `board.ts` (the board kit: `BoardGame`, grids, pieces, `BoardView`) and `sport.ts` (the table-sports kit: `SportGame`, shots, `SportView`) |
 | [`packages/rules`](packages/rules) | Spades rules engine, bots, and the personas who play every game |
 | [`packages/palace`](packages/palace) | Palace rules engine: house-rule presets, seat views, bots and table talk |
 | [`packages/physics`](packages/physics) | A small deterministic 2D physics core for the table sports: the same shot gives the same table on the server and in every browser, which is how Mini Golf's server decides a putt and every browser animates it |
 | [`packages/rooms`](packages/rooms) | Turn-based rooms over `@zubra/sync`: seats, server-decided moves, private views, bots |
 | [`packages/server`](packages/server) | The server: every game's rooms, houses, challenges, tournaments, the lobby, the sync log and the web app |
 | [`packages/web`](packages/web) | The app (React, with the game chooser in Vue): the card table, the board table and the canvas table for table sports, setup screens, houses, practice |
-| [`packages/ui`](packages/ui) | Table components in Zubra (cards, seats, fields), and the `<card-room>` embed |
+| [`packages/designer`](packages/designer) | The card designer (Svelte): draw a deck, keep it or share it, play with it |
+| [`packages/watch`](packages/watch) | The watch page (Solid): the tables playing now, and tables of computer players to learn from |
+| [`packages/admin`](packages/admin) | The admin app (Angular): the host moderates tables, players and shared designs |
+| [`packages/decks`](packages/decks) | Card designs: what a deck looks like, checked, and turned into the CSS variables the cards read |
+| [`packages/conformance`](packages/conformance) | One fixture of the components in every framework, and one set of browser tests run against them all |
+| [`packages/ui`](packages/ui) | Components in Zubra: our own (cards, seats), the ones copied from zubra-ui, and the `<card-room>` embed |
+
+One set of Zubra components serves five frameworks: React and Vue in the card room, Svelte in the
+designer, Solid on the watch page and Angular in the admin app.
 
 The server decides every move. Each player's browser only ever receives its own view of a table
 (its own hand), never the whole game; moves the rules don't allow are refused on the server.
@@ -160,8 +196,74 @@ npm test
 npm run dev        # the server on :8787 and the app on http://localhost:5173
 ```
 
-Family tables, houses, challenges and tournaments need the server. Practice against the computer
-works anywhere, including the GitHub Pages build of the app.
+Family tables, houses, challenges, tournaments, the designs gallery, watching and the admin app
+need the server. Practice against the computer and designing decks work anywhere, including the GitHub
+Pages build of the app.
+
+The card designer (`npm run dev -w @cardroom/designer`, http://localhost:5174/designer/), the
+admin app (`npm run dev -w @cardroom/admin`, http://localhost:5175/admin/) and the watch page
+(`npm run dev -w @cardroom/watch`, http://localhost:5176/watch/) have dev servers of their own, which also talk to the server on :8787. For the admin app, start the server with a
+token: `CARDROOM_ADMIN_TOKEN=anything npm run dev -w @spades/server`.
+
+## Designing cards
+
+The card designer lives at `/designer/` (there's a link on the card room's front page). A deck is
+its back (a pattern, three colours and an emblem), its paper, an ink for each suit (two colours or
+four), its lettering and its corners. Saving one keeps it under **My decks**; turning on **Share
+it in the gallery** puts it where everyone in the card room can play with it or remix it.
+
+**A table's deck.** In a table's lobby, before the deal, anyone seated picks the table's cards:
+one of the card room's own decks, one of theirs, or any deck in the gallery. Everyone at the table
+and everyone watching then sees those cards. The table keeps its own copy of the design, so its
+maker changing or deleting it, or the host hiding it, never changes the cards in the middle of a
+game. A table can only wear a deck its chooser could show everyone: theirs, or a shared one.
+
+**Your own deck.** **Play with it** in the designer makes a deck the one that browser sees at
+practice tables and at tables that haven't chosen. **Always show me my own deck** keeps it even at
+tables that have, for anyone who reads their own cards best.
+
+A design is data, never CSS or markup from a page: colours and choices from fixed lists, checked
+again on the server (`packages/decks`). The designer won't save a deck you couldn't play with
+(inks too faint for the paper, two suits in the same ink).
+
+## Watching a game
+
+The watch page lives at `/watch/` (there's a link on the card room's front page).
+
+- **Learn from the computer.** Pick a game, how well the computer players should play and how
+  fast, and they sit down and play it out. You see every hand, and can look over any seat's
+  shoulder. A few of these tables can be going at once (six); a new one waits for one to finish.
+- **Playing now.** Every table with a game going. At a table with people you watch the play card
+  by card from any side of the table, but never see a hand: a watcher gets only what every player
+  at the table can already see. The host can keep people's tables off this list altogether (admin
+  app, **Games**).
+
+How a watcher's view is made: after each move the server builds every seat's view, keeps what they
+all show alike and drops whatever differs (a hand, the moves on offer, a card only one player has
+peeked at). That works for every game without the game saying which parts are private; each kind
+of game names its private parts as well (`watchView` in `packages/server/src/games.ts`, on
+`sharedView` from the rooms kit). `packages/server/test/watching.test.ts` plays every game and
+checks no card reaches a watcher that any seat can't see.
+
+## Moderating the card room
+
+Whoever runs the server can look after it from the admin app at `/admin/`. It's off until the
+server has an admin token (see **Settings**); sign in with that token.
+
+| | |
+| --- | --- |
+| **Tables** | Every table and who's at it. Look at one to read its chat, remove a message, take someone out of a seat (a computer player takes over if the game has started), or close the table for good, with a reason everyone there sees. |
+| **Players** | Everyone who's sat down, joined a house or saved a design. Blocking someone stops them sitting, playing, chatting, opening houses and sharing designs; tables they're at carry on without them. Unblocking undoes it. |
+| **Houses** | Every house and its members. Rename a house (its invite link stays the same), remove a member, hand it to a new owner, or delete it. |
+| **Games** | Which games the card room offers and in what order: the front page follows. Switching a game off stops new tables of it everywhere (tables already going carry on). Also the switch for whether tables with players can be watched (the table, never a hand). |
+| **Card designs** | Every shared deck. Hiding one takes it out of the gallery; its maker keeps it and sees your reason. |
+| **Activity** | Everything done from the admin app, newest first. |
+
+Players are browsers, not accounts: a player is a cookie, and a name is whatever they typed when
+they sat down. The admin app never sees the cookies, only a reference that's enough to block
+someone with. A blocked person who clears their cookies is a new player, so blocking is for
+keeping a family room friendly, not for keeping a determined stranger out; for that, don't share
+the room's address.
 
 ## Adding a game
 
@@ -199,6 +301,16 @@ what `view` returns.
    exactly the legal moves: the table offers nothing else, and `apply` still refuses the rest.
    `tictactoe.ts` is the worked example, with three computer players: a solved 3×3, a scored
    search for bigger boards, and a look-ahead for Ultimate.
+
+   `checkers.ts` is the worked example for pieces that move (`select`). The table lets a piece be
+   tapped and then its destination, dragged there, or played from the keyboard, and slides any
+   piece that has an `id` to where it went. Three things in the kit came with it and are there
+   for the next game: `flip` on a grid draws the board from the far side for the seat that sits
+   there (cells keep their numbers and names; only the drawing turns); `held` in `select` names a
+   piece that is already in hand, for a move made in several taps (a run of jumps is one hop per
+   move, the seat keeps the turn, and the capture in progress lives in the engine's state); and
+   the `must` mark rings a piece that has to move. A piece with `faded` set is drawn faintly: a
+   piece jumped but not yet taken off.
 2. **Register it:** add its id to `BoardGameId` in `table.ts`, add it to `BOARD_GAMES` in
    `registry.ts`, and export it from `index.ts`.
 3. **Tests:** `packages/games/test/<game>.test.ts` for its rules. The shared board tests
@@ -353,10 +465,15 @@ docker run -p 8787:8787 -v spades:/data cardroom
 | `CARDROOM_AI_PROVIDER` | `anthropic` or `openai`, if the key doesn't say (a key starting `sk-ant-` is Anthropic's) |
 | `CARDROOM_AI_MODEL` | The model for that key. Default: `claude-haiku-5-5` or `gpt-5.6-luna`. |
 | `CARDROOM_AI_DAILY` | The most lines a day on that key, everyone together. Default 3000. |
-| `CARDROOM_ADMIN_KEY` | Optional: makes any device that enters it at `/?admin=1` the card room's admin, who can block players. 8 characters or more; keep it secret. |
+| `CARDROOM_GITHUB_TOKEN` | Optional: turns on **Report a problem**. A GitHub token that may open issues on the repository below; keep it secret. |
+| `CARDROOM_GITHUB_REPO` | Where reports are filed, as `owner/name`. Default `mnichols08/card-room`. |
 | `CARDROOM_BLOCKED_NAMES` | Optional: more words that names and chat at open tables may not contain, comma-separated |
+| `CARDROOM_ADMIN_TOKEN` | Turns on the admin app at `/admin/`: the token its host signs in with. Make it long and keep it secret (`openssl rand -hex 24`) |
 | `CARDROOM_BOT_DELAY` | Fixed thinking time for computer players, in milliseconds (handy for testing) |
 | `CARDROOM_WEB` | Where the built web app is, if not `packages/web/dist` |
+| `CARDROOM_DESIGNER` | Where the built card designer is, if not `packages/designer/dist` |
+| `CARDROOM_WATCH` | Where the built watch page is, if not `packages/watch/dist` |
+| `CARDROOM_ADMIN` | Where the built admin app is, if not `packages/admin/dist/browser` |
 | `PORT` | The port to listen on (8787; Railway sets its own) |
 
 The older `SPADES_*` names for these still work; `CARDROOM_*` wins if both are set. Keep the

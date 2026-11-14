@@ -22,9 +22,11 @@ interface Props {
   about: ReactNode;
   /** Challenge links, houses, the fine print. */
   more: ReactNode;
+  /** A game for one (a solitaire): nobody else to name, and no computer players to set up. */
+  solo?: boolean;
 }
 
-export function SetupLayout({ emoji, title, tagline, onHome, houses, you, actions, table, about, more }: Props) {
+export function SetupLayout({ emoji, title, tagline, onHome, houses, you, actions, table, about, more, solo = false }: Props) {
   return (
     <main className="setup wide">
       <header className="setup-head">
@@ -38,13 +40,13 @@ export function SetupLayout({ emoji, title, tagline, onHome, houses, you, action
       <div className="setup-body">
         <div className="setup-col side">
           {houses && <div className="setup-part s-houses">{houses}</div>}
-          <section className="setup-card start" aria-label="Who's playing">
-            <h2 className="desk-only">Who's playing</h2>
+          <section className="setup-card start" aria-label={solo ? "Your game" : "Who's playing"}>
+            <h2 className="desk-only">{solo ? "Your game" : "Who's playing"}</h2>
             <div className="setup-part s-you">{you}</div>
             <div className="setup-part s-actions">{actions}</div>
           </section>
-          <section className="setup-card" aria-label="Computer players and this device">
-            <h2 className="desk-only">Computer players &amp; this device</h2>
+          <section className="setup-card" aria-label={solo ? "This device" : "Computer players and this device"}>
+            <h2 className="desk-only">{solo ? "This device" : <>Computer players &amp; this device</>}</h2>
             <div className="setup-part s-table">{table}</div>
           </section>
         </div>

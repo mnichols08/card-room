@@ -2,13 +2,15 @@ import type { PalaceMove, PalaceView } from "@cardroom/palace";
 import { cardId, type Card, type TableSettings } from "@spades/rules";
 import { TableSettingsButton } from "../TableSettings";
 import PalaceSeat from "@spades/ui/palace-seat.zb";
-import PlayingCard from "@spades/ui/playing-card.zb";
+import PlayingCard from "../PlayingCard";
 import { useEffect, useRef, useState } from "react";
 import { Bubble, TableChat, useBubbles, type ChatProps } from "../Chat";
 import { loadFeedbackSettings, play, saveFeedbackSettings } from "../feedback/sounds";
 import { Confetti } from "../Confetti";
 import { lift, motionScale, useCardFlip, useFlash } from "../motion";
 import { usePalaceFx } from "./PalaceFx";
+import { HandSortBar, useHandOrder } from "../HandSort";
+import { cardKey } from "../handOrder";
 
 type PCard = Extract<Card, { kind: "pip" }>;
 const WORD: Record<number, [string, string]> = { 11: ["jack", "jacks"], 12: ["queen", "queens"], 13: ["king", "kings"], 14: ["ace", "aces"] };
@@ -31,6 +33,8 @@ export interface PalaceTableProps {
   chat?: ChatProps;
   /** Opponents and speed, changeable mid-game. */
   settings?: { value: TableSettings; change: (next: TableSettings) => Promise<void> | void };
+  /** Nobody's playing `seat` from here: the table is being watched. */
+  watching?: boolean;
 }
 
 /** What just happened, in words: "Hank burned it 🔥", "Dot picked up 9". */
@@ -93,16 +97,17 @@ function Opponent(props: { seat: number; area: Area; name: string; up: Card[]; d
 }
 
 /** Palace at the table: the pile, everyone's face-up cards, your hand. Works for a practice game or a family table. */
-export function PalaceTable({ view, seat: me, names, act, onLeave, banner, chat, settings }: PalaceTableProps) {
+export function PalaceTable({ view, seat: me, names, act, onLeave, banner, chat, settings, watching }: PalaceTableProps) {
   const [error, setError] = useState<string | null>(null);
   const [choosing, setChoosing] = useState<{ rank: number; ids: string[] } | null>(null);
   const [swapFrom, setSwapFrom] = useState<string | null>(null);
   const [faceUp, setFaceUp] = useState<string[]>([]);
   const [soundOn, setSoundOn] = useState(() => loadFeedbackSettings().sound);
   const bubbles = useBubbles(chat?.messages ?? []);
-  const mine = view.players[me]!;
+  // A watcher has nothing to lay down: for them this seat is always "ready".
+  const mine = watching ? { ...view.players[me]!, ready: true } : view.players[me]!;
   const can = view.can;
-  const myTurn = view.phase === "playing" && view.turn === me;
+  const myTurn = view.phase === "playing" && view.turn === me && !watching;
   /** How many cards to pick for face-up, in the family deal; 0 once they're down. */
   const toChoose = can?.choose ?? 0;
   const others = Array.from({ length: view.seats - 1 }, (_, i) => (me + 1 + i) % view.seats);
@@ -113,6 +118,7 @@ export function PalaceTable({ view, seat: me, names, act, onLeave, banner, chat,
   const departed = useCardFlip(root, scale);
   const fx = usePalaceFx(view, me, departed, scale, root);
   const breathe = useFlash(myTurn, 700, false) && myTurn;
+  const holding = useHandOrder("palace", view.hand, cardId, cardKey);
   const last = view.last;
   /** Where a card on the pile came from, if it was just played: someone's seat, or your own table. */
   const pileFrom = (c: Card) => {
@@ -375,15 +381,17 @@ export function PalaceTable({ view, seat: me, names, act, onLeave, banner, chat,
 
       <section className="me">
         {chat && <TableChat {...chat} />}
+        <HandSortBar {...holding.bar} />
         <div
-          className={`hand ${breathe ? "breathe" : ""}`}
+          {...holding.hand}
+          className={`hand sortable ${breathe ? "breathe" : ""}`}
           role="group"
           aria-label="Your hand"
           style={{ "--n": view.hand.length, ...(view.hand.length <= 6 ? { "--strip-max": "calc(var(--card-w) + 8px)" } : {}) } as React.CSSProperties}
         >
-          {view.hand.map((card, i) => (
+          {holding.held.map(({ card, key }, i) => (
             <PlayingCard
-              key={`${cardId(card)}-${i}`}
+              key={key}
               data-flip={cardId(card)}
               data-from={handFrom}
               style={{ "--i": i } as React.CSSProperties}
@@ -394,13 +402,13 @@ export function PalaceTable({ view, seat: me, names, act, onLeave, banner, chat,
               onPick={() => tap(card as PCard, "hand")}
             />
           ))}
-          {!view.hand.length && mine.place === null && view.phase !== "finished" && <p className="fine">Your hand is empty.</p>}
+          {!view.hand.length && mine.place === null && view.phase !== "finished" && <p className="fine">{watching ? `${names[me]} holds ${mine.hand} ${mine.hand === 1 ? "card" : "cards"}.` : "Your hand is empty."}</p>}
         </div>
       </section>
 
       <div className="bubble-layer" aria-live="polite">
         {[...bubbles.entries()].map(([s, m]) => (
-          <Bubble key={`${s}-${m.at}`} message={m} side={s === me ? "bottom" : (spots.find((x) => x.seat === s)?.area ?? "top")} />
+          <Bubble key={`${s}-${m.at}`} message={m} seat={s} />
         ))}
       </div>
 

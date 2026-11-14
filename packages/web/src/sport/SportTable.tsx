@@ -645,7 +645,7 @@ export function SportTable({ view, names, act, onLeave, banner, chat, settings }
 
       <div className="bubble-layer" aria-live="polite">
         {[...bubbles.entries()].map(([s, m]) => (
-          <Bubble key={`${s}-${m.at}`} message={m} side={s === me ? "bottom" : "top"} />
+          <Bubble key={`${s}-${m.at}`} message={m} seat={s} />
         ))}
       </div>
 

@@ -1,7 +1,8 @@
 // The Card Room's start page: the Vue game chooser, mounted inside the React app.
 import { isBoardGame, isSportGame, KIT_GAMES } from "@cardroom/games";
 import { createApp, h, reactive } from "vue";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { arranged, refreshCatalogue } from "../catalogue";
 import { GAME_LIST } from "../GamePicker";
 import { lobby, whoIsThere, type OpenTable } from "../lobbyApi";
 import { loadMyHouses, loadName, type GameId } from "../storage";
@@ -61,11 +62,17 @@ const FANS: Record<string, object[]> = {
 };
 
 /** A board game's tile shows a little board instead: a position that says what the game is about. */
-type MiniBoard = { cols: number; cells: ({ glyph: string; tone: string } | null)[] };
+type MiniBoard = { cols: number; cells: ({ glyph: string; tone: string; shade?: "dark" } | null)[] };
 const X = { glyph: "✕", tone: "red" };
 const O = { glyph: "◯", tone: "blue" };
+// Checkers: a corner of the board, played on the dark squares.
+const SQUARE = { glyph: "", tone: "none", shade: "dark" as const };
+const MAN_DARK = { ...SQUARE, glyph: "●", tone: "dark" };
+const MAN_LIGHT = { ...SQUARE, glyph: "●", tone: "light" };
+const KING_DARK = { ...SQUARE, glyph: "♛", tone: "dark" };
 const BOARDS: Record<string, MiniBoard> = {
   tictactoe: { cols: 3, cells: [X, O, null, null, X, O, O, null, X] },
+  checkers: { cols: 4, cells: [null, MAN_LIGHT, null, MAN_LIGHT, SQUARE, null, KING_DARK, null, null, MAN_LIGHT, null, SQUARE, MAN_DARK, null, MAN_DARK, null] },
 };
 const EMPTY_BOARD: MiniBoard = { cols: 3, cells: Array(9).fill(null) };
 
@@ -87,12 +94,15 @@ const brief = (t: OpenTable) => ({ id: t.id, game: t.game, who: whoIsThere(t), f
 
 export function Home({ last, onPick, onOpenHouse, onLobby }: { last: GameId | null; onPick: (game: GameId) => void; onOpenHouse: (slug: string) => void; onLobby: () => void }) {
   const el = useRef<HTMLDivElement>(null);
+  const [catalogue, setCatalogue] = useState(0);
   const handlers = useRef({ onPick, onOpenHouse, onLobby });
   handlers.current = { onPick, onOpenHouse, onLobby };
 
   useEffect(() => {
+    // The games the card room's host offers, in their order (every game, where there's no server).
+    const games = () => arranged(GAME_LIST).map((g) => ({ ...g, ...(SEATS[g.id] ?? { seats: [2, 6], teams: false }), fan: FANS[g.id] ?? FANS.spades!, board: isBoardGame(g.id) ? (BOARDS[g.id] ?? EMPTY_BOARD) : undefined, table: isSportGame(g.id) ? (TABLES[g.id] ?? EMPTY_TABLE) : undefined }));
     const props = reactive({
-      games: GAME_LIST.map((g) => ({ ...g, ...(SEATS[g.id] ?? { seats: [2, 6], teams: false }), fan: FANS[g.id] ?? FANS.spades!, board: isBoardGame(g.id) ? (BOARDS[g.id] ?? EMPTY_BOARD) : undefined, table: isSportGame(g.id) ? (TABLES[g.id] ?? EMPTY_TABLE) : undefined })),
+      games: games(),
       houses: loadMyHouses(),
       last,
       name: loadName(),
@@ -117,6 +127,11 @@ export function Home({ last, onPick, onOpenHouse, onLobby }: { last: GameId | nu
       document.removeEventListener("visibilitychange", load);
       app.unmount();
     };
+  }, [catalogue]);
+
+  // Ask the server for the host's catalogue; if it differs from what this browser remembered, draw the chooser again.
+  useEffect(() => {
+    void refreshCatalogue().then((changed) => changed && setCatalogue((n) => n + 1));
   }, []);
 
   return <main className="home" ref={el} />;

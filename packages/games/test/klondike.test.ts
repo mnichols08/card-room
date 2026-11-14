@@ -88,4 +88,30 @@ describe("Klondike", () => {
     const done = klondike.apply(newKlondike(klondikeOne, 1, 2), 0, { type: "resign" });
     expect(klondike.summary(done)).toMatchObject({ over: true, winners: [] });
   });
+
+  it("a dragged card goes where you put it, not where a tap would send it", () => {
+    // A tap would put the 7♦ on the first black 8; dragged, it goes on the second.
+    let s = table({ waste: cards("7♦"), columns: [col("", "8♠"), col("", "8♣"), empty(), empty(), empty(), empty(), empty()] });
+    s = klondike.apply(s, 0, { type: "move", card: s.waste[0]!.id, to: "column", index: 1 });
+    expect(named(s.columns[1]!.up)).toEqual(["8♣", "7♦"]);
+    expect(named(s.columns[0]!.up)).toEqual(["8♠"]);
+    // An ace that could go home can be kept on a column instead... if it fits there.
+    s = { ...s, waste: cards("A♥") };
+    expect(() => klondike.apply(s, 0, { type: "move", card: s.waste[0]!.id, to: "column", index: 0 })).toThrow("doesn't go on the 8♠");
+    expect(() => klondike.apply(s, 0, { type: "move", card: s.waste[0]!.id, to: "column", index: 4 })).toThrow("Only a king");
+    expect(() => klondike.apply(s, 0, { type: "move", card: s.waste[0]!.id, to: "column", index: 9 })).toThrow("not a place");
+    s = klondike.apply(s, 0, { type: "move", card: s.waste[0]!.id, to: "foundation" });
+    expect(named(s.foundations[1]!)).toEqual(["A♥"]);
+  });
+
+  it("a dragged run moves together onto a column, but only one card goes home at a time", () => {
+    let s = table({ columns: [col("2♣", "9♥ 8♠"), col("", "10♣"), col("", "10♠"), empty(), empty(), empty(), empty()] });
+    const nine = s.columns[0]!.up[0]!.id;
+    expect(() => klondike.apply(s, 0, { type: "move", card: nine, to: "foundation" })).toThrow("one card");
+    expect(() => klondike.apply(s, 0, { type: "move", card: nine, to: "column", index: 0 })).toThrow("already there");
+    s = klondike.apply(s, 0, { type: "move", card: nine, to: "column", index: 2 });
+    expect(named(s.columns[2]!.up)).toEqual(["10♠", "9♥", "8♠"]);
+    expect(named(s.columns[0]!.up)).toEqual(["2♣"]);
+    expect(klondike.apply(s, 0, { type: "undo" }).columns[0]!.up).toHaveLength(2);
+  });
 });

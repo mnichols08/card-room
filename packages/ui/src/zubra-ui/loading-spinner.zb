@@ -1,0 +1,25 @@
+<!-- Copied from zubra-ui (ba5737e) components/loading-spinner.zb: https://github.com/journey-to-code-org/zubra-ui. Ours to edit. -->
+<!--
+  Something is loading. Announced to screen readers once, as `label` ("Loading" by default),
+  and shown as a ring that turns (a pulse instead, for visitors who asked for less motion).
+  `size` is sm, md or lg; `inline` puts the label beside it.
+-->
+<style>
+  :host { display: inline-block; vertical-align: middle; }
+  .spinner-status { display: inline-flex; align-items: center; gap: 0.6rem; color: color-mix(in oklab, var(--muted-foreground, #71717a) 75%, var(--foreground, #18181b)); }
+  .spinner-ring { width: var(--size); height: var(--size); border: calc(var(--size) / 8) solid color-mix(in oklab, currentColor 22%, transparent); border-top-color: var(--primary, #18181b); border-radius: 50%; animation: spin 0.75s linear infinite; }
+  .spinner-sm { --size: 1rem; } .spinner-md { --size: 1.6rem; } .spinner-lg { --size: 2.5rem; }
+  .spinner-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  @keyframes spin { to { transform: rotate(1turn); } }
+  @keyframes pulse { 50% { opacity: 0.4; } }
+  @media (prefers-reduced-motion: reduce) { .spinner-ring { animation: pulse 1.6s ease-in-out infinite; } }
+</style>
+<script lang="ts">
+  declare const size: "sm" | "md" | "lg";
+</script>
+<loading-spinner label="Loading" size="md" inline={false}>
+  <span class="spinner-status" role="status">
+    <span class="spinner-ring spinner-{size}" aria-hidden="true"></span>
+    <span class:spinner-hidden={!inline}>{label}</span>
+  </span>
+</loading-spinner>

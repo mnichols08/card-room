@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@cardroom/decks": "*",
     "@cardroom/games": "*",
     "@cardroom/palace": "*",
     "@cardroom/physics": "*",
@@ -17,6 +18,7 @@
     "@spades/rules": "*",
     "@vitejs/plugin-vue": "^6.0.11",
     "@zubra/runtime": "^5.9.2",
+    "modern-screenshot": "^4.7.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "vue": "^3.5.45"

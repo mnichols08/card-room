@@ -132,7 +132,23 @@ function allCards(s: SpiderState): Map<string, KCard> {
   return map;
 }
 
-type Move = { type: "auto"; card: string } | { type: "deal" } | { type: "undo" } | { type: "resign" };
+type Move =
+  | { type: "auto"; card: string }
+  /** The card (and the run on it) to the column you choose. */
+  | { type: "move"; card: string; to: "column"; index?: number }
+  | { type: "deal" }
+  | { type: "undo" }
+  | { type: "resign" };
+
+/** Move the run starting at this card onto another column, then turn cards up and send full runs home. */
+function shift(s: SpiderState, where: { col: number; at: number }, to: number) {
+  const run = s.columns[where.col]!.up.splice(where.at);
+  s.columns[to]!.up.push(...run);
+  s.moves += 1;
+  s.idle += 1;
+  tidy(s, where.col);
+  tidy(s, to);
+}
 
 function apply(state: SpiderState, seat: number, mv: Move): SpiderState {
   if (seat !== 0) throw new GameError("This is a game for one.");
@@ -164,12 +180,22 @@ function apply(state: SpiderState, seat: number, mv: Move): SpiderState {
       if (!sameSuitRun(run)) throw new GameError("Only a run of one suit moves together.");
       const to = bestColumn(s, run[0]!, where.col, where.at);
       if (to === null) throw new GameError(`The ${name(run[0]!)} has nowhere to go.`);
-      col.up.splice(where.at);
-      s.columns[to]!.up.push(...run);
-      s.moves += 1;
-      s.idle += 1;
-      tidy(s, where.col);
-      tidy(s, to);
+      shift(s, where, to);
+      return s;
+    }
+    case "move": {
+      const where = locate(s, mv.card);
+      if (!where) throw new GameError("You can't move that card.");
+      const run = s.columns[where.col]!.up.slice(where.at);
+      if (!sameSuitRun(run)) throw new GameError("Only a run of one suit moves together.");
+      if ((mv.to as string) === "foundation") throw new GameError("A run goes home on its own once it's complete, king to ace.");
+      const index = Number(mv.index);
+      const col = mv.to === "column" ? s.columns[index] : undefined;
+      if (!col) throw new GameError("That's not a place for a card.");
+      if (where.col === index) throw new GameError(`The ${name(run[0]!)} is already there.`);
+      const top = col.up.at(-1);
+      if (top && rankOf(top) !== rankOf(run[0]!) + 1) throw new GameError(`The ${name(run[0]!)} doesn't go on the ${name(top)}.`);
+      shift(s, where, index);
       return s;
     }
     case "resign": {
@@ -209,11 +235,12 @@ function view(s: SpiderState, seat: number): KitView {
       columns: s.columns.map((c) => ({ down: c.down.length, up: c.up })),
       cells: null,
       tap: over ? null : { type: "auto", cards: movable },
+      drop: over ? null : { type: "move", foundations: false },
       drawMove: over || !s.stock.length ? null : { type: "deal" },
       stockLabel: deals ? `${deals} deal${deals === 1 ? "" : "s"} left` : "",
     },
     melds: [],
-    info: [`${s.rules.suits === 1 ? "One suit" : s.rules.suits === 2 ? "Two suits" : "Four suits"}`, `${s.home.length} of 8 runs home`, "Tap a card to move it (and what's on it)"],
+    info: [`${s.rules.suits === 1 ? "One suit" : s.rules.suits === 2 ? "Two suits" : "Four suits"}`, `${s.home.length} of 8 runs home`, "Tap or drag a card to move it (and what's on it)"],
     narration: s.narration,
     scores: [{ seats: [0], value: s.home.length }],
     result: null,
@@ -292,7 +319,7 @@ export const spider: CardGame<SpiderRules, SpiderState, Move> = {
   describe(r) {
     return [
       `Two decks' worth of cards in ${r.suits === 1 ? "one suit" : r.suits === 2 ? "two suits" : "four suits"}, dealt into ten columns with the last card of each face up; the rest are the stock.`,
-      "Build down by one in any suit (a 6 on any 7). But only a run of one suit moves together; tap a card to move it and everything on it.",
+      "Build down by one in any suit (a 6 on any 7). But only a run of one suit moves together; tap a card to move it and everything on it, or drag it to the column you want.",
       "Any card or run can go into an empty column. A full run of one suit from king down to ace goes home on its own.",
       "Stuck? Deal from the stock: one card onto every column (every column needs a card first). Five deals in all.",
       "Get all eight runs home to win.",

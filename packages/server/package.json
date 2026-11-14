@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@cardroom/decks": "*",
     "@cardroom/games": "*",
     "@cardroom/palace": "*",
     "@cardroom/physics": "*",

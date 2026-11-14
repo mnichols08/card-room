@@ -52,7 +52,7 @@ const clean = (value: unknown, max: number) => String(value ?? "").replace(/\s+/
 export const LINK_LIMIT_PER_HOUR = 6;
 const SENDER_GAP_MS = 60_000;
 
-export function createChallenges(rooms: Rooms, push: Push, { mount = "/challenges" } = {}) {
+export function createChallenges(rooms: Rooms, push: Push, { mount = "/challenges", gameOn = () => true }: { mount?: string; /** Whether new tables of a game may be opened (the card room's catalogue). */ gameOn?: (game: GameId) => boolean | Promise<boolean> } = {}) {
   const docs = rooms.sync.documents();
   const lastSent = new Map<string, number>();
 
@@ -140,6 +140,7 @@ export function createChallenges(rooms: Rooms, push: Push, { mount = "/challenge
       const offers = c.games ?? ["spades"];
       const game: GameId = input.game === undefined ? offers[0]! : (String(input.game) as GameId);
       if (!offers.includes(game)) return json({ error: `${c.name} isn't taking ${gameName(game)} challenges.` }, 400);
+      if (!(await gameOn(game))) return json({ error: `${gameName(game)} is switched off in this card room.` }, 403);
       const now = Date.now();
       // A sender is known by their cookie and their address, whichever they have. Someone with
       // neither isn't held to the per-sender pace; the link's hourly cap still applies.

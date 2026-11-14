@@ -45,6 +45,15 @@ export function rectOf(selector: string | undefined, card: DOMRect, shrink = 0.5
  * data-from) to where it is now. Returns the cards that were there last time and are gone now,
  * with where they were: for effects like a burn, where cards leave the table.
  */
+const droppedAt = new Map<string, DOMRect>();
+/**
+ * A card was let go here after being dragged: its next glide starts from this spot, not from where
+ * it sat before the drag. (If the move is refused, that same glide carries it back.)
+ */
+export function glideFrom(id: string, rect: DOMRect) {
+  droppedAt.set(id, rect);
+}
+
 export function useCardFlip(root: RefObject<HTMLElement | null>, scale: number) {
   const last = useRef(new Map<string, Seen>());
   const departed = useRef(new Map<string, Seen>());
@@ -57,8 +66,12 @@ export function useCardFlip(root: RefObject<HTMLElement | null>, scale: number) 
       el.getAnimations().forEach((a) => a.finish());
       const rect = el.getBoundingClientRect();
       now.set(id, { rect, el });
+      // A card the player just dragged into place (data-settled) is already where it belongs.
+      if (el.dataset.settled !== undefined) return;
       const before = last.current.get(id);
-      const from = before?.rect ?? rectOf(el.dataset.from, rect);
+      const dropped = droppedAt.get(id);
+      droppedAt.delete(id);
+      const from = dropped ?? before?.rect ?? rectOf(el.dataset.from, rect);
       if (!from) return;
       const dx = from.left + from.width / 2 - (rect.left + rect.width / 2);
       const dy = from.top + from.height / 2 - (rect.top + rect.height / 2);

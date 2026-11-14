@@ -272,6 +272,11 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; }
 .seat-row em { font-style: normal; font-size: 0.8rem; color: var(--gold); }
 .secondary.small { padding: 6px 14px; font-size: 0.9rem; }
 .banner { text-align: center; font-size: 0.75rem; letter-spacing: 0.06em; color: #cfe2d6; padding: 4px 0; background: rgba(0, 0, 0, 0.2); }
+/* Watching a table of computer players: whose shoulder you're looking over, and a way to change seats. */
+.banner.watching { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 2px 12px; font-size: 0.85rem; letter-spacing: 0; padding: 6px 56px 6px 8px; color: var(--cream); }
+.banner.watching .hint { font-size: 0.75rem; opacity: 0.8; }
+.banner.watching select { font: inherit; font-weight: 700; color: var(--felt-dark, #143628); background: var(--cream); border: 0; border-radius: 6px; padding: 3px 6px; min-height: 28px; }
+.banner.watching select:focus-visible { outline: 3px solid #ffd76a; outline-offset: 2px; }
 
 .sound-toggle {
   position: absolute;
@@ -405,33 +410,31 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; }
 
 .me-badge { position: relative; }
 /* Bubbles have their own layer above the table and its sheets: a partner's "go nil!" matters
-   most while you're bidding. Each sits near the seat that spoke. */
+   most while you're bidding. Each one places itself beside the seat that spoke, wherever it covers
+   least (Chat.tsx), and fades when its time (--life) is up. */
 .bubble-layer { position: fixed; inset: 0; z-index: 12; pointer-events: none; }
 .bubble {
   position: absolute;
   display: flex;
   flex-direction: column;
-  max-width: 200px;
+  max-width: min(200px, calc(100vw - 16px));
   padding: 6px 10px 7px;
   border-radius: 14px;
   background: var(--cream);
   color: var(--ink);
   font-size: 0.9rem;
   line-height: 1.25;
+  overflow-wrap: anywhere;
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
-  animation: bubble-in 180ms ease-out;
+  transition: left 160ms ease-out, top 160ms ease-out;
+  animation: bubble-in 180ms ease-out, bubble-out 260ms ease-in calc(var(--life, 4500ms) - 260ms) forwards;
 }
 .bubble .said-by { font-size: 0.7rem; font-weight: 700; color: var(--felt); }
 .bubble.emoji { align-items: center; }
 .bubble.emoji span:last-child { font-size: 1.9rem; line-height: 1.1; }
-.bubble.top { top: 182px; left: 50%; translate: -50% 0; }
-/* Palace: the open felt under the pile, clear of everyone's face-up cards. */
-.bubble.palace { top: 55%; left: 50%; translate: -50% 0; }
-.bubble.left { top: 46%; left: 8px; }
-.bubble.right { top: 46%; right: 8px; }
-.bubble.bottom { bottom: calc(var(--card-h) + 140px); left: 50%; translate: -50% 0; }
 @keyframes bubble-in { from { opacity: 0; scale: 0.8; } to { opacity: 1; scale: 1; } }
-@media (prefers-reduced-motion: reduce) { .bubble { animation: none; } }
+@keyframes bubble-out { to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .bubble { animation: none; transition: none; } }
 .seat-row strong { display: flex; flex-direction: column; }
 .seat-row .blurb { font-weight: 400; font-size: 0.78rem; color: #cfe2d6; }
 
@@ -508,7 +511,8 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; }
 .pile { --fan: calc(var(--trick-w) * 0.28); }
 .pile-stack { position: relative; width: calc(var(--trick-w) + 2 * var(--fan)); height: calc(var(--trick-h) + 6px); }
 .pile-card { position: absolute; left: calc(var(--i) * var(--fan)); top: calc(var(--i) * 2px); rotate: calc((var(--i) - 1) * 3deg); }
-.deck playing-card { filter: drop-shadow(calc(var(--depth, 0) * 1px) calc(var(--depth, 0) * 1px) 0 #4b131b); }
+/* The stack's edge takes the deck's own dark colour. */
+.deck playing-card { filter: drop-shadow(calc(var(--depth, 0) * 1px) calc(var(--depth, 0) * 1px) 0 var(--deck-emblem-ink, #4b131b)); }
 .empty-slot {
   width: var(--trick-w); height: var(--trick-h); border-radius: calc(var(--trick-w) * 0.1); border: 2px dashed rgba(255, 255, 255, 0.3);
   display: grid; place-items: center; text-align: center; font-size: 0.7rem; color: #cfe2d6;
@@ -522,6 +526,16 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; }
 .table-slot .down-card { position: absolute; top: 0; left: 0; }
 .table-slot .up-card { position: absolute; top: calc(var(--trick-h) * 0.16); left: 0; }
 .center-info { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+/* On a phone the pile sits between the players at its sides, and the news gets a row of its own
+   under them, the full width of the table. Inside the middle column a long line ("Waiting for
+   everyone to lay down their cards…") made that column as wide as the line, and ran under the
+   side players' cards. */
+@media (max-width: 1023px) {
+  .palace-felt { grid-template-rows: auto 1fr auto auto; grid-template-areas: "top top top" "left center right" "info info info" "mine mine mine"; }
+  .palace-felt .center { display: contents; }
+  .palace-felt .pile-area { grid-area: center; }
+  .palace-felt .center-info { grid-area: info; min-width: 0; padding: 0 8px; text-wrap: balance; }
+}
 /* Palace buttons live in the felt, not floating over your face-up cards. */
 .felt-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; align-items: center; }
 .felt-actions p { margin: 0; width: 100%; text-align: center; }
@@ -878,6 +892,11 @@ button.spread-card { cursor: pointer; animation: none; }
 button.sol-card { cursor: pointer; border-radius: calc(var(--trick-w) * 0.1); }
 @media (hover: hover) { button.sol-card:hover { filter: brightness(1.04); translate: 0 -2px; } }
 button.sol-card:focus-visible { outline: 3px solid #ffd76a; outline-offset: 1px; }
+/* Dragging a card where you want it: it follows the finger (so the page mustn't scroll under it),
+   rides above everything, and the place it would land lights up. */
+.sol.draggable button.sol-card { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: grab; }
+button.sol-card.dragging, .sol-card.dragging { position: relative; z-index: 20; cursor: grabbing; filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.4)); }
+.sol-slot.drop-over, .sol-card.drop-over, .sol-col.drop-over > :last-child { outline: 3px solid var(--gold); outline-offset: 2px; border-radius: calc(var(--trick-w) * 0.1); }
 .sol-slot {
   width: var(--trick-w); height: var(--trick-h); border-radius: calc(var(--trick-w) * 0.1);
   border: 2px dashed rgba(255, 255, 255, 0.22); display: grid; place-items: center; box-sizing: border-box;
@@ -1091,6 +1110,8 @@ button.cross-pile.can::after {
 .board-blocks .tone-gold { color: #9a6f00; } .board-blocks .tone-dark { color: #1d1a16; } .board-blocks .tone-light { color: #fffdf8; }
 @media (prefers-reduced-motion: no-preference) {
   .board-grid .piece { animation: piece-in 220ms var(--ease-back); }
+  /* A piece that slides from cell to cell is the same piece arriving, not a new one dropping in. */
+  .board-grid .piece.slides { animation: none; }
   .board-grid .cell.mark-win .piece { animation: piece-win 900ms ease-in-out 2; }
   .board-blocks .block.closed { animation: piece-in 260ms var(--ease-back); }
 }
@@ -1112,6 +1133,34 @@ html[data-motion="off"] .board-grid .piece, html[data-motion="off"] .board-block
 /* The end of a board game leaves the board in view: the sheet sits at the bottom, not over it. */
 .sheet.board-over { top: auto; bottom: max(12px, env(safe-area-inset-bottom)); }
 
+/* Picking a piece up and moving it (checkers, chess): it can be dragged, so a press on it mustn't
+   scroll the page, and while it is in the air it rides above the other cells. */
+.board-grid .piece { pointer-events: none; transition: opacity 200ms ease; }
+.board-grid .cell.source { cursor: grab; touch-action: none; }
+.board-grid .cell.dragging { z-index: 6; cursor: grabbing; }
+.board-grid .cell.dragging .piece { scale: 1.12; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, 0.45)); }
+/* A piece that has to move (a capture that must be taken): a ring round it. */
+.board-grid .cell.mark-must::before { content: ""; position: absolute; inset: 4%; border-radius: 50%; border: max(2px, 0.7cqw) solid #ffe27a; box-shadow: 0 0 max(4px, 1.2cqw) rgba(255, 226, 122, 0.9); pointer-events: none; }
+@media (prefers-reduced-motion: no-preference) { .board-grid .cell.mark-must::before { animation: must-pulse 1.4s ease-in-out infinite; } }
+html[data-motion="off"] .board-grid .cell.mark-must::before { animation: none; }
+@keyframes must-pulse { 50% { opacity: 0.45; } }
+/* On a dark square the places a piece can go need a lighter dot than on cream. */
+.board-grid .cell.shade-dark.target::after { background: rgba(255, 244, 214, 0.8); }
+.board-grid .cell.shade-dark.target:has(.piece)::after { background: none; border-color: rgba(255, 244, 214, 0.85); }
+
+/* Checkers: men are discs in the two colours, and a king wears a crown and a gold rim. */
+/* Its table has more under the board (what must be taken, what happened, what each side has captured), so the board leaves more room. */
+.board-checkers .board-wrap { width: min(100%, var(--board-max), max(220px, calc((100dvh - 410px) * var(--cols) / var(--rows)))); }
+.board-checkers .piece { border-radius: 50%; }
+.board-checkers .piece.tone-dark { background: radial-gradient(circle at 50% 38%, #4a4038, #1f1a16 68%); color: #e8c46a; text-shadow: none; }
+.board-checkers .piece.tone-light { background: radial-gradient(circle at 50% 38%, #fffaf0, #e2d2b0 70%); color: #8a5d00; text-shadow: none; }
+.board-checkers .piece.kind-man { color: transparent; }
+.board-checkers .board-grid .piece {
+  width: 80%; aspect-ratio: 1; font-size: 0.78em;
+  box-shadow: 0 max(2px, 0.5cqw) 0 rgba(0, 0, 0, 0.5), inset 0 0 0 max(1px, 0.35cqw) rgba(0, 0, 0, 0.35), inset 0 0 0 max(3px, 1.1cqw) rgba(255, 255, 255, 0.12);
+}
+.board-checkers .board-grid .piece.kind-king { box-shadow: 0 max(2px, 0.5cqw) 0 rgba(0, 0, 0, 0.5), 0 max(4px, 1cqw) 0 rgba(0, 0, 0, 0.3), inset 0 0 0 max(2px, 0.6cqw) #e8c46a; }
+.board-checkers .piece.small { border-radius: 50%; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4); font-size: 0.7em; }
 /* ---- The table sports' shared table (Mini Golf…) -----------------------------------------------
    A canvas in the middle that takes all the room there is: the table screen fits the hole inside
    it and centres it. The other players sit above, the aim controls and your seat below. */
@@ -1186,3 +1235,79 @@ html[data-motion="off"] .board-grid .piece, html[data-motion="off"] .board-block
 .turn-clock.pulse { animation: clock-pulse 1s ease-in-out infinite; }
 @keyframes clock-pulse { 50% { transform: translate(-70%, -45%) scale(1.12); } }
 @media (prefers-reduced-motion: reduce) { .turn-clock.pulse { animation: none; } }
+
+/* The table's deck in the lobby: the choice, and three of its cards. */
+.deck-choice { display: flex; align-items: flex-end; gap: 12px; }
+.deck-choice > :first-child { flex: 1; min-width: 0; }
+.deck-preview { display: inline-flex; gap: 4px; flex: none; }
+.deck-line { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 0; color: var(--cream); }
+/* Report a problem: a small bug in the corner of every screen, and its sheet above everything. */
+.report-toggle {
+  position: fixed; left: max(8px, env(safe-area-inset-left)); bottom: max(8px, env(safe-area-inset-bottom)); z-index: 30;
+  width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%;
+  background: rgba(0, 0, 0, 0.3); color: var(--cream); font-size: 1rem; line-height: 1; opacity: 0.7;
+}
+.report-toggle:hover, .report-toggle:focus-visible { opacity: 1; }
+.report-toggle:disabled { cursor: progress; }
+/* At a table on a phone the corners are cards: there, it's a line under the table's ⚙︎ instead. */
+@media (max-width: 1023px) { body:has(main.table) .report-toggle { display: none; } }
+.sheet .report-link { color: var(--felt); align-self: flex-start; text-align: left; }
+.report-backdrop { z-index: 60; background: rgba(0, 0, 0, 0.5); }
+.sheet.report-sheet {
+  z-index: 61; top: 50%; transform: translate(-50%, -50%); max-height: calc(100dvh - 24px); overflow-y: auto; overscroll-behavior: contain;
+  /* zubra-ui's switches, on cream */
+  --card: #fffdf7; --primary: var(--felt); --foreground: var(--ink);
+}
+.report-form { display: flex; flex-direction: column; gap: 12px; }
+.report-words { display: flex; flex-direction: column; gap: 6px; font-weight: 600; }
+.report-words small { font-weight: 400; color: var(--muted); }
+.report-words textarea { font: inherit; font-weight: 400; padding: 10px 12px; border-radius: 10px; border: 1px solid #c9bfa8; background: #fffdf7; color: var(--ink); resize: vertical; min-height: 4.5em; }
+.report-words textarea:focus-visible { outline: 2px solid var(--felt); outline-offset: 1px; }
+.report-choice { display: flex; flex-direction: column; gap: 8px; }
+.report-shot { display: block; max-width: 100%; max-height: 180px; margin: 0 auto; border-radius: 8px; border: 1px solid #c9bfa8; object-fit: contain; }
+.report-details { font-size: 0.85rem; color: var(--muted); }
+.report-details summary { cursor: pointer; text-decoration: underline; }
+.report-details dl { margin: 6px 0 0; display: flex; flex-direction: column; gap: 4px; }
+.report-details dl div { display: flex; gap: 8px; }
+.report-details dt { flex: none; width: 9.5em; font-weight: 600; }
+.report-details dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.sheet.report-sheet .fine { text-align: left; color: var(--muted); }
+.sheet.report-sheet .error { color: var(--red); }
+.sheet.report-sheet a { color: var(--felt); }
+.report-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.report-actions .primary, .report-actions .secondary { padding: 10px 18px; font-size: 1rem; }
+.setup.crashed { justify-content: center; gap: 12px; }
+@media (prefers-reduced-motion: reduce) { .sheet.report-sheet { animation: none; } }
+/* ---- Your hand, your way: the sort bar, and dragging cards into your own order ---- */
+.hand-sort { display: flex; justify-content: center; align-items: center; gap: 8px; margin: 0 0 2px; position: relative; z-index: 2; }
+.hand-sort-group { display: flex; border-radius: 999px; background: rgba(0, 0, 0, 0.3); padding: 2px; }
+.hand-sort button {
+  min-height: 32px;
+  padding: 0 0.85em;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: #cfe2d6;
+  font: inherit;
+  font-weight: 600;
+  font-size: calc(var(--ui-s) * 0.95);
+  line-height: 1;
+  white-space: nowrap;
+  touch-action: manipulation;
+}
+.hand-sort button[aria-pressed="true"] { background: var(--gold); color: var(--ink); }
+.hand-sort-dir { background: rgba(0, 0, 0, 0.3) !important; font-variant-numeric: tabular-nums; }
+.hand-sort button:disabled { opacity: 0.45; }
+.hand-sort button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.hand.sortable { user-select: none; -webkit-user-select: none; }
+.hand.sortable > playing-card { -webkit-touch-callout: none; }
+/* A hand that fits is dragged sideways at once (the page still scrolls up and down); one that
+   scrolls sideways keeps its scroll, and a card is picked up by holding it. */
+.hand.sortable:not([data-scrolls]) { touch-action: pan-y; }
+.hand[data-rearranging] > playing-card { transition: translate 140ms var(--ease-out); }
+.hand[data-rearranging] > playing-card[data-dragging] { transition: none; z-index: 3; cursor: grabbing; filter: drop-shadow(0 10px 12px rgba(0, 0, 0, 0.35)); }
+html[data-motion="off"] .hand[data-rearranging] > playing-card { transition: none; }
+/* Palace has no badge row above the hand: keep the bar clear of the chat button. */
+.palace .me:has(.chat-toggle) > .hand-sort { padding-left: 52px; }
+@media (max-width: 380px) { .hand-sort { gap: 4px; } .hand-sort button { padding: 0 0.65em; } }
