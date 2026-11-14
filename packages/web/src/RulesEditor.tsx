@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { loadSameRules, saveSameRules } from "./storage";
 import type { RulePreset } from "@spades/rules";
 import SelectField from "@spades/ui/zubra-ui/select-field.zb";
 import ToggleSwitch from "@spades/ui/zubra-ui/toggle-switch.zb";
@@ -142,6 +144,22 @@ export function Choice(props: { label: string; value: string | number; options: 
       value={String(props.value)}
       options={props.options.map(([value, label]) => ({ value, label }))}
       onValueChange={(e: CustomEvent<string>) => props.onChange(e.detail)}
+    />
+  );
+}
+
+/** Under "Find players": whether any table for the game will do, or only one set up exactly like yours. */
+export function SameRulesToggle() {
+  const [only, setOnly] = useState(loadSameRules);
+  return (
+    <Toggle
+      label="Only tables with my rules"
+      description={only ? "Find players waits for a table set up exactly like this one." : "Find players takes any open table for this game, your rules first."}
+      checked={only}
+      onChange={(v) => {
+        saveSameRules(v);
+        setOnly(v);
+      }}
     />
   );
 }

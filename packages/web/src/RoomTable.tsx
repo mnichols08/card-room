@@ -4,6 +4,7 @@ import type { RoomDoc } from "@spades/rooms/server";
 import { cleanSettings, personaFor, pickPersonas, type Seat, type SeatView, type TableSettings } from "@spades/rules";
 import TextField from "@spades/ui/zubra-ui/text-field.zb";
 import { useEffect, useMemo, useState } from "react";
+import { lobby } from "./lobbyApi";
 import { loadSavedName, saveName, saveTableSettings } from "./storage";
 import { Table } from "./Table";
 import { useTable, type Move } from "./useTable";
@@ -63,6 +64,36 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
     if (mySeat === null) return;
     return room.onView(mySeat, (doc) => setView(doc.view));
   }, [room, mySeat]);
+
+  // At an open table, waiting: keep telling the lobby you're still here, or it frees your seat for
+  // someone else. A phone that slept may have lost its seat, so look again when the page comes back.
+  const waiting = Boolean(doc?.open) && !doc?.started && mySeat !== null;
+  useEffect(() => {
+    if (!waiting) return;
+    const here = () => {
+      if (document.visibilityState === "hidden") return;
+      lobby.here(id).catch(() => undefined);
+    };
+    const back = () => {
+      if (document.visibilityState === "hidden") return;
+      room.info().then((info) => {
+        if (info.seat !== null || info.started) return void here();
+        setMySeat(null);
+        setProblem("You were away a while, so your seat was freed for someone else. Sit back down if one's still open.");
+      }, () => undefined);
+    };
+    // Closing the tab gives the seat back straight away, rather than after the lobby notices the quiet.
+    const gone = () => navigator.sendBeacon?.(`/rooms/${encodeURIComponent(id)}/stand`);
+    here();
+    const timer = setInterval(here, 20_000);
+    document.addEventListener("visibilitychange", back);
+    addEventListener("pagehide", gone);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", back);
+      removeEventListener("pagehide", gone);
+    };
+  }, [room, id, waiting]);
 
   if (missing) {
     return (
@@ -138,7 +169,12 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
     return online(<PlayingTable room={room as unknown as SpadesRoom} view={view as SeatView} seat={mySeat} names={names} onLeave={onLeave} code={id} chat={chat} settings={tableSettings} />);
   }
 
-  return <Lobby room={room} doc={doc} mySeat={mySeat} onSat={setMySeat} problem={problem} setProblem={setProblem} onLeave={onLeave} chat={chat} settings={tableSettings} />;
+  // Leaving an open table before the deal gives the seat back, so nobody waits on an empty chair.
+  const leave = () => {
+    if (waiting) void room.stand().catch(() => undefined);
+    onLeave();
+  };
+  return <Lobby room={room} doc={doc} mySeat={mySeat} onSat={setMySeat} problem={problem} setProblem={setProblem} onLeave={leave} chat={chat} settings={tableSettings} />;
 }
 
 function PlayingTable(props: {
@@ -221,6 +257,7 @@ function Lobby(props: {
         </div>
         <h1>{doc.label ?? `${about.name} · Table ${room.id}`}</h1>
         <p>
+          {doc.open && !doc.started ? "An open table: anyone in the card room can take a seat, and it deals as soon as every seat is taken. " : ""}
           {doc.started ? "This game has started." : doc.locked ? (mySeat !== null ? "Your tournament match. Deal when you're ready; the game waits for whoever's turn it is." : "A tournament match. The seats are set.") : game === "palace" ? "First one out wins. Fill empty seats with bots." : partners ? "Partners sit across from each other." : `${about.blurb}. Fill empty seats with bots.`}
           {info?.rules ? ` ${info.rules}.` : ""}
         </p>
@@ -300,9 +337,14 @@ function Lobby(props: {
               {copied ? "Link copied" : "Invite people"}
             </button>
           )}
+          {mySeat !== null && !doc.locked && doc.seats.length > 1 && !full && (
+            <button type="button" className="secondary" aria-pressed={Boolean(doc.open)} onClick={() => attempt(() => lobby.setOpen(room.id, !doc.open))}>
+              {doc.open ? "Close the table (invited people only)" : "Open the table to everyone"}
+            </button>
+          )}
           {mySeat !== null && (
             <button type="button" className="primary deal" disabled={!full} onClick={() => attempt(() => room.start())}>
-              {full ? "Deal" : "Waiting for every seat"}
+              {full ? "Deal" : doc.open ? "Waiting for players…" : "Waiting for every seat"}
             </button>
           )}
         </>

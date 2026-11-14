@@ -1,8 +1,9 @@
 // The Card Room's start page: the Vue game chooser, mounted inside the React app.
 import { KIT_GAMES } from "@cardroom/games";
-import { createApp, reactive } from "vue";
+import { createApp, h, reactive } from "vue";
 import { useEffect, useRef } from "react";
 import { GAME_LIST } from "../GamePicker";
+import { lobby, whoIsThere, type OpenTable } from "../lobbyApi";
 import { loadMyHouses, loadName, type GameId } from "../storage";
 import GameChooser from "./GameChooser.vue";
 
@@ -64,10 +65,13 @@ const SEATS: Record<string, { seats: [number, number]; teams: boolean }> = {
   ...Object.fromEntries(KIT_GAMES.map((g) => [g.id, { seats: [g.seats.min, g.seats.max] as [number, number], teams: g.teams }])),
 };
 
-export function Home({ last, onPick, onOpenHouse }: { last: GameId | null; onPick: (game: GameId) => void; onOpenHouse: (slug: string) => void }) {
+/** An open table as the front page shows it: one line. */
+const brief = (t: OpenTable) => ({ id: t.id, game: t.game, who: whoIsThere(t), free: t.free });
+
+export function Home({ last, onPick, onOpenHouse, onLobby }: { last: GameId | null; onPick: (game: GameId) => void; onOpenHouse: (slug: string) => void; onLobby: () => void }) {
   const el = useRef<HTMLDivElement>(null);
-  const handlers = useRef({ onPick, onOpenHouse });
-  handlers.current = { onPick, onOpenHouse };
+  const handlers = useRef({ onPick, onOpenHouse, onLobby });
+  handlers.current = { onPick, onOpenHouse, onLobby };
 
   useEffect(() => {
     const props = reactive({
@@ -77,10 +81,25 @@ export function Home({ last, onPick, onOpenHouse }: { last: GameId | null; onPic
       name: loadName(),
       onPick: (id: string) => handlers.current.onPick(id as GameId),
       onHouse: (slug: string) => handlers.current.onOpenHouse(slug),
+      // Tables waiting for players, kept fresh while the page is in front.
+      open: [] as ReturnType<typeof brief>[],
+      onLobby: () => handlers.current.onLobby(),
     });
-    const app = createApp(GameChooser, props);
+    // Rendered from the reactive props, so the chooser follows them when the open tables change.
+    const app = createApp({ render: () => h(GameChooser, { ...props }) });
     app.mount(el.current!);
-    return () => app.unmount();
+    const load = () => {
+      if (document.visibilityState === "hidden") return;
+      lobby.list().then((tables) => (props.open = tables.map(brief)), () => undefined);
+    };
+    load();
+    const timer = setInterval(load, 8000);
+    document.addEventListener("visibilitychange", load);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", load);
+      app.unmount();
+    };
   }, []);
 
   return <main className="home" ref={el} />;

@@ -74,6 +74,22 @@ before the end.
   "A day" is for games played a move at a time over a week.
 - Practice games on your own device have no timer: nobody is waiting on you.
 
+## Finding people to play with
+
+A family table is private: only people with its link can sit down. Two things make a table public.
+
+- **Find players**, on any game's setup screen, seats you at an open table that's waiting for that
+  game (tables with your rules first, then whichever has waited longest). If nobody's waiting, it
+  opens a table with your rules and you wait there. Turn on **Only tables with my rules** and it
+  takes a seat only where the rules and the table size are exactly yours. Anyone seated at a family
+  table can also open it to everyone, or close it again.
+- **Open tables**, from the front page, lists every table that's waiting, whatever the game: who's
+  there, how many seats are left, the rules, and how long it's waited. Jump into any of them.
+
+An open table deals itself when its last seat is taken (add bots if you're tired of waiting).
+Leaving before the deal gives your seat back, and a seat whose player has gone quiet for a minute
+and a half is freed, so the list only shows tables somebody is really waiting at.
+
 ## Packages
 
 | Package | |
@@ -83,7 +99,7 @@ before the end.
 | [`packages/palace`](packages/palace) | Palace rules engine: house-rule presets, seat views, bots and table talk |
 | [`packages/physics`](packages/physics) | A small deterministic 2D physics core for the ball games to come: the same shot gives the same table on the server and in every browser |
 | [`packages/rooms`](packages/rooms) | Turn-based rooms over `@zubra/sync`: seats, server-decided moves, private views, bots |
-| [`packages/server`](packages/server) | The server: every game's rooms, houses, challenges, tournaments, the sync log and the web app |
+| [`packages/server`](packages/server) | The server: every game's rooms, houses, challenges, tournaments, the lobby, the sync log and the web app |
 | [`packages/web`](packages/web) | The app (React, with the game chooser in Vue): tables, setup screens, houses, practice |
 | [`packages/ui`](packages/ui) | Table components in Zubra (cards, seats, fields), and the `<card-room>` embed |
 

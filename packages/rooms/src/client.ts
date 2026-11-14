@@ -149,6 +149,8 @@ export function openRoom<View = unknown, Move = unknown, Summary = unknown>(id: 
     /** Change the table's settings (anyone seated, mid-game too). */
     settings: (settings: unknown) => post("settings", { settings }),
     removeBot: (seat: number) => post("bot", { seat, add: false }),
+    /** Give up your seat, before the game starts. */
+    stand: () => post("stand"),
     start: () => post("start"),
     act: (move: Move) => post("act", { move }),
     /** Pull now, instead of waiting for the live stream. */
