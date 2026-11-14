@@ -1,6 +1,6 @@
 # Card Room
 
-Family card games online: twenty-four games with house rules saved as presets, family **houses** with
+Family card games online: twenty-six games with house rules saved as presets, family **houses** with
 their own tables, leaderboards and tournaments, computer players with personalities, challenge
 links, and a widget that puts a game on any site, including [open.blog](https://github.com/journey-to-code-org/open.blog) ones.
 
@@ -9,7 +9,7 @@ yourself (Docker or Railway), and practice games work anywhere, including the Gi
 
 ## The games
 
-Spades and Palace have tables of their own; the other twenty-two are built on a shared game kit
+Spades and Palace have tables of their own; the other twenty-four are built on a shared game kit
 (`packages/games`), so they all get the same table, setup screen, house rules editor, computer
 players, houses, challenges and tournaments.
 
@@ -35,6 +35,8 @@ players, houses, challenges and tournaments.
 | War | 2 to 4 | Flip, and the highest card takes all |
 | Five Card Draw | 2 to 6 | Poker for chips: bet, swap, bet, show |
 | Texas Hold'em | 2 to 6 | Two cards, five on the board, chips only |
+| Bluff (Cheat) | 2 to 6 | Say what you're putting down, true or not |
+| Liar's Poker | 2 to 6 | Bid poker hands hiding in everyone's cards |
 | Klondike Solitaire | 1 | The classic solitaire |
 | FreeCell | 1 | Solitaire where every card is face up, with numbered deals |
 
@@ -45,7 +47,7 @@ score.
 
 | Package | |
 | --- | --- |
-| [`packages/games`](packages/games) | The game kit (`kit.ts`: the `CardGame` contract, cards, decks, views) and the twenty-two games built on it |
+| [`packages/games`](packages/games) | The game kit (`kit.ts`: the `CardGame` contract, cards, decks, views) and the twenty-four games built on it |
 | [`packages/rules`](packages/rules) | Spades rules engine, bots, and the personas who play every game |
 | [`packages/palace`](packages/palace) | Palace rules engine: house-rule presets, seat views, bots and table talk |
 | [`packages/rooms`](packages/rooms) | Turn-based rooms over `@zubra/sync`: seats, server-decided moves, private views, bots |
