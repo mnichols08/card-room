@@ -8,6 +8,9 @@
 // player cookie, the chat, or a table's link (a table's link is its invitation). Which table it was is
 // kept here, beside the issue's number, for whoever runs the server.
 //
+// "Ask for a game" (the front page's footer) comes the same way: a game's name and a note become an
+// issue labelled "game request", or a comment on the open request for that game.
+//
 // GitHub's API can't take a picture with an issue, so a screenshot is kept here and the issue links
 // to it. Only the newest few are kept.
 //
@@ -47,6 +50,11 @@ export const DESCRIPTION_LIMIT = 2000;
 export const SHOT_LIMIT = 600_000;
 /** The biggest report the server reads at all: a screenshot as base64, and the rest. */
 export const REPORT_LIMIT = 1_000_000;
+export const GAME_NAME_LIMIT = 60;
+export const NOTE_LIMIT = 600;
+const GAME_LABEL = "game request";
+/** A game's name as two requests for it would share it: "Mah-Jongg!" and "mah jongg" are one game. */
+const sameGame = (name: string) => name.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
 const SHOTS_KEPT = 30;
 const ERRORS_KEPT = 10;
 
@@ -198,6 +206,62 @@ export function createBugs(rooms: Rooms, options: BugOptions = {}) {
     ];
   }
 
+  type Issue = { number?: number; html_url?: string; title?: string; pull_request?: unknown };
+  /** Ask GitHub's API about the repository; null when it can't be reached or says no. */
+  async function github<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T | null> {
+    try {
+      const response = await send(`https://api.github.com/repos/${repo}${path}`, {
+        method,
+        headers: {
+          authorization: `Bearer ${token}`,
+          accept: "application/vnd.github+json",
+          "x-github-api-version": "2022-11-28",
+          "content-type": "application/json",
+          "user-agent": "card-room",
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (response.ok) return (await response.json()) as T;
+      console.error(`bugs: GitHub answered ${response.status} to ${method} ${path} on ${repo}`, (await response.text().catch(() => "")).slice(0, 300));
+    } catch (e) {
+      console.error("bugs: couldn't reach GitHub", e);
+    }
+    return null;
+  }
+  const urlOf = (issue: Issue) => issue.html_url ?? `https://github.com/${repo}/issues/${issue.number}`;
+
+  /**
+   * "Ask for a game": the front page's footer. A game someone has already asked for (and that's still
+   * open) gets a comment, not a second issue, so the issue's comments count how many want it.
+   */
+  async function askForGame(request: Request): Promise<Response> {
+    if (!enabled) return json({ error: "This card room can't take requests yet." }, 503);
+    const who = playerOf(request) ?? `ip:${request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown"}`;
+    const wait = tooMany(who);
+    if (wait) return json({ error: wait.replace("reports", "requests") }, 429);
+
+    const input = ((await request.json().catch(() => ({}))) ?? {}) as Record<string, unknown>;
+    const game = line(input.game, GAME_NAME_LIMIT);
+    const note = lines(input.note, NOTE_LIMIT);
+    if (sameGame(game).length < 2) return json({ error: "Which game would you like?" }, 400);
+
+    const asked = (await github<Issue[]>("GET", `/issues?state=open&labels=${encodeURIComponent(GAME_LABEL)}&per_page=100`)) ?? [];
+    const already = asked.find((i) => !i.pull_request && typeof i.number === "number" && sameGame((i.title ?? "").replace(/^Game request:/i, "")) === sameGame(game));
+    const sent = `_Sent from inside Card Room with “Ask for a game”, ${new Date(now()).toISOString().slice(0, 10)}._`;
+    if (already) {
+      const said = await github<{ id?: number }>("POST", `/issues/${already.number}/comments`, { body: ["Another player asked for this.", ...(note ? ["", quote(note)] : []), "", sent].join("\n") });
+      if (!said) return json({ error: "The request couldn't be sent just now. Try again in a minute." }, 502);
+      count(who);
+      return json({ ok: true, number: already.number, url: urlOf(already), again: true }, 201);
+    }
+    const body = [`A player asked for **${plain(game)}**.`, "", note ? quote(note) : "_They didn't add a note._", "", sent].join("\n");
+    const issue = await github<Issue>("POST", "/issues", { title: `Game request: ${plain(game)}`, body, labels: ["enhancement", GAME_LABEL] });
+    if (!issue || typeof issue.number !== "number") return json({ error: "The request couldn't be sent just now. Try again in a minute." }, 502);
+    count(who);
+    return json({ ok: true, number: issue.number, url: urlOf(issue), again: false }, 201);
+  }
+
   async function report(request: Request): Promise<Response> {
     if (!enabled) return json({ error: "This card room can't take reports yet." }, 503);
     if (Number(request.headers.get("content-length") ?? 0) > REPORT_LIMIT) return json({ error: "That report is too big to send." }, 413);
@@ -242,32 +306,14 @@ export function createBugs(rooms: Rooms, options: BugOptions = {}) {
       `_Sent from inside Card Room with “Report a problem”.${shot ? "" : " No screenshot."}${browser ? "" : " The player chose not to share browser details."}_`,
     ].join("\n");
 
-    let issue: { number?: number; html_url?: string } | null = null;
-    try {
-      const response = await send(`https://api.github.com/repos/${repo}/issues`, {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${token}`,
-          accept: "application/vnd.github+json",
-          "x-github-api-version": "2022-11-28",
-          "content-type": "application/json",
-          "user-agent": "card-room",
-        },
-        body: JSON.stringify({ title: plain(title), body, labels: ["bug", "player report"] }),
-        signal: AbortSignal.timeout(15_000),
-      });
-      if (response.ok) issue = (await response.json()) as { number?: number; html_url?: string };
-      else console.error(`bugs: GitHub answered ${response.status} opening an issue on ${repo}`, (await response.text().catch(() => "")).slice(0, 300));
-    } catch (e) {
-      console.error("bugs: couldn't reach GitHub", e);
-    }
+    const issue = await github<Issue>("POST", "/issues", { title: plain(title), body, labels: ["bug", "player report"] });
     if (!issue || typeof issue.number !== "number") {
       if (shotId) await drop(shotId);
       return json({ error: "The report couldn't be sent just now. Try again in a minute." }, 502);
     }
     count(who);
     if (table) await rooms.sync.write("bugs", "reports", { [`n${issue.number}`]: { table, at: now() } });
-    return json({ ok: true, number: issue.number, url: issue.html_url ?? `https://github.com/${repo}/issues/${issue.number}` }, 201);
+    return json({ ok: true, number: issue.number, url: urlOf(issue) }, 201);
   }
 
   return {
@@ -281,6 +327,8 @@ export function createBugs(rooms: Rooms, options: BugOptions = {}) {
       if (action === "config" && request.method === "GET") return json({ enabled });
       // POST /bugs { description?, screen?, game?, table?, built?, errors?, browser?, screenshot? } → { number, url }
       if (action === "" && request.method === "POST") return report(request);
+      // POST /bugs/game { game, note? } → { number, url, again }: ask for a game the card room doesn't have
+      if (action === "game" && request.method === "POST") return askForGame(request);
       // GET /bugs/shots/<id>.jpg → a screenshot an issue links to
       const shot = action.match(/^shots\/([a-z0-9]{20})\.jpg$/);
       if (shot && request.method === "GET") {
