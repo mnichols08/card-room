@@ -52,6 +52,13 @@ const fits = (g: ChooserGame) => {
   return n >= 5 ? g.seats[1] >= 5 : g.seats[0] <= n && n <= g.seats[1];
 };
 const shown = computed(() => props.games.filter(fits));
+/** "Surprise me": any game that fits who's playing, other than the one played last when there's a choice. */
+function surprise() {
+  const fresh = shown.value.filter((g) => g.id !== props.last);
+  const from = fresh.length ? fresh : shown.value;
+  const game = from[Math.floor(Math.random() * from.length)];
+  if (game) emit("pick", game.id);
+}
 const seatsLabel = (g: ChooserGame) => (g.teams ? "4 players · partners" : g.seats[0] === g.seats[1] ? `${g.seats[0]} players` : `${g.seats[0]}–${g.seats[1]} players`);
 const hello = computed(() => (props.name ? `Welcome back, ${props.name}.` : "Spades, Palace, Hearts and more, with the family."));
 </script>
@@ -97,8 +104,11 @@ const hello = computed(() => (props.name ? `Welcome back, ${props.name}.` : "Spa
     <section class="games" aria-label="Games">
       <div class="games-head">
         <h2>Pick a game</h2>
-        <div class="filter">
-          <SelectField v-model="players" label="Who's playing?" :options="sizes" />
+        <div class="choosing">
+          <div class="filter">
+            <SelectField v-model="players" label="Who's playing?" :options="sizes" />
+          </div>
+          <button type="button" class="house surprise" :disabled="!shown.length" @click="surprise"><span aria-hidden="true">🎲</span> Surprise me</button>
         </div>
       </div>
       <ul class="grid">
@@ -182,6 +192,9 @@ h2 { margin: 0; font-size: clamp(1.3rem, 2vw, 1.7rem); color: var(--gold); }
 
 .games-head { display: flex; align-items: end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .filter { min-width: 220px; --background: var(--cream); --foreground: var(--ink); --border: rgba(255, 255, 255, 0.18); --muted-foreground: #cfe2d6; --ring: var(--gold); }
+.choosing { display: flex; align-items: end; gap: 12px; flex-wrap: wrap; }
+.surprise { white-space: nowrap; }
+.surprise:disabled { opacity: 0.45; cursor: default; }
 .grid { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: clamp(12px, 1.6vw, 20px); grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); }
 @media (max-width: 560px) { .grid { grid-template-columns: 1fr 1fr; } }
 
