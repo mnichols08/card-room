@@ -123,7 +123,7 @@ export function KitTable({
   );
   const spots = seatAround(others);
   const myTurn =
-    view.turn === me || (view.turn === null && (!!view.pick || !!view.choices));
+    view.turn === me || (view.turn === null && (!!view.pick || !!view.choices || !!view.tap));
   const breathe = useFlash(view.turn === me, 700, false) && view.turn === me;
 
   // A pick starts empty whenever what's being picked changes.
@@ -209,6 +209,8 @@ export function KitTable({
     </span>
   ) : view.turn === null && (view.pick || view.gridTap) ? (
     <span className="mine">{view.pick?.prompt ?? view.gridTap?.prompt}</span>
+  ) : view.turn === null && view.tap ? (
+    <span className="mine">Play, quick!</span>
   ) : view.turn !== null ? (
     `${names[view.turn] ?? "Someone"} is thinking…`
   ) : view.result ? null : (
