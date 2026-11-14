@@ -1,5 +1,5 @@
 // The Card Room's start page: the Vue game chooser, mounted inside the React app.
-import { isBoardGame, KIT_GAMES } from "@cardroom/games";
+import { isBoardGame, isSportGame, KIT_GAMES } from "@cardroom/games";
 import { createApp, h, reactive } from "vue";
 import { useEffect, useRef, useState } from "react";
 import { arranged, refreshCatalogue } from "../catalogue";
@@ -76,6 +76,13 @@ const BOARDS: Record<string, MiniBoard> = {
 };
 const EMPTY_BOARD: MiniBoard = { cols: 3, cells: Array(9).fill(null) };
 
+/** A table sport's tile shows a little table from above: its surface, a hole, a ball or two (in a 100 × 100 box). */
+type MiniTable = { surface: "green" | "felt" | "lane"; cup?: [x: number, y: number]; balls: { x: number; y: number; tone: string }[] };
+const TABLES: Record<string, MiniTable> = {
+  minigolf: { surface: "green", cup: [66, 32], balls: [{ x: 36, y: 72, tone: "white" }] },
+};
+const EMPTY_TABLE: MiniTable = { surface: "green", balls: [] };
+
 const SEATS: Record<string, { seats: [number, number]; teams: boolean }> = {
   spades: { seats: [4, 4], teams: true },
   palace: { seats: [2, 6], teams: false },
@@ -93,7 +100,7 @@ export function Home({ last, onPick, onOpenHouse, onLobby }: { last: GameId | nu
 
   useEffect(() => {
     // The games the card room's host offers, in their order (every game, where there's no server).
-    const games = () => arranged(GAME_LIST).map((g) => ({ ...g, ...(SEATS[g.id] ?? { seats: [2, 6], teams: false }), fan: FANS[g.id] ?? FANS.spades!, board: isBoardGame(g.id) ? (BOARDS[g.id] ?? EMPTY_BOARD) : undefined }));
+    const games = () => arranged(GAME_LIST).map((g) => ({ ...g, ...(SEATS[g.id] ?? { seats: [2, 6], teams: false }), fan: FANS[g.id] ?? FANS.spades!, board: isBoardGame(g.id) ? (BOARDS[g.id] ?? EMPTY_BOARD) : undefined, table: isSportGame(g.id) ? (TABLES[g.id] ?? EMPTY_TABLE) : undefined }));
     const props = reactive({
       games: games(),
       houses: loadMyHouses(),

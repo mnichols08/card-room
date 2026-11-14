@@ -1161,6 +1161,56 @@ html[data-motion="off"] .board-grid .cell.mark-must::before { animation: none; }
 }
 .board-checkers .board-grid .piece.kind-king { box-shadow: 0 max(2px, 0.5cqw) 0 rgba(0, 0, 0, 0.5), 0 max(4px, 1cqw) 0 rgba(0, 0, 0, 0.3), inset 0 0 0 max(2px, 0.6cqw) #e8c46a; }
 .board-checkers .piece.small { border-radius: 50%; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.4); font-size: 0.7em; }
+/* ---- The table sports' shared table (Mini Golf…) -----------------------------------------------
+   A canvas in the middle that takes all the room there is: the table screen fits the hole inside
+   it and centres it. The other players sit above, the aim controls and your seat below. */
+.sport-felt { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 8px 8px 10px; min-height: 0; }
+.sport .status { position: static; }
+.sport-top { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.sport-name { margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: var(--ui-l); color: var(--gold); text-align: center; }
+.sport-others { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px clamp(8px, 3vw, 32px); }
+.sport-seat { padding: 3px 10px; gap: 0; }
+.sport-seat strong { font-size: var(--ui-m); }
+.sport-seat span { font-size: calc(var(--ui-s) * 0.9); color: #cfe2d6; }
+.sport-seat.done { opacity: 0.75; }
+.sport-seat.row { align-items: center; gap: 10px; }
+.sport-dot { flex: none; width: 0.8em; height: 0.8em; border-radius: 50%; border: 1px solid rgba(0, 0, 0, 0.5); box-shadow: inset -1px -2px 2px rgba(0, 0, 0, 0.25); }
+/* The stage is the whole area you can pull on, not just the ball: a thumb can start anywhere. */
+.sport-stage { position: relative; flex: 1; min-height: 220px; border-radius: 12px; outline-offset: 2px; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.sport-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.sport-stage.can { cursor: grab; }
+.sport-stage.pulling { cursor: grabbing; }
+.sport-stage:focus-visible { outline: 3px solid var(--gold); }
+.sport-skip { position: absolute; right: 6px; bottom: 6px; padding: 8px 14px; border: 0; border-radius: 999px; background: rgba(0, 0, 0, 0.55); color: var(--cream); font: inherit; font-weight: 600; font-size: var(--ui-s); cursor: pointer; }
+.sport-skip:hover, .sport-skip:focus-visible { background: rgba(0, 0, 0, 0.75); }
+/* While you pull: how hard, as a bar up the side that fills and reddens. */
+.sport-meter { position: absolute; left: 6px; top: 12%; bottom: 12%; width: 12px; border-radius: 999px; background: rgba(0, 0, 0, 0.45); border: 2px solid rgba(255, 255, 255, 0.6); overflow: hidden; display: flex; align-items: flex-end; pointer-events: none; }
+.sport-meter span { display: block; width: 100%; border-radius: 999px; }
+.sport .center-info { gap: 4px; }
+.sport-controls { display: flex; flex-direction: column; gap: 6px; width: min(100%, 420px); }
+.sport-controls.idle { visibility: hidden; }
+.sport-row { display: flex; align-items: center; gap: 6px; }
+.sport-row button:not(.primary) { flex: none; min-width: 44px; height: 44px; border: 2px solid rgba(255, 255, 255, 0.35); border-radius: 12px; background: rgba(0, 0, 0, 0.28); color: var(--cream); font: inherit; font-size: 1.3rem; line-height: 1; cursor: pointer; }
+.sport-row button:not(.primary):hover, .sport-row button:not(.primary):focus-visible { border-color: var(--gold); }
+.sport-row input[type="range"] { flex: 1; min-width: 0; height: 44px; margin: 0; }
+.sport-aim { flex: 1; min-width: 0; text-align: center; font-size: var(--ui-s); color: #e3efe7; font-variant-numeric: tabular-nums; }
+.sport-go { flex: none; height: 44px; padding: 0 22px; margin: 0; }
+/* The sheets sit at the bottom so the green stays in view above them. */
+.sheet.sport-sheet { top: auto; bottom: max(12px, env(safe-area-inset-bottom)); max-height: calc(100dvh - 120px); overflow-y: auto; }
+.sheet.sport-card-sheet { z-index: 41; max-height: calc(100dvh - 112px); overflow-y: auto; }
+.sport-card { overflow-x: auto; }
+.sport-card caption { caption-side: top; text-align: left; font-family: Georgia, "Times New Roman", serif; font-size: 1.15rem; font-weight: 700; padding-bottom: 6px; color: var(--ink); }
+.sport-card .summary { font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+.sport-card .summary th, .sport-card .summary td { padding: 5px 3px; text-align: center; min-width: 1.5em; }
+.sport-card .summary th:first-child { text-align: left; max-width: 6.5em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sport-card .par th, .sport-card .par td { color: var(--muted); font-weight: 500; }
+.sport-card .now { background: rgba(232, 196, 106, 0.3); }
+.sport-card .mine th, .sport-card .mine td { font-weight: 700; color: var(--felt); }
+.sport-card .sum { font-weight: 700; font-family: Georgia, serif; }
+.sport .bubble.top { top: 130px; }
+.sport .bubble.bottom { bottom: 110px; }
+/* A wide screen has room to spare: keep the table from sprawling. */
+@media (min-width: 900px) { .sport-stage { min-height: 320px; } }
 
 /* ---------- Turn clock: the time left on a seat, at an online table with a turn timer ---------- */
 .turn-clock {

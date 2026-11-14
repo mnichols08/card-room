@@ -1,5 +1,5 @@
 // Every game on the kit, by id. Adding a game: write its engine and list it here, with the card
-// games or with the board games.
+// games, the board games or the table sports.
 import { hearts } from "./hearts.js";
 import { ohHell } from "./ohhell.js";
 import { euchre } from "./euchre.js";
@@ -46,21 +46,26 @@ import { horseRace } from "./horserace.js";
 import { drinkingPyramid } from "./drinkingpyramid.js";
 import { ticTacToe } from "./tictactoe.js";
 import { checkers } from "./checkers.js";
+import { miniGolf } from "./minigolf.js";
 import type { BoardGame } from "./board.js";
+import type { SportGame } from "./sport.js";
 import type { CardGame } from "./kit.js";
-import type { BoardGameId, CardGameId, KitGameId, TableGame } from "./table.js";
+import type { BoardGameId, CardGameId, KitGameId, SportGameId, TableGame } from "./table.js";
 
 export const CARD_GAMES: CardGame<any, any, any>[] = [hearts, ohHell, euchre, crazy8, gin, pinochle, canasta, goFish, oldMaid, war, whist, golf, rummy500, president, klondike, freeCell, handFoot, cribbage, fiveDraw, holdem, bluff, liarsPoker, switchGame, thirtyOne, kingsCorner, blackjack, spite, pitch, fiveHundred, durak, bridge, fruitSalad, slapjack, speed, memory, sevens, cuckoo, contractRummy, spider, pyramid, rideTheBus, kingsCup, horseRace, drinkingPyramid];
 
 export const BOARD_GAMES: BoardGame<any, any, any>[] = [ticTacToe, checkers];
 
+export const SPORT_GAMES: SportGame<any, any, any>[] = [miniGolf];
+
 /**
- * Every game on the kit, cards and boards alike. Rooms, houses, challenges, tournaments, the setup
+ * Every game on the kit, cards, boards and table sports alike. Rooms, houses, challenges, tournaments, the setup
  * screen and practice go by this list: none of them care what the table looks like.
  */
-export const KIT_GAMES: TableGame<any, any, any, any>[] = [...CARD_GAMES, ...BOARD_GAMES];
+export const KIT_GAMES: TableGame<any, any, any, any>[] = [...CARD_GAMES, ...BOARD_GAMES, ...SPORT_GAMES];
 
 export const kitGame = (id: unknown): TableGame<any, any, any, any> | undefined => KIT_GAMES.find((g) => g.id === id);
 export const isKitGame = (id: unknown): id is KitGameId => KIT_GAMES.some((g) => g.id === id);
 export const isCardGame = (id: unknown): id is CardGameId => CARD_GAMES.some((g) => g.id === id);
 export const isBoardGame = (id: unknown): id is BoardGameId => BOARD_GAMES.some((g) => g.id === id);
+export const isSportGame = (id: unknown): id is SportGameId => SPORT_GAMES.some((g) => g.id === id);

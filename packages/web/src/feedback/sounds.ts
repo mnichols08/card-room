@@ -6,6 +6,10 @@ export type SoundName =
   | "deal"
   | "card"
   | "piece"
+  | "putt"
+  | "knock"
+  | "cup"
+  | "splash"
   | "bid"
   | "yourTurn"
   | "trickUs"
@@ -109,6 +113,29 @@ export const SOUNDS: Record<SoundName, Play> = {
     glide(ctx, out, t, 620 + Math.random() * 60, 300, { peak: 0.32, decay: 0.05, type: "triangle" });
     swish(ctx, out, t, { freq: 1700, q: 1.2, peak: 0.16, decay: 0.03 });
   },
+  /** A putter meeting a ball: a soft, short tock. */
+  putt: (ctx, out, t) => {
+    glide(ctx, out, t, 420 + Math.random() * 40, 210, { peak: 0.34, decay: 0.06, type: "sine" });
+    swish(ctx, out, t, { freq: 1300, q: 1.1, peak: 0.12, decay: 0.025 });
+  },
+  /** A ball off a wooden rail (or another ball): a brighter, shorter knock. */
+  knock: (ctx, out, t) => {
+    glide(ctx, out, t, 760 + Math.random() * 120, 420, { peak: 0.2, decay: 0.035, type: "triangle" });
+    swish(ctx, out, t, { freq: 2400, q: 1.4, peak: 0.08, decay: 0.02 });
+  },
+  /** A ball dropping into the cup: a hollow rattle, then a small bright note. */
+  cup: (ctx, out, t) => {
+    glide(ctx, out, t, 520, 240, { peak: 0.3, decay: 0.07, type: "triangle" });
+    glide(ctx, out, t + 0.07, 430, 200, { peak: 0.2, decay: 0.06, type: "triangle" });
+    glide(ctx, out, t + 0.13, 360, 170, { peak: 0.12, decay: 0.06, type: "triangle" });
+    bell(ctx, out, t + 0.2, N.G5, { peak: 0.1, decay: 0.45 });
+  },
+  /** A ball in the water: a plop and a wash of spray. */
+  splash: (ctx, out, t) => {
+    glide(ctx, out, t, 300, 90, { peak: 0.3, decay: 0.16 });
+    swish(ctx, out, t + 0.02, { freq: 1800, q: 0.5, peak: 0.22, decay: 0.3, type: "highpass" });
+    swish(ctx, out, t + 0.05, { freq: 700, q: 0.6, peak: 0.14, decay: 0.22, type: "lowpass" });
+  },
   /** A bid placed: a wooden tap. */
   bid: (ctx, out, t) => glide(ctx, out, t, 900, 600, { peak: 0.25, decay: 0.07, type: "triangle" }),
   /** Your turn: two gentle rising notes. */
@@ -171,6 +198,9 @@ export const SOUNDS: Record<SoundName, Play> = {
 /** Vibration patterns (ms), for phones that support the Vibration API (Android). */
 export const BUZZES: Partial<Record<SoundName, number | number[]>> = {
   yourTurn: [18, 60, 18],
+  putt: 12,
+  cup: [20, 50, 30],
+  splash: 40,
   trickUs: 25,
   spadesBroken: 45,
   nilMade: [20, 40, 20, 40, 20],
@@ -182,7 +212,7 @@ export const BUZZES: Partial<Record<SoundName, number | number[]>> = {
 
 /** How long each sound runs, for rendering them offline. */
 export const LENGTHS: Record<SoundName, number> = {
-  deal: 0.8, card: 0.2, piece: 0.15, bid: 0.15, yourTurn: 0.7, trickUs: 0.85, trickThem: 0.65, spadesBroken: 0.4,
+  deal: 0.8, card: 0.2, piece: 0.15, putt: 0.15, knock: 0.1, cup: 0.75, splash: 0.45, bid: 0.15, yourTurn: 0.7, trickUs: 0.85, trickThem: 0.65, spadesBroken: 0.4,
   nilMade: 0.9, set: 1.0, handDone: 1.3, won: 2.0, lost: 1.3, nope: 0.35, message: 0.15, hurry: 0.35,
 };
 
