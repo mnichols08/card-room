@@ -1,6 +1,6 @@
 # Card Room
 
-Family card games online: thirty-eight games with house rules saved as presets, family **houses** with
+Family card games online: forty-eight games with house rules saved as presets, family **houses** with
 their own tables, leaderboards and tournaments, computer players with personalities, challenge
 links, and a widget that puts a game on any site, including [open.blog](https://github.com/journey-to-code-org/open.blog) ones.
 
@@ -9,7 +9,7 @@ yourself (Docker or Railway), and practice games work anywhere, including the Gi
 
 ## The games
 
-Spades and Palace have tables of their own; the other thirty-six are built on a shared game kit
+Spades and Palace have tables of their own; the other forty-six are built on a shared game kit
 (`packages/games`), so they all get the same table, setup screen, house rules editor, computer
 players, houses, challenges and tournaments.
 
@@ -29,16 +29,20 @@ players, houses, challenges and tournaments.
 | Hand and Foot | 4, partners | Partners, books of seven, and a foot |
 | Gin Rummy | 2 | Two players, melds and knocking |
 | Rummy 500 | 2 to 6 | Melds, lay-offs and a pile to dig into |
+| Contract Rummy | 3 to 8 | Seven rounds, seven contracts to lay down |
 | Cribbage | 2 | Fifteen two, fifteen four, and a pair is six |
 | Crazy Eights | 2 to 6 | Match the card; eights are wild |
 | Switch (Last Card) | 2 to 6 | Uno's ancestor, with an ordinary deck |
 | Fruit Salad | 2 to 8 | Our own colour-card game: match the fruit |
 | Thirty-One | 2 to 8 | Three cards, one suit, as close to 31 as you dare |
 | Durak | 2 to 6 | Attack, defend, and don't be the fool |
+| Sevens | 3 to 7 | Build out from the 7s |
+| Cuckoo | 3 to 10 | One card each; don't get stuck with the lowest |
 | President | 3 to 7 | Climb from Scum to President |
 | Golf | 2 to 6 | Swap your way to the lowest score |
 | Go Fish | 2 to 6 | Ask for cards, make books |
 | Old Maid | 2 to 6 | Pairs, and don't get stuck with her |
+| Memory | 1 to 6 | Find the pairs (great for grandkids) |
 | War | 2 to 4 | Flip, and the highest card takes all |
 | Slapjack | 2 to 6 | Flip, and slap the jacks first |
 | Speed | 2 | No turns: play faster than the other player |
@@ -51,9 +55,19 @@ players, houses, challenges and tournaments.
 | Blackjack | 1 to 5 | Get closer to 21 than the dealer (chips only) |
 | Klondike Solitaire | 1 | The classic solitaire |
 | FreeCell | 1 | Solitaire where every card is face up, with numbered deals |
+| Spider | 1 | Two-deck solitaire: build runs from king to ace |
+| Pyramid | 1 | Solitaire: clear pairs that make 13 |
+| Ride the Bus 🍺 | 2 to 8 | Drinking game: guess, match, and don't ride the bus |
+| Kings Cup 🍺 | 2 to 10 | Drinking game: every card has a rule |
+| Horse Race 🍺 | 2 to 10 | Drinking game: bet sips on an ace |
+| Drinking Pyramid 🍺 | 2 to 8 | Drinking game: remember your cards, match, bluff |
 
 Poker and Blackjack are for chips only: everyone starts with the same stack, and the chips are
 just for keeping score.
+
+The 🍺 games are drinking games for adults (water counts). Party games (Thirty-One, President,
+Bluff, Liar's Poker, Durak, Slapjack, Sevens, Cuckoo) also have a drinking-mode house rule, off
+unless a table turns it on. Kids' games have none.
 
 ## The turn timer
 
@@ -94,7 +108,7 @@ and a half is freed, so the list only shows tables somebody is really waiting at
 
 | Package | |
 | --- | --- |
-| [`packages/games`](packages/games) | The game kit (`kit.ts`: the `CardGame` contract, cards, decks, views) and the thirty-six games built on it |
+| [`packages/games`](packages/games) | The game kit (`kit.ts`: the `CardGame` contract, cards, decks, views) and the forty-six games built on it |
 | [`packages/rules`](packages/rules) | Spades rules engine, bots, and the personas who play every game |
 | [`packages/palace`](packages/palace) | Palace rules engine: house-rule presets, seat views, bots and table talk |
 | [`packages/physics`](packages/physics) | A small deterministic 2D physics core for the ball games to come: the same shot gives the same table on the server and in every browser |
