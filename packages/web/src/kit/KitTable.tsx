@@ -626,11 +626,21 @@ function CenterArea({
         <div className="pyr-rows" aria-label="The pyramid">
           {center.rows.map((row, r) => (
             <div key={r} className="pyr-row">
-              {row.map((c, i) => (c ? one(c) : <span key={`gap-${r}-${i}`} className="pyr-gap" />))}
+              {row.map((c, i) =>
+                c === "back" ? (
+                  <span key={`back-${r}-${i}`} className="pyr-card">
+                    <PlayingCard back size="table" />
+                  </span>
+                ) : c ? (
+                  one(c)
+                ) : (
+                  <span key={`gap-${r}-${i}`} className="pyr-gap" />
+                ),
+              )}
             </div>
           ))}
         </div>
-        <div className="pyr-side">
+        {!center.noStock && <div className="pyr-side">
           {center.drawMove ? (
             <button type="button" className="pyr-card can" aria-label={center.stock ? `Turn a card (${center.stock} left)` : "Turn the pile over"} onClick={() => send(center.drawMove!)}>
               {center.stock ? <PlayingCard back size="table" /> : <span className="sol-slot again"><span>↻</span></span>}
@@ -640,7 +650,7 @@ function CenterArea({
           )}
           {center.waste ? one(center.waste) : <div className="sol-slot" />}
           <small>{center.stockLabel}</small>
-        </div>
+        </div>}
       </div>
     );
   }
