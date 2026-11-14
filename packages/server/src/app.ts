@@ -11,13 +11,14 @@ import { BLOCKED_MESSAGE, createModeration } from "./moderation.js";
 import { createHouses } from "./houses.js";
 import { createAi, type AiOptions } from "./ai.js";
 import { personaFor } from "@spades/rules";
+import { createBugs, REPORT_LIMIT, type BugOptions } from "./bugs.js";
 import { createLobby, type LobbyOptions } from "./lobby.js";
 import { createPush, type PushOptions } from "./push.js";
 import { playerOf } from "@spades/rooms/server";
 import { gameName, gameOfOptions, tableRoom, talk, type GameId, type Remark } from "./games.js";
 
 export function createCardRoom(
-  options: { log?: Log; botDelay?: number; talk?: boolean; push?: PushOptions; ai?: AiOptions; lobby?: LobbyOptions; /** Turns moderation on (see moderation.ts). */ adminToken?: string } = {},
+  options: { log?: Log; botDelay?: number; talk?: boolean; push?: PushOptions; ai?: AiOptions; lobby?: LobbyOptions; /** Turns moderation on (see moderation.ts). */ adminToken?: string; bugs?: BugOptions } = {},
 ) {
   const talking = options.talk ?? true;
   const timers = new Set<ReturnType<typeof setTimeout>>();
@@ -138,6 +139,8 @@ export function createCardRoom(
   const designs = createDesigns(rooms.sync, { tables: rooms });
   const spectate = createSpectate(rooms, catalogue);
   const moderation = createModeration(rooms, designs, { token: options.adminToken, houses, catalogue });
+  // "Report a problem": a player's report becomes an issue on GitHub.
+  const bugs = createBugs(rooms, options.bugs);
 
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
   /** /push: the public key, and saying yes (or no) to notifications on this phone. */
@@ -164,7 +167,7 @@ export function createCardRoom(
   }
 
   /** Everything a blocked player may not do: sit, move, talk, make houses, challenges or designs. Reading is left alone. */
-  const ACTS = ["/rooms", "/houses", "/challenges", "/lobby", "/designs", "/push", "/spectate"];
+  const ACTS = ["/rooms", "/houses", "/challenges", "/lobby", "/designs", "/push", "/spectate", "/bugs"];
   const under = (pathname: string, mounts: string[]) => mounts.some((m) => pathname === m || pathname.startsWith(`${m}/`));
   async function refusal(request: Request): Promise<Response | null> {
     if (request.method === "GET" || request.method === "HEAD" || !under(new URL(request.url).pathname, ACTS)) return null;
@@ -172,7 +175,7 @@ export function createCardRoom(
   }
   /** The routes that aren't the rooms kit's own. */
   const ours = async (request: Request) =>
-    (await refusal(request)) ?? (await moderation.fetch(request)) ?? (await pushRoutes(request)) ?? (await designs.fetch(request)) ?? (await catalogue.fetch(request)) ?? (await spectate.fetch(request)) ?? (await challenges.fetch(request)) ?? (await lobby.fetch(request)) ?? (await houses.fetch(request));
+    (await refusal(request)) ?? (await moderation.fetch(request)) ?? (await pushRoutes(request)) ?? (await bugs.fetch(request)) ?? (await designs.fetch(request)) ?? (await catalogue.fetch(request)) ?? (await spectate.fetch(request)) ?? (await challenges.fetch(request)) ?? (await lobby.fetch(request)) ?? (await houses.fetch(request));
 
   return {
     rooms,
@@ -181,6 +184,7 @@ export function createCardRoom(
     designs,
     moderation,
     catalogue,
+    bugs,
     push,
     /** Answers houses, designs, moderation, rooms and sync requests; null for anything else. */
     async fetch(request: Request): Promise<Response | null> {
@@ -194,9 +198,18 @@ export function createCardRoom(
         res.writeHead(response.status, Object.fromEntries(response.headers));
         return response.arrayBuffer().then((body) => (res.end(Buffer.from(body)), true));
       };
-      if (under(url.pathname, ["/houses", "/challenges", "/lobby", "/push", "/designs", "/moderation", "/catalogue", "/spectate"])) {
+      if (under(url.pathname, ["/houses", "/challenges", "/lobby", "/push", "/designs", "/moderation", "/catalogue", "/spectate", "/bugs"])) {
         const chunks: Buffer[] = [];
-        for await (const chunk of req) chunks.push(chunk as Buffer);
+        let size = 0;
+        for await (const chunk of req) {
+          // Nothing here is bigger than a bug report with its screenshot; stop reading anything that is.
+          if ((size += (chunk as Buffer).length) > REPORT_LIMIT) {
+            res.writeHead(413, { "content-type": "application/json", connection: "close" });
+            res.end(JSON.stringify({ error: "That's too big to send." }));
+            return true;
+          }
+          chunks.push(chunk as Buffer);
+        }
         const request = new Request(url, {
           method: req.method,
           headers,

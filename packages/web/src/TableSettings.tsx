@@ -2,6 +2,7 @@ import { PACES, SKILLS, TURN_TIMERS, type TableSettings } from "@spades/rules";
 import { createContext, useContext, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Choice } from "./RulesEditor";
+import { ReportLink } from "./ReportProblem";
 import { loadTableSettings, saveTableSettings } from "./storage";
 import {
   loadDisplay,
@@ -230,6 +231,7 @@ export function TableSettingsButton({
               <PlayersFields />
               <h3>On this device</h3>
               <DisplayFields />
+              <ReportLink before={() => setOpen(false)} />
               <button
                 type="button"
                 className="primary"

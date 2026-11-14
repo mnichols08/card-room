@@ -47,10 +47,6 @@ that draws any board game (Tic-Tac-Toe is the first).
 | War | 2 to 4 | Flip, and the highest card takes all |
 | Slapjack | 2 to 6 | Flip, and slap the jacks first |
 | Speed | 2 | No turns: play faster than the other player |
-| Sevens | 3 to 7 | Build out from the 7s |
-| Cuckoo | 3 to 10 | One card each; don't get stuck with the lowest |
-| Contract Rummy | 3 to 8 | Seven rounds, seven contracts to lay down |
-| Memory | 1 to 6 | Find the pairs (great for grandkids) |
 | Kings in the Corner | 2 to 4 | Solitaire for the whole table |
 | Spite and Malice | 2 to 4 | Race to play off your pile; kings are wild |
 | Five Card Draw | 2 to 6 | Poker for chips: bet, swap, bet, show |
@@ -126,6 +122,31 @@ Open tables are where strangers meet, so:
 Blocking someone from the whole card room, closing a table and removing a chat message are the
 card room host's, in the admin app (see `CARDROOM_ADMIN_TOKEN`). Family tables that were never
 opened to everyone have no table host, no chat filter and no mute.
+
+### Report a problem
+
+Players can report a bug without leaving the app or having a GitHub account. The 🐞 in the corner
+of every screen (at a table on a phone: under ⚙︎) opens a short form: what went wrong (optional),
+and two switches, one for a picture of the screen and one for the browser's details. The server
+then opens an issue on GitHub for them and tells them its number.
+
+To turn it on, make a [fine-grained token](https://github.com/settings/personal-access-tokens/new)
+for this repository only, with **Issues: Read and write** and nothing else, and set it as
+`CARDROOM_GITHUB_TOKEN`. Issues are opened in the name of the token's account, labelled `bug` and
+`player report`. Without a token the button isn't shown (nor on the GitHub Pages copy, which has no
+server).
+
+- **In every report:** the player's words, the screen and game, when their copy of the page was
+  built, the server's version, and the last few errors the page logged. From a table on the server:
+  its game, rules, settings, and how many people and computer players are seated.
+- **Only if the player agrees:** a picture of the screen (shown to them first), and their browser,
+  device and window size (also shown first).
+- **Never:** names, chat, the player's cookie, or a table's link. Issues are public, and the form
+  says so. Which table a report came from is kept on the server (`bugs/reports` in the log).
+- GitHub's API can't attach a picture to an issue, so screenshots are kept by the server (the
+  newest 30) and the issue links to `/bugs/shots/<id>.jpg`.
+- One browser can send 3 reports in ten minutes, and the whole card room 40 a day. A blocked player
+  can't send any. A player's words can't mention people or link other issues.
 
 ## Packages
 
@@ -375,6 +396,8 @@ docker run -p 8787:8787 -v spades:/data cardroom
 | `CARDROOM_AI_PROVIDER` | `anthropic` or `openai`, if the key doesn't say (a key starting `sk-ant-` is Anthropic's) |
 | `CARDROOM_AI_MODEL` | The model for that key. Default: `claude-haiku-5-5` or `gpt-5.6-luna`. |
 | `CARDROOM_AI_DAILY` | The most lines a day on that key, everyone together. Default 3000. |
+| `CARDROOM_GITHUB_TOKEN` | Optional: turns on **Report a problem**. A GitHub token that may open issues on the repository below; keep it secret. |
+| `CARDROOM_GITHUB_REPO` | Where reports are filed, as `owner/name`. Default `mnichols08/card-room`. |
 | `CARDROOM_BLOCKED_NAMES` | Optional: more words that names and chat at open tables may not contain, comma-separated |
 | `CARDROOM_ADMIN_TOKEN` | Turns on the admin app at `/admin/`: the token its host signs in with. Make it long and keep it secret (`openssl rand -hex 24`) |
 | `CARDROOM_BOT_DELAY` | Fixed thinking time for computer players, in milliseconds (handy for testing) |
