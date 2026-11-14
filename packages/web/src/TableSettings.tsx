@@ -1,5 +1,5 @@
-import { PACES, SKILLS, type TableSettings } from "@spades/rules";
-import { useEffect, useState } from "react";
+import { PACES, SKILLS, TURN_TIMERS, type TableSettings } from "@spades/rules";
+import { createContext, useContext, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Choice } from "./RulesEditor";
 import { loadTableSettings, saveTableSettings } from "./storage";
@@ -10,8 +10,14 @@ import {
   type DisplaySettings,
 } from "./display";
 
-/** Opponents and speed, as two plain pickers. */
-export function TableSettingsFields({
+/**
+ * Whether these settings are a table's on the server. Only there is a turn timer offered: the server
+ * keeps the time, and a game on this device alone has nobody waiting on you.
+ */
+export const OnlineTable = createContext(false);
+
+/** The turn timer: how long a person has for a move before the computer makes it for them. */
+export function TurnTimerField({
   settings,
   onChange,
 }: {
@@ -20,6 +26,36 @@ export function TableSettingsFields({
 }) {
   return (
     <>
+      <Choice
+        label="Time for each move"
+        value={settings.timer ?? "off"}
+        options={TURN_TIMERS.map((t) => [t.id, t.label])}
+        onChange={(v) => {
+          const { timer: _was, ...rest } = settings;
+          onChange(v === "off" ? rest : { ...rest, timer: v as TableSettings["timer"] });
+        }}
+      />
+      <p className="fine">
+        {settings.timer
+          ? "When someone's time runs out, the computer makes their move, so the game keeps going."
+          : "The game waits for everyone, however long they take."}
+      </p>
+    </>
+  );
+}
+
+/** Opponents and speed, as two plain pickers; at a table on the server, the turn timer too. */
+export function TableSettingsFields({
+  settings,
+  onChange,
+}: {
+  settings: TableSettings;
+  onChange: (next: TableSettings) => void;
+}) {
+  const online = useContext(OnlineTable);
+  return (
+    <>
+      {online && <TurnTimerField settings={settings} onChange={onChange} />}
       <Choice
         label="Computer opponents"
         value={settings.skill}

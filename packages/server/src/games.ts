@@ -10,6 +10,7 @@ import { cleanSettings, greet, reactToMove, replyTo, type GameState, type RulePr
 import { palaceOptions, palaceRoom, type PalaceOptions } from "./palace.js";
 import { spadesRoom } from "./spades.js";
 import { kitOptions, kitRoom, type KitOptions } from "./kit.js";
+import { turnDeadline } from "./timer.js";
 
 export type GameId = "spades" | "palace" | KitGameId;
 export const GAMES: { id: GameId; name: string; emoji: string; seats: [number, number]; teams: boolean }[] = [
@@ -51,7 +52,7 @@ export const tableRoom: RoomDefinition<AnyState, unknown, unknown, TableOptions,
     if (game === "spades") return { game, rules: (o as RulePreset).name };
     return { game, rules: kitOptions(kitGame(game)!, (o as KitOptions).rules, (o as KitOptions).seats).rules.name };
   },
-  act: (s, seat, move) => byState(s).act(s, seat, move),
+  act: (s, seat, move, time) => byState(s).act(s, seat, move, time),
   view: (s, seat) => byState(s).view(s, seat),
   // Every summary says its game, so a lobby or a blog embed can tell tables apart.
   summary: (s) => ({ game: gameOfState(s), ...(byState(s).summary?.(s) as object) }),
@@ -60,6 +61,8 @@ export const tableRoom: RoomDefinition<AnyState, unknown, unknown, TableOptions,
   settings: cleanSettings,
   botDelay: (s, seat, name, settings) => byState(s).botDelay?.(s, seat, name, settings) ?? 700,
   bot: (s, seat, name, settings) => byState(s).bot?.(s, seat, name, settings) ?? null,
+  // The turn timer (a table setting): the game's computer player moves for a person who runs out of time.
+  deadline: (s, table) => turnDeadline(s, table, (seat, name) => byState(s).bot?.(s, seat, name, table.settings) ?? null),
 };
 
 export interface Remark {
