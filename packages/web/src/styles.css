@@ -941,3 +941,4 @@ button.cross-pile.can::after {
   .kit-spite .mine-on-table .card-grid.table { --trick-w: 60px; --trick-h: calc(60px * var(--card-ratio)); }
 }
 .kit-felt .center:has(> .cross.row) { justify-content: center; gap: 40px; }
+.kit-fivehundred .kit-choices.grid { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); max-width: min(470px, 100%); }
