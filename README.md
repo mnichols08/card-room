@@ -1,17 +1,18 @@
 # Card Room
 
-Family card games online: thirty-eight games with house rules saved as presets, family **houses** with
-their own tables, leaderboards and tournaments, computer players with personalities, challenge
-links, and a widget that puts a game on any site, including [open.blog](https://github.com/journey-to-code-org/open.blog) ones.
+Family card and board games online: forty-two games with house rules saved as presets, family
+**houses** with their own tables, leaderboards and tournaments, computer players with personalities,
+challenge links, and a widget that puts a game on any site, including [open.blog](https://github.com/journey-to-code-org/open.blog) ones.
 
 Built first for Grammi and Grammi's House. Everything runs in one small server you can host
 yourself (Docker or Railway), and practice games work anywhere, including the GitHub Pages build.
 
 ## The games
 
-Spades and Palace have tables of their own; the other thirty-six are built on a shared game kit
-(`packages/games`), so they all get the same table, setup screen, house rules editor, computer
-players, houses, challenges and tournaments.
+Spades and Palace have tables of their own; the other forty are built on a shared game kit
+(`packages/games`), so they all get the same setup screen, house rules editor, computer players,
+houses, challenges and tournaments. The kit has two tables: one that draws any card game, and one
+that draws any board game (Tic-Tac-Toe is the first).
 
 | Game | Players | |
 | --- | --- | --- |
@@ -42,6 +43,10 @@ players, houses, challenges and tournaments.
 | War | 2 to 4 | Flip, and the highest card takes all |
 | Slapjack | 2 to 6 | Flip, and slap the jacks first |
 | Speed | 2 | No turns: play faster than the other player |
+| Sevens | 3 to 7 | Build out from the 7s |
+| Cuckoo | 3 to 10 | One card each; don't get stuck with the lowest |
+| Contract Rummy | 3 to 8 | Seven rounds, seven contracts to lay down |
+| Memory | 1 to 6 | Find the pairs (great for grandkids) |
 | Kings in the Corner | 2 to 4 | Solitaire for the whole table |
 | Spite and Malice | 2 to 4 | Race to play off your pile; kings are wild |
 | Five Card Draw | 2 to 6 | Poker for chips: bet, swap, bet, show |
@@ -51,6 +56,8 @@ players, houses, challenges and tournaments.
 | Blackjack | 1 to 5 | Get closer to 21 than the dealer (chips only) |
 | Klondike Solitaire | 1 | The classic solitaire |
 | FreeCell | 1 | Solitaire where every card is face up, with numbered deals |
+| Spider | 1 | Two-deck solitaire: build runs from king to ace |
+| Tic-Tac-Toe | 2 | A board game: three in a row, Ultimate's nine boards, or Gomoku's five in a row on 15×15 |
 
 Poker and Blackjack are for chips only: everyone starts with the same stack, and the chips are
 just for keeping score.
@@ -59,12 +66,12 @@ just for keeping score.
 
 | Package | |
 | --- | --- |
-| [`packages/games`](packages/games) | The game kit (`kit.ts`: the `CardGame` contract, cards, decks, views) and the thirty-six games built on it |
+| [`packages/games`](packages/games) | The game kit and the forty games built on it: `table.ts` (the `TableGame` engine contract every game shares), `kit.ts` (the card kit: `CardGame`, cards, decks, `KitView`) and `board.ts` (the board kit: `BoardGame`, grids, pieces, `BoardView`) |
 | [`packages/rules`](packages/rules) | Spades rules engine, bots, and the personas who play every game |
 | [`packages/palace`](packages/palace) | Palace rules engine: house-rule presets, seat views, bots and table talk |
 | [`packages/rooms`](packages/rooms) | Turn-based rooms over `@zubra/sync`: seats, server-decided moves, private views, bots |
 | [`packages/server`](packages/server) | The server: every game's rooms, houses, challenges, tournaments, the sync log and the web app |
-| [`packages/web`](packages/web) | The app (React, with the game chooser in Vue): tables, setup screens, houses, practice |
+| [`packages/web`](packages/web) | The app (React, with the game chooser in Vue): the card table and the board table, setup screens, houses, practice |
 | [`packages/ui`](packages/ui) | Table components in Zubra (cards, seats, fields), and the `<card-room>` embed |
 
 The server decides every move. Each player's browser only ever receives its own view of a table
@@ -83,21 +90,53 @@ works anywhere, including the GitHub Pages build of the app.
 
 ## Adding a game
 
-Most games belong on the kit, which gives them the table, the setup screen, house rules, computer
-players at the table, houses, challenges and tournaments for free:
+Most games belong on the kit, which gives them a table, the setup screen, house rules, computer
+players at the table, houses, challenges and tournaments for free. Every kit game is a
+`TableGame` (`packages/games/src/table.ts`): presets and rule fields, `newGame` (a deterministic
+start from a seed), `apply` (never changes the state it's given, and throws a `GameError` for a
+move the rules don't allow), `view` (what one seat may see and do), `bot`, `thinkingTime` and
+`summary`. The only thing that differs between a card game and a board game is what `view`
+returns.
+
+### A card game
 
 1. **The engine:** `packages/games/src/<game>.ts`, a `CardGame<Rules, State, Move>` (see
-   `packages/games/src/kit.ts`): presets and rule fields, `newGame` (a deterministic deal from a
-   seed), `apply` (throws a `GameError` for a move the rules don't allow), `view` (what one seat
-   may see and do), `bot`, `thinkingTime` and `summary`. Go Fish, Golf and Whist are short worked
-   examples; `poker.ts` is the shared core for the poker games.
-2. **Register it:** add its id to `KitGameId` in `kit.ts`, add it to `KIT_GAMES` in
+   `packages/games/src/kit.ts`), whose `view` returns a `KitView`: the hand and which cards a tap
+   plays, the middle of the table, melds, buttons, scores. Go Fish, Golf and Whist are short
+   worked examples; `poker.ts` is the shared core for the poker games.
+2. **Register it:** add its id to `CardGameId` in `table.ts`, add it to `CARD_GAMES` in
    `registry.ts`, and export it from `index.ts`.
 3. **Tests:** `packages/games/test/<game>.test.ts` for its rules. The shared kit tests
-   (`test/kit.test.ts`) play every registered game automatically: computer players finish whole
-   games at the smallest, usual and largest table with every preset, the same seed always deals
-   the same game, views match the state, and refused moves change nothing.
+   (`test/kit.test.ts`) play every registered card game automatically: computer players finish
+   whole games at the smallest, usual and largest table with every preset, the same seed always
+   deals the same game, views match the state, and refused moves change nothing.
 4. **Its tile on the front page:** a fan of three cards in `packages/web/src/home/Home.tsx`.
+
+### A board game
+
+1. **The engine:** `packages/games/src/<game>.ts`, a `BoardGame<Rules, State, Move>` (see
+   `packages/games/src/board.ts`), whose `view` returns a `BoardView`: one or more grids of cells
+   with at most one piece each (optional shading, coordinates, blocks of cells, highlights for the
+   last move and a winning line), pieces off the board in reserves, buttons, scores. A grid says
+   what you can do on it in one of two ways: `tap` lists cells that send `{ type, cell }` when
+   tapped (or `{ type, col }` for a drop game), and `select` lists pieces you can pick up (a cell,
+   or a kind of piece in your reserve) with where each can go, sending `{ type, from, to }`. List
+   exactly the legal moves: the table offers nothing else, and `apply` still refuses the rest.
+   `tictactoe.ts` is the worked example, with three computer players: a solved 3×3, a scored
+   search for bigger boards, and a look-ahead for Ultimate.
+2. **Register it:** add its id to `BoardGameId` in `table.ts`, add it to `BOARD_GAMES` in
+   `registry.ts`, and export it from `index.ts`.
+3. **Tests:** `packages/games/test/<game>.test.ts` for its rules. The shared board tests
+   (`test/board.test.ts`) play every registered board game automatically: computer players finish
+   whole games with every preset at every table size, a game can be played from nothing but what
+   its views offer, every move a view offers is accepted, the same seed always starts the same
+   game, and refused moves change nothing.
+4. **Its tile on the front page:** a little board position in `BOARDS` in
+   `packages/web/src/home/Home.tsx`.
+
+Nothing else needs touching: `KIT_GAMES` is both lists together, and the room on the server, the
+setup screen, the rules editor, houses, challenges, leaderboards, tournaments and practice all go
+by it. The web app's `GameTable` picks the card table or the board table from the game.
 
 A game the kit can't express (Spades and Palace predate it) gets its own engine package, a room
 definition in [`packages/server/src/games.ts`](packages/server/src/games.ts) and a table in the

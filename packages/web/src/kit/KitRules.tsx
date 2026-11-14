@@ -1,10 +1,10 @@
 // House rules for a kit game, drawn from the fields the game lists: toggles, choices and numbers.
-import { type CardGame } from "@cardroom/games";
+import { type TableGame } from "@cardroom/games";
 import { Choice, Toggle } from "../RulesEditor";
 
 type Rules = { id: string; name: string } & Record<string, unknown>;
 
-export function KitRulesFields({ game, rules, onChange }: { game: CardGame<any, any, any>; rules: Rules; onChange: (patch: Partial<Rules>) => void }) {
+export function KitRulesFields({ game, rules, onChange }: { game: TableGame<any, any, any, any>; rules: Rules; onChange: (patch: Partial<Rules>) => void }) {
   return (
     <>
       {game.fields.map((f) => {
@@ -30,7 +30,7 @@ export function KitRulesFields({ game, rules, onChange }: { game: CardGame<any, 
 }
 
 /** The rules in plain sentences. */
-export function KitRulesSheet({ game, rules }: { game: CardGame<any, any, any>; rules: Rules }) {
+export function KitRulesSheet({ game, rules }: { game: TableGame<any, any, any, any>; rules: Rules }) {
   return (
     <ul className="rules-lines">
       {game.describe(rules).map((line: string, i: number) => (

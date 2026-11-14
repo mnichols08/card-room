@@ -968,3 +968,112 @@ button.cross-pile.can::after {
 .kit-sevens .board-area .card-grid.table { --trick-w: min(calc(11vh / var(--card-ratio)), 54px); }
 .kit-spider .sol-waste { display: none; }
 .kit-spider .sol-found { grid-column: -9 / -1; grid-template-columns: repeat(8, var(--trick-w)); }
+
+/* ---- The board games' shared table (Tic-Tac-Toe…) ------------------------------------------------
+   One board in the middle, as big as the screen allows: the full width on a phone, and never taller
+   than what's left under the bar and above your seat. Everything inside is sized from the board's
+   own width (container units), so a 3×3 and a 15×15 both fill it. */
+.board-felt { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 10px 8px 12px; }
+.board .status { position: static; }
+.board-others { display: flex; justify-content: center; flex-wrap: wrap; gap: clamp(10px, 4vw, 48px); }
+.board-others .opp { gap: 4px; }
+.boards { width: 100%; display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 14px; }
+.board-wrap {
+  --board-max: 620px;
+  width: min(100%, var(--board-max), max(220px, calc((100dvh - 330px) * var(--cols) / var(--rows))));
+  display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "title" "grid";
+}
+/* A second board (your own fleet beside the one you're shooting at) is drawn smaller. */
+.board-wrap.side { --board-max: 300px; }
+.board-wrap.with-coords { grid-template-columns: 1.3em minmax(0, 1fr); grid-template-areas: "title title" "rows grid" ". cols"; }
+.board-title { grid-area: title; margin: 0 0 4px; text-align: center; font-size: var(--ui-m); color: var(--gold); }
+.coords { color: #cfe2d6; font-size: 0.68rem; line-height: 1; user-select: none; }
+.coords.cols { grid-area: cols; display: grid; grid-template-columns: repeat(var(--cols), 1fr); text-align: center; padding-top: 3px; }
+.coords.rows { grid-area: rows; display: grid; grid-template-rows: repeat(var(--rows), 1fr); align-items: center; }
+
+.board-grid {
+  grid-area: grid; position: relative; container-type: inline-size;
+  display: grid; grid-template: repeat(var(--rows), minmax(0, 1fr)) / repeat(var(--cols), minmax(0, 1fr)); aspect-ratio: var(--cols) / var(--rows);
+  --line: rgba(29, 26, 22, 0.55); --line-w: clamp(1px, 0.5cqw, 3px);
+  background: var(--cream); color: var(--ink); border-radius: 10px; overflow: hidden; box-shadow: var(--elev-2);
+}
+.board-grid.fine-lines { --line-w: 1px; --line: rgba(29, 26, 22, 0.35); border-radius: 6px; }
+.board-grid .cell {
+  position: relative; display: grid; place-items: center; min-width: 0; min-height: 0; padding: 0; margin: 0;
+  border: 0; border-right: var(--line-w) solid var(--line); border-bottom: var(--line-w) solid var(--line); border-radius: 0;
+  background: transparent; color: inherit; font: inherit; font-size: calc(100cqw / var(--cols) * 0.62); line-height: 1;
+  cursor: default; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+}
+.board-grid .cell.col-last { border-right: 0; }
+.board-grid .cell.row-last { border-bottom: 0; }
+.board-grid .cell.can { cursor: pointer; }
+@media (hover: hover) { .board-grid .cell.can:hover { background: rgba(232, 196, 106, 0.35); } }
+.board-grid .cell:focus-visible { outline: 3px solid #0b57d0; outline-offset: -3px; z-index: 2; }
+/* Shaded boards: the two colours of a chessboard, water, a marked spot. */
+.board-grid .cell.shade-light { background: #f0dfbd; }
+.board-grid .cell.shade-dark { background: #a9794d; }
+.board-grid .cell.shade-water { background: #bcd9e8; }
+.board-grid .cell.shade-spot::before { content: ""; position: absolute; width: 18%; aspect-ratio: 1; border-radius: 50%; background: var(--line); }
+/* Why a cell is lit: the last move, where it came from, the winning line, a piece in danger. */
+.board-grid .cell.mark-last { box-shadow: inset 0 0 0 max(2px, 0.6cqw) rgba(232, 196, 106, 0.95); }
+.board-grid .cell.mark-from { background-image: linear-gradient(rgba(232, 196, 106, 0.3), rgba(232, 196, 106, 0.3)); }
+.board-grid .cell.mark-win { background: #f3d77f; }
+.board-grid .cell.mark-threat { box-shadow: inset 0 0 0 max(2px, 0.6cqw) var(--red); }
+/* Picking a piece up, and the places it can go (a dot, as on a chess app). */
+.board-grid .cell.picked { background: #f3d77f; }
+.board-grid .cell.target::after { content: ""; position: absolute; width: 30%; aspect-ratio: 1; border-radius: 50%; background: rgba(31, 77, 58, 0.55); }
+.board-grid .cell.target:has(.piece)::after { width: 86%; background: none; border: max(2px, 0.5cqw) solid rgba(31, 77, 58, 0.6); }
+
+/* Blocks of cells with heavier lines between them (Ultimate Tic-Tac-Toe's nine small boards). */
+.board-grid.blocked { --line-w: 1px; --line: rgba(29, 26, 22, 0.3); }
+.board-grid.blocked .cell.edge-r { border-right: max(3px, 0.9cqw) solid var(--ink); }
+.board-grid.blocked .cell.edge-b { border-bottom: max(3px, 0.9cqw) solid var(--ink); }
+.board-grid.blocked .cell:not(.in-active) { background: #e6dfd0; }
+.board-blocks { position: absolute; inset: 0; display: grid; grid-template: repeat(var(--block-rows), 1fr) / repeat(var(--block-cols), 1fr); pointer-events: none; }
+.board-blocks .block { display: grid; place-items: center; font-size: calc(100cqw / var(--block-cols) * 0.6); line-height: 1; font-weight: 800; }
+.board-blocks .block.closed { background: rgba(230, 223, 208, 0.82); }
+.board-blocks .block.active { box-shadow: inset 0 0 0 max(3px, 0.8cqw) var(--gold); }
+
+/* Pieces on the lines' crossings instead of in the squares (Go, Gomoku played with stones). */
+.board-grid.points { background: #e3c07a; }
+.board-grid.points .cell { border: 0; }
+.board-grid.points .cell::before { content: ""; position: absolute; inset: calc(50% - 0.5px) 0 auto 0; height: 1px; background: var(--line); }
+.board-grid.points .cell::after { content: ""; position: absolute; inset: 0 auto 0 calc(50% - 0.5px); width: 1px; background: var(--line); }
+.board-grid.points .cell.col-first::before { left: 50%; }
+.board-grid.points .cell.col-last::before { right: 50%; }
+.board-grid.points .cell.row-first::after { top: 50%; }
+.board-grid.points .cell.row-last::after { bottom: 50%; }
+.board-grid.points .piece { position: relative; z-index: 1; }
+
+.piece { display: inline-grid; place-items: center; line-height: 1; font-weight: 800; font-family: system-ui, -apple-system, "Segoe UI Symbol", "Noto Sans Symbols 2", sans-serif; }
+.piece.tone-red { color: #b3261e; }
+.piece.tone-blue { color: #1f5fbf; }
+.piece.tone-green { color: #1f6b45; }
+.piece.tone-gold { color: #9a6f00; }
+.piece.tone-dark { color: #1d1a16; }
+.piece.tone-light { color: #fffdf8; text-shadow: 0 0 1px #1d1a16, 0 1px 2px rgba(0, 0, 0, 0.6); }
+.piece.faded { opacity: 0.35; }
+.board-blocks .tone-red { color: #b3261e; } .board-blocks .tone-blue { color: #1f5fbf; } .board-blocks .tone-green { color: #1f6b45; }
+.board-blocks .tone-gold { color: #9a6f00; } .board-blocks .tone-dark { color: #1d1a16; } .board-blocks .tone-light { color: #fffdf8; }
+@media (prefers-reduced-motion: no-preference) {
+  .board-grid .piece { animation: piece-in 220ms var(--ease-back); }
+  .board-grid .cell.mark-win .piece { animation: piece-win 900ms ease-in-out 2; }
+  .board-blocks .block.closed { animation: piece-in 260ms var(--ease-back); }
+}
+html[data-motion="off"] .board-grid .piece, html[data-motion="off"] .board-blocks .block { animation: none; }
+@keyframes piece-in { from { scale: 0.4; opacity: 0; } to { scale: 1; opacity: 1; } }
+@keyframes piece-win { 50% { scale: 1.18; } }
+
+/* What a player plays as, beside their name, on a little cream chip so every colour reads. */
+.board-seat .piece.small, .board-reserve .piece.small {
+  width: 1.5em; height: 1.5em; flex: none; border-radius: 6px; background: var(--cream); font-size: 0.85em;
+}
+.board-seat.row { align-items: center; }
+.board-reserve { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; font-size: var(--ui-s); color: #cfe2d6; }
+.board-reserve .reserve-piece { display: inline-flex; align-items: center; gap: 3px; padding: 3px 6px; border: 2px solid transparent; border-radius: 10px; background: rgba(0, 0, 0, 0.25); color: var(--cream); font: inherit; }
+.board-reserve button.reserve-piece { cursor: pointer; border-color: rgba(232, 196, 106, 0.5); }
+.board-reserve button.reserve-piece.picked { border-color: var(--gold); background: rgba(232, 196, 106, 0.25); }
+.board .bubble.top { top: 120px; }
+.board .bubble.bottom { bottom: 110px; }
+/* The end of a board game leaves the board in view: the sheet sits at the bottom, not over it. */
+.sheet.board-over { top: auto; bottom: max(12px, env(safe-area-inset-bottom)); }

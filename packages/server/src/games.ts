@@ -75,7 +75,7 @@ export const talk = {
     const game = gameOfState(s);
     if (game === "palace") return palaceGreet(cast);
     if (game === "spades") return greet(cast as { bots: { seat: Seat; name: string }[] });
-    return kitGreet(cast);
+    return kitGreet(cast, undefined, game);
   },
   react: (before: AnyState, after: AnyState, cast: Cast): Remark[] => {
     const game = gameOfState(after);

@@ -1,5 +1,5 @@
 // The Card Room's start page: the Vue game chooser, mounted inside the React app.
-import { KIT_GAMES } from "@cardroom/games";
+import { isBoardGame, KIT_GAMES } from "@cardroom/games";
 import { createApp, reactive } from "vue";
 import { useEffect, useRef } from "react";
 import { GAME_LIST } from "../GamePicker";
@@ -54,6 +54,15 @@ const FANS: Record<string, object[]> = {
   spider: [card(13, "spades"), card(12, "spades"), card(11, "spades")],
 };
 
+/** A board game's tile shows a little board instead: a position that says what the game is about. */
+type MiniBoard = { cols: number; cells: ({ glyph: string; tone: string } | null)[] };
+const X = { glyph: "✕", tone: "red" };
+const O = { glyph: "◯", tone: "blue" };
+const BOARDS: Record<string, MiniBoard> = {
+  tictactoe: { cols: 3, cells: [X, O, null, null, X, O, O, null, X] },
+};
+const EMPTY_BOARD: MiniBoard = { cols: 3, cells: Array(9).fill(null) };
+
 const SEATS: Record<string, { seats: [number, number]; teams: boolean }> = {
   spades: { seats: [4, 4], teams: true },
   palace: { seats: [2, 6], teams: false },
@@ -67,7 +76,7 @@ export function Home({ last, onPick, onOpenHouse }: { last: GameId | null; onPic
 
   useEffect(() => {
     const props = reactive({
-      games: GAME_LIST.map((g) => ({ ...g, ...(SEATS[g.id] ?? { seats: [2, 6], teams: false }), fan: FANS[g.id] ?? FANS.spades! })),
+      games: GAME_LIST.map((g) => ({ ...g, ...(SEATS[g.id] ?? { seats: [2, 6], teams: false }), fan: FANS[g.id] ?? FANS.spades!, board: isBoardGame(g.id) ? (BOARDS[g.id] ?? EMPTY_BOARD) : undefined })),
       houses: loadMyHouses(),
       last,
       name: loadName(),

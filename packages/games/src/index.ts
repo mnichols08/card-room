@@ -40,5 +40,7 @@ export * from "./sevens.js";
 export * from "./cuckoo.js";
 export * from "./contractrummy.js";
 export * from "./spider.js";
+export * from "./board.js";
+export * from "./tictactoe.js";
 export * from "./registry.js";
 export * from "./talk.js";

@@ -1,7 +1,8 @@
 // Table talk for the kit games: the same cast, in their own voices, saying hello and reacting
 // when a game ends. (Answers to people's chat come from the shared reply lines.)
 import { personaFor, type Voice } from "@spades/rules";
-import type { KitSummary } from "./kit.js";
+import type { KitGameId, KitSummary } from "./kit.js";
+import { isBoardGame } from "./registry.js";
 
 type Event = "hello" | "won" | "lost" | "someoneWon";
 
@@ -15,6 +16,13 @@ const LINES: Record<Voice, Partial<Record<Event, string[]>>> = {
   dramatic: { hello: ["Let the games BEGIN 🎭"], won: ["VICTORY IS MINE 🏆✨"], lost: ["Betrayed by the cards 😩"], someoneWon: ["A worthy champion 👑"] },
 };
 
+/** At a board there are no cards to deal or blame: these stand in for the lines that mention them. */
+const BOARD_LINES: Partial<Record<Voice, Partial<Record<Event, string[]>>>> = {
+  dry: { hello: ["Your move.", "Let's go."] },
+  goofy: { hello: ["Game time! 🎉", "Who's ready to lose to me? 😂"] },
+  dramatic: { lost: ["Outplayed. For now 😩"] },
+};
+
 export interface KitRemark {
   seat: number;
   text: string;
@@ -23,16 +31,17 @@ export interface KitRemark {
 type Cast = { bots: { seat: number; name: string }[] };
 type Rand = () => number;
 
-function line(seat: number, name: string, event: Event, weight: number, rand: Rand, delay: [number, number]): KitRemark | null {
+function line(seat: number, name: string, event: Event, weight: number, rand: Rand, delay: [number, number], game?: KitGameId): KitRemark | null {
   const persona = personaFor(name);
-  const options = LINES[persona.voice ?? "warm"][event] ?? LINES.warm[event];
+  const voice = persona.voice ?? "warm";
+  const options = (isBoardGame(game) ? BOARD_LINES[voice]?.[event] : undefined) ?? LINES[voice][event] ?? LINES.warm[event];
   if (!options?.length || rand() > persona.chatty * weight) return null;
   return { seat, text: options[Math.floor(rand() * options.length)]!, delay: delay[0] + rand() * (delay[1] - delay[0]) };
 }
 
-export function kitGreet(cast: Cast, rand: Rand = Math.random): KitRemark[] {
+export function kitGreet(cast: Cast, rand: Rand = Math.random, game?: KitGameId): KitRemark[] {
   return cast.bots
-    .map((b) => line(b.seat, b.name, "hello", 0.8, rand, [800, 2500]))
+    .map((b) => line(b.seat, b.name, "hello", 0.8, rand, [800, 2500], game))
     .filter((r): r is KitRemark => r !== null)
     .slice(0, 2)
     .map((r, i) => ({ ...r, delay: r.delay + i * 1100 }));
@@ -42,7 +51,7 @@ export function kitGreet(cast: Cast, rand: Rand = Math.random): KitRemark[] {
 export function reactToKit(before: KitSummary, after: KitSummary, cast: Cast, rand: Rand = Math.random): KitRemark[] {
   if (!after.over || before.over) return [];
   const out = cast.bots
-    .map((b) => line(b.seat, b.name, after.winners?.includes(b.seat) ? "won" : after.order?.at(-1) === b.seat ? "lost" : "someoneWon", 2, rand, [500, 2400]))
+    .map((b) => line(b.seat, b.name, after.winners?.includes(b.seat) ? "won" : after.order?.at(-1) === b.seat ? "lost" : "someoneWon", 2, rand, [500, 2400], after.game))
     .filter((r): r is KitRemark => r !== null);
   return out.slice(0, 3).map((r, i) => ({ ...r, delay: r.delay + i * 900 }));
 }
