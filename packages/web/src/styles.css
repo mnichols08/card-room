@@ -926,6 +926,65 @@ button.cross-pile.can::after {
 }
 @media (hover: hover) { button.cross-pile.can:hover { translate: 0 -4px; } }
 @media (min-width: 1024px) { .cross { --trick-w: 62px; --peek: calc(var(--trick-h) * 0.2); gap: 8px 14px; } }
-.kit-felt .center:has(> .cross) { flex-direction: column; align-items: center; }
+.kit-felt .center:has(> .cross:not(.row)) { flex-direction: column; align-items: center; }
 .pile-spread-area .empty-slot { width: var(--trick-w); }
+.cross.row { grid-template-columns: repeat(5, var(--trick-w)); grid-template-areas: none; }
+.cross.row .cross-stock { grid-area: auto; }
+.grid-empty { display: block; box-sizing: border-box; width: var(--card-w); height: calc(var(--card-w) * var(--card-ratio)); border: 2px dashed rgba(255, 255, 255, 0.25); border-radius: 6px; background: rgba(0, 0, 0, 0.12); }
+.grid-empty.table { width: var(--trick-w); height: var(--trick-h); }
+.grid-empty.mini { width: var(--mini-w); height: var(--mini-h); }
+/* Spite and Malice: the pay-off pile stands apart from the four discard piles. */
+.kit-spite .card-grid > :first-child { margin-right: 10px; }
+@media (min-width: 1024px) {
+  .kit-spite .cross { --trick-w: 54px; }
+  .kit-spite .card-grid { --trick-w: 56px; --trick-h: calc(56px * var(--card-ratio)); --card-w: 56px; }
+  .kit-spite .mine-on-table .card-grid.table { --trick-w: 60px; --trick-h: calc(60px * var(--card-ratio)); }
+}
+.kit-felt .center:has(> .cross.row) { justify-content: center; gap: 40px; }
+.kit-fivehundred .kit-choices.grid, .kit-bridge .kit-choices.grid { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); width: min(470px, calc(100vw - 24px)); max-width: none; box-sizing: border-box; }
+
+/* Durak: the stock with the trump card under it, then each attack with its beating card on top. */
+.pairs-area { display: flex; align-items: flex-start; gap: calc(var(--trick-w) * 0.5); flex-wrap: wrap; justify-content: center; }
+.pairs-stock { position: relative; display: grid; justify-items: start; gap: 4px; width: calc(var(--trick-w) * 1.6); }
+.pairs-stock > span { grid-area: 1 / 1; line-height: 0; }
+.pairs-trump { rotate: 90deg; translate: calc(var(--trick-w) * 0.45) 0; }
+.pairs-stock small { justify-self: center; font-size: 11px; color: rgba(255, 255, 255, 0.75); white-space: nowrap; }
+.pairs { display: flex; flex-wrap: wrap; gap: calc(var(--trick-w) * 0.18) calc(var(--trick-w) * 0.12); justify-content: center; max-width: calc(var(--trick-w) * 4.8); }
+.pair { position: relative; line-height: 0; padding: 0 calc(var(--trick-w) * 0.22) calc(var(--trick-h) * 0.22) 0; }
+.pair-defense { position: absolute; left: calc(var(--trick-w) * 0.22); top: calc(var(--trick-h) * 0.22); line-height: 0; rotate: 8deg; }
+.kit-felt .center:has(> .pairs-area) { justify-content: center; gap: 32px; }
+.kit-bridge .kit-felt:has(.kit-choices.grid) .status, .kit-fivehundred .kit-felt:has(.kit-choices.grid) .status { position: static; }
+@media (min-width: 1024px) { .kit-fivehundred .kit-choices.grid, .kit-bridge .kit-choices.grid { width: 380px; } }
+
+/* Memory: the whole grid in the middle, cards sized to fit the screen. */
+.board-area { width: 100%; display: flex; justify-content: center; }
+.board-area .card-grid.table {
+  --trick-w: min(calc((100vw - 48px) / var(--cols) - 6px), 72px);
+  --trick-h: calc(var(--trick-w) * var(--card-ratio));
+  gap: 6px;
+}
+@media (min-width: 1024px) { .board-area .card-grid.table { --trick-w: min(calc((100vh - 330px) / 6.4 / var(--card-ratio)), 74px); } }
+.kit-felt .center:has(> .board-area) { flex-direction: column; align-items: center; }
+.kit-sevens .board-area .card-grid.table { --trick-w: min(calc(11vh / var(--card-ratio)), 54px); }
+.kit-spider .sol-waste { display: none; }
+.kit-spider .sol-found { grid-column: -9 / -1; grid-template-columns: repeat(8, var(--trick-w)); }
+
+/* Pyramid solitaire: overlapping rows, the stock and turned-up card beside (below, on phones). */
+.pyr {
+  --trick-w: min(calc((100vw - 40px) / 7.6), 66px);
+  --trick-h: calc(var(--trick-w) * var(--card-ratio));
+  display: flex; gap: 18px; align-items: flex-start; justify-content: center; flex-wrap: wrap;
+}
+.pyr-rows { display: grid; justify-items: center; }
+.pyr-row { display: flex; gap: 4px; }
+.pyr-row + .pyr-row { margin-top: calc(var(--trick-h) * -0.55); }
+.pyr-card, .pyr-gap { display: block; width: var(--trick-w); height: var(--trick-h); padding: 0; border: 0; background: none; line-height: 0; border-radius: 6px; }
+.pyr-card.can { cursor: pointer; }
+.pyr-card.can > .card, .pyr-card.can > * { transition: translate 120ms; }
+.pyr-card.held { outline: 3px solid var(--gold); outline-offset: 1px; translate: 0 -4px; }
+@media (hover: hover) { .pyr-card.can:hover { translate: 0 -3px; } }
+.pyr-side { display: flex; gap: 8px; align-items: center; }
+.pyr-side small { font-size: 11px; color: rgba(255, 255, 255, 0.75); }
+@media (min-width: 1024px) { .pyr { --trick-w: min(calc((100vh - 320px) / 4.6 / var(--card-ratio)), 74px); } .pyr-side { flex-direction: column; } }
+.kit-felt .center:has(> .pyr) { flex-direction: column; align-items: center; }
 .house-ai .row-actions { justify-content: center; }

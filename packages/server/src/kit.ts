@@ -41,6 +41,7 @@ export const kitRoom: RoomDefinition<{ game: KitGameId } & Record<string, unknow
   summary: (state) => gameFor(state.game).summary(state),
   finished: (state) => gameFor(state.game).summary(state).over,
   botDelay: (state, seat, name, settings?: TableSettings) =>
+    gameFor(state.game).reactionTime?.(state, seat, styleFor(personaFor(name).style, settings?.skill)) ??
     paceDelay(settings?.pace ?? "natural", () => Math.round(gameFor(state.game).thinkingTime(state, seat) * personaFor(name).pace * (0.8 + Math.random() * 0.5))),
   bot: (state, seat, name, settings?: TableSettings) => gameFor(state.game).bot(state, seat, styleFor(personaFor(name).style, settings?.skill)),
 };
