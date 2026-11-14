@@ -3,7 +3,7 @@
 // A room's options say which game it is. Spades rooms keep the options they always had (the house
 // rules themselves), so tables and logs from before there were other games still work; any other
 // game's options carry `game`.
-import { KIT_GAMES, isKitGame, kitGame, kitGreet, reactToKit, type KitGameId } from "@cardroom/games";
+import { KIT_GAMES, isBoardGame, isKitGame, kitGame, kitGreet, reactToKit, type KitGameId } from "@cardroom/games";
 import { palaceGreet, palaceReplyTo, reactToPalace, type PalaceState } from "@cardroom/palace";
 import { sharedView, type RoomDefinition } from "@spades/rooms/server";
 import { cleanSettings, greet, reactToMove, replyTo, type GameState, type RulePreset, type Seat } from "@spades/rules";
@@ -79,10 +79,21 @@ export function watchView(game: GameId, views: unknown[]): unknown {
   const seats = views as Any[];
   if (game === "spades") return sharedView(seats, { blank: { hand: [], legal: [], myPass: null }, from: { seat: 0, keys: ["seat", "team", "partner", "teamSeats"] } });
   if (game === "palace") return sharedView(seats, { blank: { hand: [], can: null }, from: { seat: 0, keys: ["you"] } });
-  const view = sharedView(seats, { blank: { hand: [], tap: null, pick: null, choices: null, gridTap: null }, from: { seat: 0, keys: ["me"] } });
+  // A board game can have a grid of a seat's own (Combat's fleet). Two fleets that share a square
+  // would otherwise show it, to a watcher and to the players: a watcher sees those grids empty.
+  const open = isBoardGame(game) ? seats.map(withoutPrivateGrids) : seats;
+  const view = sharedView(open, { blank: { hand: [], tap: null, pick: null, choices: null, gridTap: null }, from: { seat: 0, keys: ["me"] } });
   // A line of table talk only one seat was shown ("You were passed…") is nobody else's.
   if (Array.isArray(view.info)) view.info = view.info.filter((line) => typeof line === "string");
   return view;
+}
+
+/** A board view with each seat's own grids emptied and their own reserves left out. */
+function withoutPrivateGrids(view: Record<string, unknown>): Record<string, unknown> {
+  type Owned = { owner?: number; cells?: unknown[] };
+  const grids = Array.isArray(view.grids) ? (view.grids as Owned[]).map((g) => (g?.owner === undefined ? g : { ...g, cells: (g.cells ?? []).map(() => null) })) : view.grids;
+  const reserves = Array.isArray(view.reserves) ? (view.reserves as Owned[]).filter((r) => r?.owner === undefined) : view.reserves;
+  return { ...view, grids, reserves };
 }
 
 export interface Remark {

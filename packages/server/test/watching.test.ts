@@ -107,3 +107,26 @@ describe("watching a table with people at it", () => {
     expect(GAMES.length).toBe(KIT_GAMES.length + 2);
   });
 });
+
+// Combat: each seat has a grid of its own. Squares where two fleets happen to overlap look alike
+// from both seats, so the watch view has to leave those grids out rather than compare them.
+describe("watching Combat", () => {
+  it("shows nobody's fleet, even where the two fleets share a square", async () => {
+    const { kitGame } = await import("@cardroom/games");
+    const { watchView } = await import("../src/games.js");
+    const combat = kitGame("combat")! as unknown as { presets: unknown[]; newGame(rules: unknown, seats: number, seed: number): unknown; apply(s: unknown, seat: number, move: unknown): unknown; view(s: unknown, seat: number): { grids: { id: string; cells: unknown[] }[] } };
+    let overlapped = 0;
+    for (let seed = 1; seed <= 25; seed++) {
+      let s = combat.newGame(combat.presets[0], 2, seed);
+      for (const seat of [0, 1]) s = combat.apply(s, seat, { type: "auto" });
+      const seats = [0, 1].map((seat) => combat.view(s, seat));
+      const mine = seats.map((v) => v.grids.find((g) => g.id === "mine")!.cells);
+      if (mine[0]!.some((p, i) => p && mine[1]![i])) overlapped++;
+      const watch = watchView("combat", seats) as { grids: { cells: unknown[] }[]; reserves: unknown[] };
+      expect(watch.grids.flatMap((g) => (g?.cells ?? []).filter(Boolean)), `seed ${seed}`).toEqual([]);
+      expect(watch.reserves).toEqual([]);
+    }
+    // The test means something only if fleets did overlap.
+    expect(overlapped).toBeGreaterThan(0);
+  });
+});
