@@ -39,6 +39,7 @@ const FANS: Record<string, ReturnType<typeof card>[]> = {
   kingscorner: [card(13, "spades"), card(12, "hearts"), card(11, "clubs")],
   blackjack: [card(14, "spades"), card(13, "hearts")],
   spite: [card(14, "clubs"), card(2, "hearts"), card(13, "spades")],
+  pitch: [card(14, "hearts"), card(11, "hearts"), card(2, "hearts")],
 };
 
 const SEATS: Record<string, { seats: [number, number]; teams: boolean }> = {
