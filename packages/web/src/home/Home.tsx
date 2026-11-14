@@ -54,6 +54,7 @@ const FANS: Record<string, object[]> = {
   spider: [card(13, "spades"), card(12, "spades"), card(11, "spades")],
   pyramid: [card(6, "hearts"), card(7, "clubs"), card(13, "diamonds")],
   ridethebus: [card(5, "hearts"), card(9, "spades"), card(12, "clubs")],
+  kingscup: [card(13, "hearts"), card(13, "spades"), card(13, "diamonds")],
 };
 
 /** A board game's tile shows a little board instead: a position that says what the game is about. */
