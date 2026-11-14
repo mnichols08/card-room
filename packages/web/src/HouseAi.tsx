@@ -1,5 +1,6 @@
 // The house's AI connection: an owner or admin pastes the house's own Claude or OpenAI key and a
-// few notes about the family, and the computer players at the house's tables talk through it.
+// few notes about the family, and the computer players at the house's tables talk through it. When
+// whoever runs the card room has set a key for everyone, a house can use that one and paste nothing.
 import TextField from "@spades/ui/zubra-ui/text-field.zb";
 import { useEffect, useState } from "react";
 import { Choice, Toggle } from "./RulesEditor";
@@ -8,7 +9,7 @@ import { AI_PROVIDERS, houses, type AiProvider, type House } from "./housesApi";
 export function HouseAiBlock({ house, onChange }: { house: House; onChange: (house: House) => void }) {
   const canManage = house.me.role !== "member";
   const saved = canManage && house.ai && "provider" in house.ai ? house.ai : null;
-  const [provider, setProvider] = useState<AiProvider>(saved?.provider ?? "anthropic");
+  const [provider, setProvider] = useState<AiProvider | "server">(saved?.provider ?? (house.aiServer ? "server" : "anthropic"));
   const [key, setKey] = useState("");
   const [model, setModel] = useState(saved?.model ?? "");
   const [context, setContext] = useState(saved?.context ?? "");
@@ -27,12 +28,15 @@ export function HouseAiBlock({ house, onChange }: { house: House; onChange: (hou
     return (
       <section className="house-block" aria-label="Bot talk">
         <h2>Bot talk</h2>
-        <p className="fine">The computer players at this house's tables chat with an AI model the house connected. They still play their own cards.</p>
+        <p className="fine">The computer players at this house's tables chat through an AI model. They still play their own cards.</p>
       </section>
     );
   }
 
-  const service = AI_PROVIDERS.find((p) => p.id === provider)!;
+  const SERVER = { id: "server" as const, name: "This card room's account", model: "" };
+  const accounts = [...(house.aiServer || saved?.provider === "server" ? [SERVER] : []), ...AI_PROVIDERS];
+  const service = accounts.find((p) => p.id === provider) ?? AI_PROVIDERS[0]!;
+  const own = provider !== "server";
   const run = async (work: () => Promise<House | string>, done: string) => {
     setBusy(true);
     setNote(null);
@@ -51,7 +55,7 @@ export function HouseAiBlock({ house, onChange }: { house: House; onChange: (hou
     }
   };
   const changedService = saved !== null && provider !== saved.provider;
-  const needsKey = saved === null || changedService;
+  const needsKey = own && (saved === null || changedService || saved.provider === "server");
 
   return (
     <section className="house-block house-ai" aria-label="Bot talk">
@@ -62,7 +66,7 @@ export function HouseAiBlock({ house, onChange }: { house: House; onChange: (hou
       {saved && (
         <Toggle
           label="Bots talk through the model"
-          description={`${AI_PROVIDERS.find((p) => p.id === saved.provider)!.name} · ${saved.model} · key ending ${saved.keyEnding || "…"}`}
+          description={saved.provider === "server" ? `This card room's account${saved.model ? ` · ${saved.model}` : ""}` : `${AI_PROVIDERS.find((p) => p.id === saved.provider)!.name} · ${saved.model} · key ending ${saved.keyEnding || "…"}`}
           checked={saved.on}
           onChange={(on) => void run(() => houses.saveAi(house.slug, { on }), on ? "Switched on." : "Switched off. The bots say their own lines.")}
         />
@@ -70,23 +74,28 @@ export function HouseAiBlock({ house, onChange }: { house: House; onChange: (hou
       <Choice
         label="Account"
         value={provider}
-        options={AI_PROVIDERS.map((p) => [p.id, p.name])}
+        options={accounts.map((p) => [p.id, p.name])}
         onChange={(v) => {
-          setProvider(v as AiProvider);
+          setProvider(v as AiProvider | "server");
           setModel("");
         }}
       />
-      <TextField
-        label="API key"
-        type="password"
-        autocomplete="off"
-        value={key}
-        maxlength={300}
-        placeholder={needsKey ? "" : "Leave empty to keep the saved key"}
-        help={`From your ${service.name} account's API keys page. Your account pays for the bots' lines (a few words each). The key stays on the card room's server and is never shown again.`}
-        onValueChange={(e: CustomEvent<string>) => setKey(e.detail)}
-      />
-      <TextField label="Model" value={model} maxlength={80} placeholder={service.model} help="A small, fast model is plenty." onValueChange={(e: CustomEvent<string>) => setModel(e.detail)} />
+      {!own && <p className="fine">Whoever runs this card room pays for the bots' lines. Nothing to paste: add your family's notes below.</p>}
+      {own && (
+        <>
+          <TextField
+            label="API key"
+            type="password"
+            autocomplete="off"
+            value={key}
+            maxlength={300}
+            placeholder={needsKey ? "" : "Leave empty to keep the saved key"}
+            help={`From your ${service.name} account's API keys page. Your account pays for the bots' lines (a few words each). The key stays on the card room's server and is never shown again.`}
+            onValueChange={(e: CustomEvent<string>) => setKey(e.detail)}
+          />
+          <TextField label="Model" value={model} maxlength={80} placeholder={service.model} help="A small, fast model is plenty." onValueChange={(e: CustomEvent<string>) => setModel(e.detail)} />
+        </>
+      )}
       <TextField
         label="About the family"
         rows={5}
@@ -99,7 +108,7 @@ export function HouseAiBlock({ house, onChange }: { house: House; onChange: (hou
         type="button"
         className="primary"
         disabled={busy || (needsKey && !key.trim())}
-        onClick={() => void run(() => houses.saveAi(house.slug, { provider, key: key.trim() || undefined, model: model.trim() || (changedService ? service.model : undefined), context }), "Saved.")}
+        onClick={() => void run(() => houses.saveAi(house.slug, own ? { provider, key: key.trim() || undefined, model: model.trim() || (changedService ? service.model : undefined), context } : { provider, context }), "Saved.")}
       >
         {busy ? "Checking…" : saved ? "Save" : "Connect"}
       </button>
@@ -108,7 +117,7 @@ export function HouseAiBlock({ house, onChange }: { house: House; onChange: (hou
           <button type="button" className="link" disabled={busy} onClick={() => void run(async () => `A bot says: “${(await houses.testAi(house.slug)).line}”`, "")}>
             Try it
           </button>
-          <button type="button" className="link danger" disabled={busy} onClick={() => confirm("Disconnect the AI account? The key is forgotten and the bots go back to their own lines.") && void run(() => houses.saveAi(house.slug, { disconnect: true }), "Disconnected.")}>
+          <button type="button" className="link danger" disabled={busy} onClick={() => confirm(house.aiServer ? "Forget this house's AI settings? Its key and notes are forgotten and the bots use the card room's account." : "Disconnect the AI account? The key is forgotten and the bots go back to their own lines.") && void run(() => houses.saveAi(house.slug, { disconnect: true }), "Disconnected.")}>
             Disconnect
           </button>
         </span>

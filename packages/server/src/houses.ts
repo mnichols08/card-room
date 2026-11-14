@@ -14,7 +14,7 @@ import { kitOptions } from "./kit.js";
 import type { Push } from "./push.js";
 import { GAMES, gameName, isGameId, type GameId, type TableOptions } from "./games.js";
 import { palaceOptions, palaceRulesFrom, type PalaceSummary } from "./palace.js";
-import { CONTEXT_LIMIT, createAi, defaultModel, isProvider, type Ai, type HouseAi } from "./ai.js";
+import { CONTEXT_LIMIT, DAILY_LINES, TABLE_LINES, createAi, defaultModel, isProvider, type Ai, type HouseAi } from "./ai.js";
 
 export type Role = "owner" | "admin" | "member";
 
@@ -198,7 +198,9 @@ export function createHouses(rooms: Rooms, { mount = "/houses", push, ai = creat
       tournaments: await tournaments.list(house),
       kitRules: Object.fromEntries(KIT_GAMES.map((g) => [g.id, kitRulesOf(house, g.id)])),
       // Everyone sees whether the bots talk through a model; only managers see how it's set up (never the key).
-      ai: me.role === "member" ? (house.ai ? { on: house.ai.on } : null) : ai.view(house.ai),
+      ai: me.role === "member" ? (ai.view(house.ai) ? { on: ai.view(house.ai)!.on } : null) : ai.view(house.ai),
+      /** The card room has an AI account of its own that houses may use. */
+      aiServer: ai.shared,
       // Games still going first, then the rest, newest first.
       tables: tables.sort((a, b) => Number((a.summary as { phase?: string } | null)?.phase === "finished") - Number((b.summary as { phase?: string } | null)?.phase === "finished")),
     };
@@ -385,8 +387,22 @@ export function createHouses(rooms: Rooms, { mount = "/houses", push, ai = creat
         await save(house);
         return json(await forMember(house, me));
       }
+      // The card room's own account: no key to paste, just the house's notes and its switch.
+      if (input.provider === "server" || (input.provider === undefined && (house.ai?.provider ?? (ai.shared ? "server" : undefined)) === "server")) {
+        if (!ai.shared) return json({ error: "This card room has no AI account of its own. Connect the house's own." }, 400);
+        const was = house.ai?.provider === "server" ? house.ai : undefined;
+        house.ai = {
+          provider: "server",
+          key: "",
+          model: "",
+          context: typeof input.context === "string" ? input.context.trim().slice(0, CONTEXT_LIMIT) : (was?.context ?? house.ai?.context ?? ""),
+          on: typeof input.on === "boolean" ? input.on : (was?.on ?? true),
+        };
+        await save(house);
+        return json(await forMember(house, me));
+      }
       const provider = isProvider(input.provider) ? input.provider : house.ai?.provider;
-      if (!provider) return json({ error: "Pick Claude or OpenAI." }, 400);
+      if (!provider || provider === "server") return json({ error: "Pick Claude or OpenAI." }, 400);
       const pasted = typeof input.key === "string" ? input.key.trim() : "";
       if (pasted && (pasted.length < 20 || pasted.length > 300 || /\s/.test(pasted))) return json({ error: "That doesn't look like an API key." }, 400);
       // A new provider needs its own key; otherwise the saved one stays.
@@ -409,9 +425,10 @@ export function createHouses(rooms: Rooms, { mount = "/houses", push, ai = creat
     }
     // POST /houses/:slug/ai-test → a hello in a bot's voice, with the saved connection
     if (action === "ai-test") {
-      if (!house.ai) return json({ error: "Connect an AI account first." }, 404);
+      const connected = house.ai ?? ai.fallback();
+      if (!connected) return json({ error: "Connect an AI account first." }, 404);
       try {
-        return json({ line: await ai.test(house.ai, house.name) });
+        return json({ line: await ai.test(connected, house.name) });
       } catch (e) {
         return json({ error: e instanceof Error ? e.message : "The AI service didn't answer." }, 400);
       }
@@ -530,11 +547,17 @@ export function createHouses(rooms: Rooms, { mount = "/houses", push, ai = creat
   return {
     /** A table finished: if it was a tournament match, move its winner on. */
     tableFinished: (id: string, summary: unknown) => tournaments.tableFinished(id, summary, get),
-    /** The house a table was opened in and its AI connection, if it has one switched on. */
-    async aiFor(table: string): Promise<{ slug: string; name: string; ai: HouseAi } | null> {
+    /**
+     * The AI connection a table's bots talk through, if any is switched on: its house's own, or the
+     * card room's (for a house that set nothing, and for tables that aren't in a house). `who` and
+     * `limit` are whose daily allowance a line counts against.
+     */
+    async aiFor(table: string): Promise<{ who: string; limit: number; name: string; ai: HouseAi } | null> {
       const slug = houseOf.get(table) ?? ((await docs).get("tablehouse", table)?.house as string | undefined);
       const house = slug ? await get(slug) : undefined;
-      return house?.ai?.on ? { slug: house.slug, name: house.name, ai: house.ai } : null;
+      const connected = house?.ai ?? ai.fallback();
+      if (!connected?.on || (connected.provider === "server" && !ai.shared)) return null;
+      return house ? { who: house.slug, limit: DAILY_LINES, name: house.name, ai: connected } : { who: `table/${table}`, limit: TABLE_LINES, name: "the Card Room", ai: connected };
     },
     /** Answers house requests; null for anything else. */
     async fetch(request: Request): Promise<Response | null> {

@@ -152,6 +152,10 @@ docker run -p 8787:8787 -v spades:/data cardroom
 | `CARDROOM_VAPID_PRIVATE_KEY` | Push notifications: the private key; keep it secret |
 | `CARDROOM_VAPID_SUBJECT` | Optional: a `mailto:` or `https:` address push services can reach you at |
 | `CARDROOM_SECRET` | Any long random text: encrypts the AI keys houses connect (see **Bot talk from a model**). Keep it the same for good. |
+| `CARDROOM_AI_KEY` | Optional: an Anthropic or OpenAI API key for the whole card room, so every table's bots talk through a model (see **Bot talk from a model**) |
+| `CARDROOM_AI_PROVIDER` | `anthropic` or `openai`, if the key doesn't say (a key starting `sk-ant-` is Anthropic's) |
+| `CARDROOM_AI_MODEL` | The model for that key. Default: `claude-haiku-5-5` or `gpt-5.6-luna`. |
+| `CARDROOM_AI_DAILY` | The most lines a day on that key, everyone together. Default 3000. |
 | `CARDROOM_BOT_DELAY` | Fixed thinking time for computer players, in milliseconds (handy for testing) |
 | `CARDROOM_WEB` | Where the built web app is, if not `packages/web/dist` |
 | `PORT` | The port to listen on (8787; Railway sets its own) |
@@ -194,6 +198,13 @@ a bot's name, gets an answer too.
 - The key is tried before it's saved, kept on the server (encrypted when `CARDROOM_SECRET` is
   set) and never sent to a page again: admins see its last four characters. A changed or lost
   `CARDROOM_SECRET` means pasting the keys again.
+
+**One key for everyone.** Whoever runs the card room can set `CARDROOM_AI_KEY` instead (see
+**Settings**). Then the bots at every table talk through it, in a house or not, and a house's
+owner or admins only add their family notes, switch it off, or connect the house's own account
+in its place. That account pays for everyone, so it has ceilings: 3000 lines a day in all
+(`CARDROOM_AI_DAILY`), 600 for one house and 60 for a table outside a house. The key lives only in
+the server's settings: it's never stored in the database or sent to a page.
 
 Card Room connects with an API key from the provider's developer console; signing in with a Claude
 or ChatGPT subscription isn't supported.

@@ -29,6 +29,8 @@ export interface House {
   kitRules: Record<string, { presets: KitRules[]; default: string }>;
   /** The house's AI connection for bot talk: its settings for an owner or admin, on or off for a member, null when there's none. */
   ai: HouseAiSettings | { on: boolean } | null;
+  /** The card room has an AI account of its own (set by whoever runs it) that houses may use. */
+  aiServer: boolean;
 }
 
 export type AiProvider = "anthropic" | "openai";
@@ -38,7 +40,8 @@ export const AI_PROVIDERS: { id: AiProvider; name: string; model: string }[] = [
   { id: "openai", name: "OpenAI", model: "gpt-5.6-luna" },
 ];
 export interface HouseAiSettings {
-  provider: AiProvider;
+  /** "server": the card room's own account; no key of the house's. */
+  provider: AiProvider | "server";
   model: string;
   context: string;
   on: boolean;
@@ -144,7 +147,7 @@ export const houses = {
   remove: (slug: string, member: string) => call<House>(at(slug, "remove"), { member }),
   newLink: (slug: string) => call<House>(at(slug, "new-link"), {}),
   /** Connect or change the house's AI (the key and model are tried before they're saved), or { disconnect: true }. */
-  saveAi: (slug: string, change: { provider?: AiProvider; key?: string; model?: string; context?: string; on?: boolean; disconnect?: boolean }) => call<House>(at(slug, "ai"), change),
+  saveAi: (slug: string, change: { provider?: AiProvider | "server"; key?: string; model?: string; context?: string; on?: boolean; disconnect?: boolean }) => call<House>(at(slug, "ai"), change),
   testAi: (slug: string) => call<{ line: string }>(at(slug, "ai-test"), {}),
   tournament: (slug: string, id: string) => call<Tournament>(at(slug, `tournaments/${encodeURIComponent(id)}`)),
   newTournament: (slug: string, name: string, game: GameId, presetId: string, settings: TableSettings) => call<Tournament>(at(slug, "tournaments"), { name, game, presetId, settings }),

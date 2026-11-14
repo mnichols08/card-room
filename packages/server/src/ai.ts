@@ -6,6 +6,9 @@
 // speaks and which one: the model is handed that moment (and the line the bot would have said) and
 // writes it in character. It sees what the whole table sees (names, the public score, the chat) and
 // never a hand. If the model is slow, over its allowance or broken, the bot says its own line.
+//
+// Whoever runs the server can also set one key for the whole card room (CARDROOM_AI_KEY): then every
+// table's bots talk through it, and a house needs no key of its own (it may still connect one).
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 
 export type AiProvider = "anthropic" | "openai";
@@ -19,11 +22,15 @@ export const defaultModel = (provider: AiProvider) => AI_PROVIDERS.find((p) => p
 export const CONTEXT_LIMIT = 1500;
 /** Lines a house's bots may ask a model for in a day. Past it they say their own lines. */
 export const DAILY_LINES = 600;
+/** On the card room's own key: lines a day for one table that isn't a house's, and for everyone together. */
+export const TABLE_LINES = 60;
+export const SHARED_LINES = 3000;
 const LINE_LIMIT = 200;
 
 /** What a house keeps about its connection. `key` is sealed; it never leaves the server. */
 export interface HouseAi {
-  provider: AiProvider;
+  /** "server": the card room's own key (set by whoever runs it); then `key` and `model` are empty. */
+  provider: AiProvider | "server";
   key: string;
   model: string;
   /** The household's notes for the model: who's who, in-jokes, how the bots should talk. */
@@ -33,7 +40,7 @@ export interface HouseAi {
 
 /** What a house's managers see: never the key, only its last four characters. */
 export interface HouseAiView {
-  provider: AiProvider;
+  provider: AiProvider | "server";
   model: string;
   context: string;
   on: boolean;
@@ -43,6 +50,8 @@ export interface HouseAiView {
 export interface AiOptions {
   /** Seals keys at rest (CARDROOM_SECRET). Without one they're stored as given, in the server-only log. */
   secret?: string;
+  /** The card room's own key, for every table (CARDROOM_AI_KEY and friends). */
+  shared?: { provider?: string; key?: string; model?: string; daily?: number };
   /** For tests. */
   fetch?: typeof fetch;
   /** How long (ms) to wait for a line before the bot says its own. Default 6000. */
@@ -126,8 +135,21 @@ export function createAi(options: AiOptions = {}) {
     }
   }
 
+  // The card room's own connection. A key that starts "sk-ant-" is Anthropic's unless told otherwise.
+  const given = options.shared?.key?.trim();
+  const sharedProvider: AiProvider = isProvider(options.shared?.provider) ? options.shared.provider : given?.startsWith("sk-ant-") ? "anthropic" : "openai";
+  const shared: (HouseAi & { provider: AiProvider }) | null = given
+    ? { provider: sharedProvider, key: `plain:${given}`, model: options.shared?.model?.trim() || defaultModel(sharedProvider), context: "", on: true }
+    : null;
+  const sharedDaily = options.shared?.daily && options.shared.daily > 0 ? options.shared.daily : SHARED_LINES;
+  /** A house's connection as it's actually called: the card room's key when that's what it uses. */
+  const resolve = (ai: HouseAi): (HouseAi & { provider: AiProvider }) | null =>
+    ai.provider === "server" ? (shared ? { ...shared, context: ai.context, on: ai.on } : null) : (ai as HouseAi & { provider: AiProvider });
+
   /** One line from the provider. Throws with a message fit to show the house's admin. */
-  async function ask(ai: HouseAi, system: string, user: string): Promise<string> {
+  async function ask(asked: HouseAi, system: string, user: string): Promise<string> {
+    const ai = resolve(asked);
+    if (!ai) throw new Error("This card room has no AI account of its own any more. Connect the house's own.");
     const key = open(ai.key);
     if (!key) throw new Error("The saved key can't be read any more. Paste it again.");
     const anthropic = ai.provider === "anthropic";
@@ -164,13 +186,15 @@ export function createAi(options: AiOptions = {}) {
   // Each house's lines today, so a busy night can't run up a bill. Kept in memory: a restart resets it.
   const used = new Map<string, { day: string; lines: number }>();
   const today = () => new Date().toISOString().slice(0, 10);
-  function spend(house: string): boolean {
-    const entry = used.get(house);
+  function spend(who: string, limit: number): boolean {
+    const entry = used.get(who);
     if (!entry || entry.day !== today()) {
-      used.set(house, { day: today(), lines: 1 });
+      // Yesterday's counts go when a new day's first line is asked for.
+      for (const [k, v] of used) if (v.day !== today()) used.delete(k);
+      used.set(who, { day: today(), lines: 1 });
       return true;
     }
-    if (entry.lines >= DAILY_LINES) return false;
+    if (entry.lines >= limit) return false;
     entry.lines += 1;
     return true;
   }
@@ -179,8 +203,16 @@ export function createAi(options: AiOptions = {}) {
     seal,
     /** Whether a sealed key can still be opened here. */
     readable: (ai: HouseAi) => open(ai.key) !== null,
+    /** Whether the card room has a key of its own. */
+    get shared() {
+      return shared !== null;
+    },
+    /** What a table uses when its house hasn't set anything (or it has no house): the card room's key, if any. */
+    fallback: (): HouseAi | null => (shared ? { provider: "server", key: "", model: "", context: "", on: true } : null),
     view: (ai: HouseAi | undefined): HouseAiView | null => {
-      if (!ai) return null;
+      // A house that's set nothing rides on the card room's key, when there is one.
+      if (!ai) return shared ? { provider: "server", model: shared.model, context: "", on: true, keyEnding: "" } : null;
+      if (ai.provider === "server") return { provider: "server", model: shared?.model ?? "", context: ai.context, on: ai.on && shared !== null, keyEnding: "" };
       const key = open(ai.key) ?? "";
       return { provider: ai.provider, model: ai.model, context: ai.context, on: ai.on, keyEnding: key.slice(-4) };
     },
@@ -190,13 +222,16 @@ export function createAi(options: AiOptions = {}) {
       return ask(ai, system, user);
     },
     /** A bot's line in the model's words, or null to say its own (off, over the day's allowance, or the model failed). */
-    async line(slug: string, ai: HouseAi | undefined, moment: Moment): Promise<string | null> {
-      if (!ai?.on || !spend(slug)) return null;
+    async line(who: string, ai: HouseAi | undefined, moment: Moment, limit = DAILY_LINES): Promise<string | null> {
+      if (!ai?.on || !resolve(ai)) return null;
+      if (!spend(who, limit)) return null;
+      // Whoever runs the card room pays for its own key: one ceiling for everyone on it.
+      if (ai.provider === "server" && !spend("\u0000shared", sharedDaily)) return null;
       const { system, user } = promptFor(ai, moment);
       try {
         return await ask(ai, system, user);
       } catch (e) {
-        console.error(`ai: ${slug}: ${e instanceof Error ? e.message : String(e)}`);
+        console.error(`ai: ${who}: ${e instanceof Error ? e.message : String(e)}`);
         return null;
       }
     },

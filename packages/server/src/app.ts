@@ -41,17 +41,22 @@ export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: b
     const room = connected && (await rooms.room(id));
     if (!connected || !room) return null;
     const bot = room.seats[r.seat]?.name ?? "Bot";
-    return ai.line(connected.slug, connected.ai, {
-      house: connected.name,
-      game: gameName(gameOfRoom(room)),
-      bot,
-      character: personaFor(bot).blurb,
-      players: room.seats.flatMap((s) => (s.name ? [{ name: s.name, bot: s.bot }] : [])),
-      summary: room.summary,
-      chat: await recentChat(id),
-      gist: r.text || undefined,
-      replyingTo: said,
-    });
+    return ai.line(
+      connected.who,
+      connected.ai,
+      {
+        house: connected.name,
+        game: gameName(gameOfRoom(room)),
+        bot,
+        character: personaFor(bot).blurb,
+        players: room.seats.flatMap((s) => (s.name ? [{ name: s.name, bot: s.bot }] : [])),
+        summary: room.summary,
+        chat: await recentChat(id),
+        gist: r.text || undefined,
+        replyingTo: said,
+      },
+      connected.limit,
+    );
   }
 
   /**

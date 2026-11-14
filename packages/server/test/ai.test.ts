@@ -24,9 +24,9 @@ function service(say: (body: any, url: string) => { status?: number; line?: stri
   return { fake, calls };
 }
 
-function setup(fake: typeof fetch, secret: string | undefined = "a server secret") {
+function setup(fake: typeof fetch, shared?: { key: string; daily?: number }) {
   const log = memoryLog({ keep: "latest" });
-  const app = createCardRoom({ log, botDelay: 5, ai: { fetch: fake, secret } });
+  const app = createCardRoom({ log, botDelay: 5, ai: { fetch: fake, secret: "a server secret", shared } });
   open.push(app);
   const phone = () => {
     let cookie = "";
@@ -158,6 +158,70 @@ describe("a house's AI connection", () => {
     await new Promise((r) => setTimeout(r, 2500));
     expect(calls.length).toBe(n);
   }, 12_000);
+});
+
+describe("the card room's own key", () => {
+  const SERVER_KEY = "sk-ant-the-card-rooms-own-key-0000";
+  const table = async (send: (path: string, body?: unknown) => Promise<{ body: any }>, made: string, say: string) => {
+    await send(`/rooms/${made}/sit`, { seat: 0, name: "brokennil" });
+    for (const [seat, name] of [[1, "Hank"], [2, "Pearl"], [3, "Lou"]] as const) await send(`/rooms/${made}/bot`, { seat, name });
+    await send(`/rooms/${made}/start`, {});
+    await send(`/rooms/${made}/say`, { text: say });
+    await new Promise((r) => setTimeout(r, 2800));
+  };
+
+  it("every table's bots talk through it, a house adds its notes with no key, and can switch it off", async () => {
+    const { fake, calls } = service(() => ({ line: "Model says hello!" }));
+    const { phone } = setup(fake, { key: SERVER_KEY });
+    const grammi = phone();
+    const rick = phone();
+
+    // A table that isn't in any house.
+    const loose = (await grammi.send("/rooms", { options: {} })).body.id;
+    await table(grammi.send, loose, "Pearl, what's for dessert?");
+    expect((await chatOf(grammi.send)).some((m) => m.bot && m.text === "Model says hello!")).toBe(true);
+    expect(calls[0]!.url).toBe("https://api.anthropic.com/v1/messages");
+    expect(calls[0]!.headers["x-api-key"]).toBe(SERVER_KEY);
+
+    // A new house rides on it straight away; its managers never see the key.
+    const made = await grammi.send("/houses", { name: "Grammi's House", you: "brokennil" });
+    expect(made.body.aiServer).toBe(true);
+    expect(made.body.ai).toEqual({ provider: "server", model: "claude-haiku-5-5", context: "", on: true, keyEnding: "" });
+    await rick.send("/houses/grammis-house/join", { code: made.body.code, name: "Rick" });
+    expect((await rick.send("/houses/grammis-house")).body.ai).toEqual({ on: true });
+
+    const noted = await grammi.send("/houses/grammis-house/ai", { provider: "server", context: "Grammi bakes the pies." });
+    expect(noted.body.ai).toMatchObject({ provider: "server", context: "Grammi bakes the pies.", on: true });
+    expect(JSON.stringify(noted.body)).not.toContain(SERVER_KEY);
+    const before = calls.length;
+    await table(grammi.send, (await grammi.send("/houses/grammis-house/tables", {})).body.id, "Pearl, what's for dessert?");
+    expect(JSON.stringify(calls.slice(before).map((c) => c.body))).toContain("Grammi bakes the pies.");
+
+    // Switched off, the house's bots go back to their own lines; the notes are kept.
+    expect((await grammi.send("/houses/grammis-house/ai", { on: false })).body.ai).toMatchObject({ provider: "server", context: "Grammi bakes the pies.", on: false });
+    const quiet = calls.length;
+    await table(grammi.send, (await grammi.send("/houses/grammis-house/tables", {})).body.id, "Pearl, what's for dessert?");
+    expect(calls.length).toBe(quiet);
+
+    // A house can still connect its own account instead.
+    const own = await grammi.send("/houses/grammis-house/ai", { provider: "openai", key: KEY });
+    expect(own.body.ai).toMatchObject({ provider: "openai", keyEnding: "WXYZ", context: "Grammi bakes the pies." });
+    expect(calls.at(-1)!.headers.authorization).toBe(`Bearer ${KEY}`);
+  }, 15_000);
+
+  it("stops at its daily ceiling, and isn't offered when there's none", async () => {
+    const { fake, calls } = service(() => ({ line: "Model says hello!" }));
+    const { phone } = setup(fake, { key: SERVER_KEY, daily: 1 });
+    const grammi = phone();
+    await table(grammi.send, (await grammi.send("/rooms", { options: {} })).body.id, "Pearl, what's for dessert?");
+    expect(calls.length).toBe(1);
+
+    const none = setup(fake);
+    const rick = none.phone();
+    const made = await rick.send("/houses", { name: "Pappy's Place", you: "Rick" });
+    expect(made.body).toMatchObject({ ai: null, aiServer: false });
+    expect((await rick.send("/houses/pappys-place/ai", { provider: "server" })).status).toBe(400);
+  }, 10_000);
 });
 
 describe("keys and prompts", () => {
