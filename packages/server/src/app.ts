@@ -43,6 +43,8 @@ export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: b
     log: options.log,
     botDelay: options.botDelay,
     // A game the host has switched off takes no new tables.
+    // Whether people's tables can be watched is the host's call.
+    spectators: () => catalogue.watching(),
     allow: async (given) => ((await catalogue.isOn(gameOfOptions(given))) ? null : `${gameName(gameOfOptions(given))} is switched off in this card room.`),
     onStart: ({ id, state, room }) => speak(id, talk.greet(state, castOf(room))),
     onMove: ({ id, before, after, room }) => {

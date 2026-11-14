@@ -114,9 +114,17 @@ The watch page lives at `/watch/` (there's a link on the card room's front page)
 - **Learn from the computer.** Pick a game, how well the computer players should play and how
   fast, and they sit down and play it out. You see every hand, and can look over any seat's
   shoulder. A few of these tables can be going at once (six); a new one waits for one to finish.
-- **Playing now.** Every table with a game going. At a table with people you see who's playing and
-  the score, never their cards: a hand only ever goes to the browser that holds the seat. The
-  host can keep people's tables off this list altogether (admin app, **Games**).
+- **Playing now.** Every table with a game going. At a table with people you watch the play card
+  by card from any side of the table, but never see a hand: a watcher gets only what every player
+  at the table can already see. The host can keep people's tables off this list altogether (admin
+  app, **Games**).
+
+How a watcher's view is made: after each move the server builds every seat's view, keeps what they
+all show alike and drops whatever differs (a hand, the moves on offer, a card only one player has
+peeked at). That works for every game without the game saying which parts are private; each kind
+of game names its private parts as well (`watchView` in `packages/server/src/games.ts`, on
+`sharedView` from the rooms kit). `packages/server/test/watching.test.ts` plays every game and
+checks no card reaches a watcher that any seat can't see.
 
 ## Moderating the card room
 
@@ -128,7 +136,7 @@ server has an admin token (see **Settings**); sign in with that token.
 | **Tables** | Every table and who's at it. Look at one to read its chat, remove a message, take someone out of a seat (a computer player takes over if the game has started), or close the table for good, with a reason everyone there sees. |
 | **Players** | Everyone who's sat down, joined a house or saved a design. Blocking someone stops them sitting, playing, chatting, opening houses and sharing designs; tables they're at carry on without them. Unblocking undoes it. |
 | **Houses** | Every house and its members. Rename a house (its invite link stays the same), remove a member, hand it to a new owner, or delete it. |
-| **Games** | Which games the card room offers and in what order: the front page follows. Switching a game off stops new tables of it everywhere (tables already going carry on). Also the switch for whether tables with players can be watched. |
+| **Games** | Which games the card room offers and in what order: the front page follows. Switching a game off stops new tables of it everywhere (tables already going carry on). Also the switch for whether tables with players can be watched (the table, never a hand). |
 | **Card designs** | Every shared deck. Hiding one takes it out of the gallery; its maker keeps it and sees your reason. |
 | **Activity** | Everything done from the admin app, newest first. |
 

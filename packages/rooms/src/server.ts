@@ -7,6 +7,7 @@
 // Collections:
 //   rooms/<id>          public: seats (names, bots), whether it started, a summary   (everyone reads)
 //   views/<id>/<seat>   one seat's view of the game                                  (that seat only)
+//   views/<id>/watch    what someone watching may see: nobody's hand                 (everyone, if watching is allowed)
 //   games/<id>          options, seed and seat holders                               (server only)
 //   moves/<id>          every move, one field per move, for replays and restarts     (server only)
 //   chat/<id>           the table's chat, one field per message                       (everyone)
@@ -21,6 +22,12 @@ export interface RoomDefinition<State, Move, View, Options, Summary = unknown> {
   act(state: State, seat: number, move: Move): State;
   /** What one seat may see. */
   view(state: State, seat: number): View;
+  /**
+   * What someone watching the table may see, from the state and every seat's view (in seat order).
+   * Without it a table can't be watched. `sharedView` builds one from the views: what every seat
+   * can see already.
+   */
+  watch?(state: State, views: View[]): unknown;
   /** What everyone may see (lobby, scoreboards, a blog embed). */
   summary?(state: State): Summary;
   /** What everyone may see before the game starts, from the room's options: its game and rules, say. */
@@ -127,6 +134,8 @@ export interface RoomsOptions {
   log?: Log;
   /** A fixed time (ms) every bot waits before moving, overriding the room's own botDelay. For tests. */
   botDelay?: number;
+  /** Whether people who aren't at a table may read its watch view. Default: they may. */
+  spectators?(): boolean | Promise<boolean>;
   /** Whether a page may open a room with these options: a reason to refuse, or null. Server code's own `create` isn't asked. */
   allow?(options: unknown): string | null | Promise<string | null>;
   /** After every move is published. */
@@ -202,6 +211,8 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
       if (collection === "rooms") return true; // reading, and presence (who's at the table)
       if (collection === "chat" && kind === "read") return true;
       if (collection === "views" && kind === "read") {
+        // The watch view holds only what every seat can already see.
+        if (key.endsWith("/watch")) return (await options.spectators?.()) ?? true;
         const [id, seat] = splitViewKey(key);
         // A table of computer players has no hands to keep secret.
         if ((await room(id))?.watchable) return true;
@@ -391,8 +402,9 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     const writes: Promise<unknown>[] = [];
     if (entry.state !== null) {
       const n = (await game(id))?.holders.length ?? 0;
-      for (let seat = 0; seat < n; seat++)
-        writes.push(sync.write("views", `${id}/${seat}`, { view: def.view(entry.state, seat), version: entry.version }));
+      const views = Array.from({ length: n }, (_, seat) => def.view(entry.state as State, seat));
+      for (const [seat, view] of views.entries()) writes.push(sync.write("views", `${id}/${seat}`, { view, version: entry.version }));
+      if (def.watch) writes.push(sync.write("views", `${id}/watch`, { view: def.watch(entry.state, views), version: entry.version }));
     }
     writes.push(
       sync.write("rooms", id, {
@@ -626,4 +638,57 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
       for (const entry of live.values()) if (entry.timer) clearTimeout(entry.timer);
     },
   };
+}
+
+const same = (a: unknown, b: unknown): boolean => {
+  if (a === b) return true;
+  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  const ka = Object.keys(a);
+  const kb = Object.keys(b);
+  return ka.length === kb.length && ka.every((k) => same((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]));
+};
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+
+/** What a list of values have in common: the value where they all agree; where they don't, nothing (see sharedView). */
+function common(values: unknown[]): unknown {
+  const first = values[0];
+  if (values.every((v) => same(v, first))) return first;
+  // Lists of the same length are compared place by place: a list of seats, a grid of cards.
+  if (values.every(Array.isArray)) {
+    const lists = values as unknown[][];
+    return lists.every((l) => l.length === lists[0]!.length) ? lists[0]!.map((_, i) => common(lists.map((l) => l[i]))) : [];
+  }
+  // Records with the same keys are compared key by key. Anything else that differs is simply not shown.
+  if (values.every(isRecord)) {
+    const records = values as Record<string, unknown>[];
+    const keys = Object.keys(records[0]!);
+    if (records.every((r) => Object.keys(r).length === keys.length && keys.every((k) => k in r))) return Object.fromEntries(keys.map((k) => [k, common(records.map((r) => r[k]))]));
+  }
+  return null;
+}
+
+/**
+ * A view for someone watching, made from every seat's view: whatever all the seats see alike is
+ * kept, and whatever differs between them (a hand, the moves on offer, a card only one player has
+ * peeked at) becomes null, or an empty list. A watcher so learns nothing that every player at the
+ * table doesn't already know, in any game, without the game saying which parts are private.
+ *
+ * Name a game's private parts in `blank` anyway (their values replace the seats' own before
+ * comparing): two hands that happened to match in some detail would otherwise show it. `from`
+ * takes the named keys from one seat's view as they are, for the parts that say where the viewer
+ * sits rather than what they know.
+ */
+export function sharedView<View extends object>(views: View[], { blank = {}, from }: { blank?: Partial<View>; from?: { seat: number; keys: (keyof View)[] } } = {}): View {
+  if (!views.length) throw new Error("A table has at least one seat.");
+  const placed = from ? views[from.seat] ?? views[0]! : null;
+  const comparable = views.map((v) => {
+    const copy = { ...v, ...blank } as Record<string, unknown>;
+    // Where the viewer sits differs by definition; it's set from one seat below.
+    for (const key of from?.keys ?? []) delete copy[key as string];
+    return copy;
+  });
+  const shared = common(comparable) as Record<string, unknown>;
+  for (const key of from?.keys ?? []) shared[key as string] = (placed as Record<string, unknown>)[key as string];
+  return shared as View;
 }

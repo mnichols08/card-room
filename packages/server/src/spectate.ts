@@ -3,9 +3,10 @@
 //
 // What a watcher sees depends on who's playing. At a table of computer players there are no hands
 // to keep secret, so a watcher sees everything, over any seat's shoulder (the rooms kit lets anyone
-// read a `watchable` table's views). At a table with people, a watcher sees what's already public:
-// who's there and the score. Their cards stay in their own browsers. The host can switch watching
-// people's tables off altogether (the catalogue).
+// read a `watchable` table's views). At a table with people, a watcher sees the table's watch view:
+// the cards on the table and the score, as every player sees them, and nobody's hand (see
+// `watchView` in games.ts). The host can switch watching people's tables off altogether (the
+// catalogue).
 import { kitGame, isKitGame } from "@cardroom/games";
 import { familyPalace } from "@cardroom/palace";
 import { cleanSettings, familyTable, pickPersonas } from "@spades/rules";

@@ -5,7 +5,7 @@
 // game's options carry `game`.
 import { KIT_GAMES, isKitGame, kitGame, kitGreet, reactToKit, type KitGameId } from "@cardroom/games";
 import { palaceGreet, palaceReplyTo, reactToPalace, type PalaceState } from "@cardroom/palace";
-import type { RoomDefinition } from "@spades/rooms/server";
+import { sharedView, type RoomDefinition } from "@spades/rooms/server";
 import { cleanSettings, greet, reactToMove, replyTo, type GameState, type RulePreset, type Seat } from "@spades/rules";
 import { palaceOptions, palaceRoom, type PalaceOptions } from "./palace.js";
 import { spadesRoom } from "./spades.js";
@@ -53,6 +53,7 @@ export const tableRoom: RoomDefinition<AnyState, unknown, unknown, TableOptions,
   },
   act: (s, seat, move) => byState(s).act(s, seat, move),
   view: (s, seat) => byState(s).view(s, seat),
+  watch: (s, views) => watchView(gameOfState(s), views),
   // Every summary says its game, so a lobby or a blog embed can tell tables apart.
   summary: (s) => ({ game: gameOfState(s), ...(byState(s).summary?.(s) as object) }),
   finished: (s) => byState(s).finished?.(s) ?? false,
@@ -61,6 +62,23 @@ export const tableRoom: RoomDefinition<AnyState, unknown, unknown, TableOptions,
   botDelay: (s, seat, name, settings) => byState(s).botDelay?.(s, seat, name, settings) ?? 700,
   bot: (s, seat, name, settings) => byState(s).bot?.(s, seat, name, settings) ?? null,
 };
+
+/**
+ * What someone watching a table sees: the table as every seat sees it, with nobody's hand and
+ * nobody's moves, looking on from the first seat's side (a page can turn it to any side).
+ * Each kind of game names its private parts; `sharedView` then drops anything else the seats
+ * don't all see alike.
+ */
+export function watchView(game: GameId, views: unknown[]): unknown {
+  type Any = Record<string, unknown>;
+  const seats = views as Any[];
+  if (game === "spades") return sharedView(seats, { blank: { hand: [], legal: [], myPass: null }, from: { seat: 0, keys: ["seat", "team", "partner", "teamSeats"] } });
+  if (game === "palace") return sharedView(seats, { blank: { hand: [], can: null }, from: { seat: 0, keys: ["you"] } });
+  const view = sharedView(seats, { blank: { hand: [], tap: null, pick: null, choices: null, gridTap: null }, from: { seat: 0, keys: ["me"] } });
+  // A line of table talk only one seat was shown ("You were passed…") is nobody else's.
+  if (Array.isArray(view.info)) view.info = view.info.filter((line) => typeof line === "string");
+  return view;
+}
 
 export interface Remark {
   seat: number;

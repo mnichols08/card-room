@@ -1,7 +1,7 @@
 import { openRoom, RoomError, type ChatMessage, type Room } from "@spades/rooms/client";
 import { TableChat, type ChatProps } from "./Chat";
 import type { RoomDoc } from "@spades/rooms/server";
-import { cleanSettings, personaFor, pickPersonas, type Seat, type SeatView, type TableSettings } from "@spades/rules";
+import { cleanSettings, partnerOf, personaFor, pickPersonas, seatsOf, teamOf, type Seat, type SeatView, type TableSettings } from "@spades/rules";
 import TextField from "@spades/ui/zubra-ui/text-field.zb";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { loadSavedName, saveName, saveTableSettings } from "./storage";
@@ -37,9 +37,14 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
   const [problem, setProblem] = useState<string | null>(null);
   const [missing, setMissing] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  // At a table of computer players, a watcher looks over one seat's shoulder, and can change seats.
+  // Someone without a seat watches. At a table of computer players they look over one seat's
+  // shoulder and see its hand. At a table with people they see the table from one seat's side and
+  // nobody's hand (the server's watch view), if the card room's host lets people watch.
   const [watchSeat, setWatchSeat] = useState(0);
-  const watching = !!doc?.watchable && mySeat === null;
+  const overShoulder = mySeat === null && !!doc?.watchable;
+  const fromTheSide = mySeat === null && !!doc?.started && !doc.watchable;
+  const source: Seat | "watch" | null = overShoulder ? (watchSeat as Seat) : fromTheSide ? "watch" : mySeat;
+  const watching = overShoulder || (fromTheSide && view !== null);
   const seat = watching ? (watchSeat as Seat) : mySeat;
 
   useEffect(() => {
@@ -60,10 +65,10 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
   }, [room]);
 
   useEffect(() => {
-    if (seat === null) return;
+    if (source === null) return;
     setView(null);
-    return room.onView(seat, (doc) => setView(doc.view));
-  }, [room, seat]);
+    return room.onView(source, (doc) => setView(doc.view));
+  }, [room, source]);
 
   if (missing) {
     return (
@@ -116,7 +121,7 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
   const banner = watching ? (
     <div className="banner watching">
       <label>
-        👀 Watching over{" "}
+        👀 Watching {overShoulder ? "over" : "from"}{" "}
         <select value={watchSeat} onChange={(e) => setWatchSeat(Number(e.target.value))}>
           {doc.seats.map((s, i) => (
             <option key={i} value={i}>
@@ -124,8 +129,9 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
             </option>
           ))}
         </select>
-        ’s shoulder
+        {overShoulder ? "’s shoulder" : "’s side"}
       </label>
+      {!overShoulder && <span className="hint">Hands are hidden</span>}
     </div>
   ) : null;
 
@@ -133,7 +139,9 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
     if (isKitGame(game)) {
       return (
         <KitTable
-          view={view as KitView}
+          // The watch view looks on from the first seat; turn it to the side being watched from.
+          view={fromTheSide ? { ...(view as KitView), me: seat } : (view as KitView)}
+          watching={watching}
           names={doc.seats.map((s, i) => s.name ?? seatLabel(game, i))}
           act={act}
           onLeave={onLeave}
@@ -148,6 +156,7 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
         <PalaceTable
           view={view as PalaceView}
           seat={seat}
+          watching={watching}
           names={doc.seats.map((s, i) => s.name ?? seatLabel(game, i))}
           act={act as (move: PalaceMove) => Promise<string | null>}
           onLeave={onLeave}
@@ -159,9 +168,10 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
     }
     // Spades asks its room to act: a watcher's room refuses.
     const spades = (watching ? { ...room, act: () => Promise.reject(new Error(WATCHING)) } : room) as unknown as SpadesRoom;
-    return <PlayingTable room={spades} view={view as SeatView} seat={seat} names={names} onLeave={onLeave} code={id} chat={chat} settings={tableSettings} banner={banner} />;
+    const turned = fromTheSide ? ({ ...(view as SeatView), seat, team: teamOf(seat), partner: partnerOf(seat), teamSeats: seatsOf(teamOf(seat)) } as SeatView) : (view as SeatView);
+    return <PlayingTable room={spades} view={turned} seat={seat} names={names} onLeave={onLeave} code={id} chat={chat} settings={tableSettings} banner={banner} watching={watching} />;
   }
-  if (watching) {
+  if (overShoulder) {
     return (
       <main className="setup lobby">
         <p>Pulling up a chair…</p>
@@ -182,10 +192,12 @@ function PlayingTable(props: {
   chat: ChatProps;
   settings?: { value: TableSettings; change: (next: TableSettings) => Promise<void> };
   banner?: ReactNode;
+  watching?: boolean;
 }) {
   const table = useTable({
     view: props.view,
     seat: props.seat,
+    watching: props.watching,
     act: (move) =>
       props.room.act(move).then(
         () => null,

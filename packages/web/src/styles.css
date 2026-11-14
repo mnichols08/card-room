@@ -273,7 +273,8 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; }
 .secondary.small { padding: 6px 14px; font-size: 0.9rem; }
 .banner { text-align: center; font-size: 0.75rem; letter-spacing: 0.06em; color: #cfe2d6; padding: 4px 0; background: rgba(0, 0, 0, 0.2); }
 /* Watching a table of computer players: whose shoulder you're looking over, and a way to change seats. */
-.banner.watching { font-size: 0.85rem; letter-spacing: 0; padding: 6px 56px 6px 8px; color: var(--cream); }
+.banner.watching { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 2px 12px; font-size: 0.85rem; letter-spacing: 0; padding: 6px 56px 6px 8px; color: var(--cream); }
+.banner.watching .hint { font-size: 0.75rem; opacity: 0.8; }
 .banner.watching select { font: inherit; font-weight: 700; color: var(--felt-dark, #143628); background: var(--cream); border: 0; border-radius: 6px; padding: 3px 6px; min-height: 28px; }
 .banner.watching select:focus-visible { outline: 3px solid #ffd76a; outline-offset: 2px; }
 

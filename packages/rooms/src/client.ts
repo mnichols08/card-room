@@ -98,8 +98,8 @@ export function openRoom<View = unknown, Move = unknown, Summary = unknown>(id: 
     onRoom(fn: (room: RoomDoc<Summary>) => void) {
       return follow("rooms", id, (doc) => fn(doc as unknown as RoomDoc<Summary>));
     },
-    /** Follow one seat's view. The server only sends it to that seat's holder. */
-    onView(seat: number, fn: (view: ViewDoc<View>) => void) {
+    /** Follow one seat's view (the server only sends it to that seat's holder), or "watch": what someone watching may see. */
+    onView(seat: number | "watch", fn: (view: ViewDoc<View>) => void) {
       return follow("views", `${id}/${seat}`, (doc) => doc.view !== undefined && fn(doc as unknown as ViewDoc<View>));
     },
     /** Follow the table's chat: every message so far, oldest first, each time one arrives. */

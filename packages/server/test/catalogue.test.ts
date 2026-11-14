@@ -1,5 +1,5 @@
 // The catalogue (which games, in what order), the host's say over houses, and watching: tables of
-// computer players anyone can read, and people's tables shown by their score alone.
+// computer players anyone can read, and people's tables whose seats' views stay private.
 import { memoryLog } from "@zubra/sync/server";
 import { afterEach, describe, expect, it } from "vitest";
 import { createCardRoom } from "../src/app.js";
@@ -169,7 +169,7 @@ describe("watching", () => {
 
     // Every seat's view is there for a watcher; a table with people keeps its views to its seats.
     const views = (await app.rooms.sync.documents()).all("views", `${id}/`);
-    expect(views).toHaveLength(4);
+    expect(views.map((v) => v.key.split("/")[1]).sort()).toEqual(["0", "1", "2", "3", "watch"]);
     const listed = (await visitor("/spectate")).body;
     expect(listed.tables[0]).toMatchObject({ id, game: "hearts", gameName: "Hearts", computers: true });
     expect(listed.computerTables).toEqual({ going: 1, limit: COMPUTER_TABLES });
@@ -192,7 +192,7 @@ describe("watching", () => {
     expect(await authorize("views", `${family}/1`)).toBe(false);
   });
 
-  it("shows people's tables by what's already public, unless the host turns watching off", async () => {
+  it("lists people's tables, unless the host turns watching off", async () => {
     const { phone, admin } = setup();
     const grammi = phone();
     const id = (await grammi("/rooms", PALACE)).body.id as string;

@@ -21,7 +21,7 @@ interface Table {
   emoji: string;
   rules: string;
   label: string;
-  /** Computer players only: a watcher sees every hand. */
+  /** Computer players only: a watcher sees every hand. At any other table, the table but nobody's hand. */
   computers: boolean;
   seats: { name: string | null; bot: boolean }[];
   standing: string;
@@ -220,13 +220,16 @@ export function App() {
                               </For>
                             </ul>
                             <p class="standing">{table.standing || "Just dealt"}</p>
-                            <div slot="footer">
-                              <Show when={table.computers} fallback={<span class="quiet">You see the score. Their cards stay with them.</span>}>
-                                <action-button prop:size="sm" prop:href={tableLink(table.id)} prop:label={`Watch the computers play ${table.gameName}`}>
-                                  Watch
-                                </action-button>
-                              </Show>
-                            </div>
+                            <cluster-layout slot="footer" prop:gap="0.75rem">
+                              <action-button
+                                prop:size="sm"
+                                prop:href={tableLink(table.id)}
+                                prop:label={table.computers ? `Watch the computers play ${table.gameName}` : `Watch ${people(table).map((s) => s.name).join(", ")} play ${table.gameName}`}
+                              >
+                                Watch
+                              </action-button>
+                              <span class="quiet">{table.computers ? "You see every hand." : "You see the table, not their hands."}</span>
+                            </cluster-layout>
                           </content-card>
                         )}
                       </For>

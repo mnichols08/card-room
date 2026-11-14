@@ -51,9 +51,9 @@ export function Table({ table: t, names, onLeave, banner, chat, settings }: Prop
     if (next.sound) play("bid");
   }
 
-  const myTurnToBid = view.phase === "bidding" && view.turn === me && !t.paused;
-  const myTurnToPlay = view.phase === "playing" && view.turn === me && !t.paused;
-  const iPass = view.phase === "passing" && passingSeats(view as unknown as GameState).includes(me) && !view.myPass;
+  const myTurnToBid = view.phase === "bidding" && view.turn === me && !t.paused && !t.watching;
+  const myTurnToPlay = view.phase === "playing" && view.turn === me && !t.paused && !t.watching;
+  const iPass = view.phase === "passing" && passingSeats(view as unknown as GameState).includes(me) && !view.myPass && !t.watching;
   const passCount = preset.blindNil.passCards;
 
   // A new hand deals in; a hand looked at after a blind-nil chance turns over instead.
@@ -138,7 +138,7 @@ export function Table({ table: t, names, onLeave, banner, chat, settings }: Prop
               <PlayingCard card={play.card} size="table" won={t.trickWinner === play.seat} data-flip={cardId(play.card)} data-from={`[data-seat="${play.seat}"]`} />
             </div>
           ))}
-          {t.trickWinner !== null && <div className="took">{t.trickWinner === t.seat ? "You take it" : `${names[t.trickWinner]} takes it`}</div>}
+          {t.trickWinner !== null && <div className="took">{t.trickWinner === t.seat && !t.watching ? "You take it" : `${names[t.trickWinner]} takes it`}</div>}
         </div>
 
         <div className="status" role="status">
