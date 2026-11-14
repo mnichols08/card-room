@@ -68,6 +68,7 @@ const YOU_VERBS: Record<string, string> = {
   goes: "go",
   makes: "make",
   picks: "pick",
+  drinks: "drink",
   says: "say",
   was: "were",
 };
@@ -123,7 +124,7 @@ export function KitTable({
   );
   const spots = seatAround(others);
   const myTurn =
-    view.turn === me || (view.turn === null && (!!view.pick || !!view.choices));
+    view.turn === me || (view.turn === null && (!!view.pick || !!view.choices || !!view.tap));
   const breathe = useFlash(view.turn === me, 700, false) && view.turn === me;
 
   // A pick starts empty whenever what's being picked changes.
@@ -209,6 +210,8 @@ export function KitTable({
     </span>
   ) : view.turn === null && (view.pick || view.gridTap) ? (
     <span className="mine">{view.pick?.prompt ?? view.gridTap?.prompt}</span>
+  ) : view.turn === null && view.tap ? (
+    <span className="mine">Play, quick!</span>
   ) : view.turn !== null ? (
     `${names[view.turn] ?? "Someone"} is thinking…`
   ) : view.result ? null : (
@@ -393,7 +396,7 @@ export function KitTable({
         <div className="me-badge">
           <KitSeat view={view} seat={me} name={names[me] ?? "You"} row />
         </div>
-        {view.handHidden ? (
+        {view.handHidden === "none" ? null : view.handHidden ? (
           <div
             className="my-pile"
             aria-label={`Your pile: ${view.players[me]?.cards ?? 0} cards, face down`}
@@ -599,6 +602,89 @@ function CenterArea({
   if (center.kind === "solitaire")
     return <SolitaireArea center={center} send={send} />;
   if (center.kind === "cross") return <CrossArea center={center} send={send} />;
+  if (center.kind === "pyramid") {
+    const can = new Set(center.tap?.cards ?? []);
+    const one = (c: KCard) =>
+      can.has(c.id) ? (
+        <button
+          key={c.id}
+          type="button"
+          className={`pyr-card can${center.held === c.id ? " held" : ""}`}
+          aria-pressed={center.held === c.id}
+          aria-label={`Pick the ${c.kind === "pip" ? c.rank : "card"}`}
+          onClick={() => send({ type: center.tap!.type, card: c.id })}
+        >
+          <PlayingCard card={c} size="table" data-flip={c.id} />
+        </button>
+      ) : (
+        <span key={c.id} className="pyr-card">
+          <PlayingCard card={c} size="table" data-flip={c.id} />
+        </span>
+      );
+    return (
+      <div className="pyr">
+        <div className="pyr-rows" aria-label="The pyramid">
+          {center.rows.map((row, r) => (
+            <div key={r} className="pyr-row">
+              {row.map((c, i) => (c ? one(c) : <span key={`gap-${r}-${i}`} className="pyr-gap" />))}
+            </div>
+          ))}
+        </div>
+        <div className="pyr-side">
+          {center.drawMove ? (
+            <button type="button" className="pyr-card can" aria-label={center.stock ? `Turn a card (${center.stock} left)` : "Turn the pile over"} onClick={() => send(center.drawMove!)}>
+              {center.stock ? <PlayingCard back size="table" /> : <span className="sol-slot again"><span>↻</span></span>}
+            </button>
+          ) : (
+            <div className="sol-slot" />
+          )}
+          {center.waste ? one(center.waste) : <div className="sol-slot" />}
+          <small>{center.stockLabel}</small>
+        </div>
+      </div>
+    );
+  }
+  if (center.kind === "board")
+    return (
+      <div className="board-area" style={{ "--cols": center.cols } as React.CSSProperties}>
+        <CardGrid grid={{ cols: center.cols, cards: center.cards, empty: center.empty }} size="table" tap={center.tap} send={send} />
+      </div>
+    );
+  if (center.kind === "pairs") {
+    return (
+      <div className="pairs-area">
+        <div className="pairs-stock" aria-label={`${center.stock} to draw, ${center.trumpLabel}`}>
+          {center.trumpCard && (
+            <span className="pairs-trump">
+              <PlayingCard card={center.trumpCard} size="table" />
+            </span>
+          )}
+          {center.stock > (center.trumpCard ? 1 : 0) && (
+            <span className="pairs-deck">
+              <PlayingCard back size="table" />
+            </span>
+          )}
+          <small>{center.stock ? `${center.stock} to draw · ${center.trumpLabel}` : center.trumpLabel}</small>
+        </div>
+        <div className="pairs" aria-label="The attack">
+          {center.pairs.length ? (
+            center.pairs.map((p) => (
+              <div key={p.attack.id} className={`pair${p.defense ? " beaten" : ""}`}>
+                <PlayingCard card={p.attack} size="table" data-flip={p.attack.id} />
+                {p.defense && (
+                  <span className="pair-defense">
+                    <PlayingCard card={p.defense} size="table" data-flip={p.defense.id} />
+                  </span>
+                )}
+              </div>
+            ))
+          ) : (
+            <div className="empty-slot">{center.discards ? `${center.discards} beaten off` : ""}</div>
+          )}
+        </div>
+      </div>
+    );
+  }
   if (center.kind === "fan") {
     // Their hand, face down and fanned: tap the card you want.
     const n = center.count;
@@ -939,7 +1025,7 @@ function CrossArea({
 }) {
   const AREAS = ["n", "e", "s", "w", "nw", "ne", "se", "sw"];
   return (
-    <div className="cross">
+    <div className={`cross${center.layout === "row" ? " row" : ""}`}>
       <div className="cross-stock" aria-label={`${center.stock} to draw`}>
         {center.stock > 0 ? <PlayingCard back size="table" /> : <div className="sol-slot" />}
         <small>{center.stock ? `${center.stock} to draw` : "None to draw"}</small>
@@ -958,6 +1044,7 @@ function CrossArea({
               <PlayingCard card={top} size="table" data-flip={top.id} />
             </span>
             {p.cards.length > 2 && <small className="cross-count">{p.cards.length}</small>}
+            {p.note && <small className="cross-count">{p.note}</small>}
           </>
         ) : (
           <div className="sol-slot">
@@ -969,14 +1056,14 @@ function CrossArea({
             key={i}
             type="button"
             className={`cross-pile can${bottom ? " deep" : ""}`}
-            style={{ gridArea: AREAS[i] }}
+            style={center.layout === "row" ? undefined : { gridArea: AREAS[i] }}
             aria-label={p.label}
             onClick={() => send(p.move!)}
           >
             {body}
           </button>
         ) : (
-          <div key={i} className={`cross-pile${bottom ? " deep" : ""}`} style={{ gridArea: AREAS[i] }} aria-label={p.label}>
+          <div key={i} className={`cross-pile${bottom ? " deep" : ""}`} style={center.layout === "row" ? undefined : { gridArea: AREAS[i] }} aria-label={p.label}>
             {body}
           </div>
         );
@@ -1025,7 +1112,7 @@ function CardGrid({
   tap,
   send,
 }: {
-  grid: { cols: number; cards: (KCard | null)[] };
+  grid: { cols: number; cards: (KCard | null)[]; empty?: number[] };
   size: "mini" | "table";
   tap?: { type: string; cells: number[] } | null;
   send?: (move: Record<string, unknown>) => void;
@@ -1037,7 +1124,10 @@ function CardGrid({
       aria-label="Cards on the table"
     >
       {grid.cards.map((c, i) => {
-        const face = c ? (
+        const blank = grid.empty?.includes(i);
+        const face = blank ? (
+          <span className={`grid-empty ${size}`} />
+        ) : c ? (
           <PlayingCard card={c} size={size} data-flip={c.id} />
         ) : (
           <PlayingCard back size={size} />
@@ -1048,7 +1138,7 @@ function CardGrid({
             type="button"
             className="grid-cell pile-button"
             aria-label={
-              c ? `Your card ${i + 1}` : `Your face-down card ${i + 1}`
+              blank ? `Empty space ${i + 1}` : c ? `Your card ${i + 1}` : `Your face-down card ${i + 1}`
             }
             onClick={() => send({ type: tap.type, index: i })}
           >
