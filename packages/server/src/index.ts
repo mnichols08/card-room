@@ -37,6 +37,8 @@ const cardRoom = createCardRoom({
   // Whoever has this key is the card room's admin: they can block players and act as host at open tables.
   admin: { key: setting("ADMIN_KEY") },
   // Words that names on open tables may not contain, on top of the built-in list.
+  // "Report a problem" opens an issue on GitHub when the server has a token that may (see the README).
+  bugs: { token: setting("GITHUB_TOKEN"), repo: setting("GITHUB_REPO"), version: setting("VERSION") ?? process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7) },
   lobby: { blockedNames: (setting("BLOCKED_NAMES") ?? "").split(",").map((w) => w.trim()).filter(Boolean) },
   // Houses can connect their own AI key for their bots' table talk; this seals those keys at rest.
   // CARDROOM_AI_KEY is the card room's own key: with it, every table's bots talk through a model.
@@ -44,6 +46,7 @@ const cardRoom = createCardRoom({
 });
 if (!setting("SECRET")) console.log("houses' AI keys are stored unsealed: set CARDROOM_SECRET to encrypt them");
 if (!cardRoom.admin.enabled) console.log("there is no admin: set CARDROOM_ADMIN_KEY (8 characters or more) to be able to block players");
+if (!cardRoom.bugs.enabled) console.log("players can't report problems: set CARDROOM_GITHUB_TOKEN (a token that may open issues) to turn that on");
 if (!cardRoom.push.enabled) console.log("push notifications are off: set CARDROOM_VAPID_PUBLIC_KEY and CARDROOM_VAPID_PRIVATE_KEY to turn them on");
 
 /**

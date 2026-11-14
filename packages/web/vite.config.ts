@@ -10,6 +10,8 @@ const base = process.env.BASE_PATH ?? "/";
 export default defineConfig({
   // Served from https://<user>.github.io/card-room/ on GitHub Pages.
   base,
+  // When this copy of the page was built: a bug report says so, since a phone can hold on to an old page.
+  define: { __BUILT__: JSON.stringify(new Date().toISOString().slice(0, 16) + "Z") },
   // In .tsx files, a .zb import is a typed React component: props in, on<Event> handlers out.
   // The start page's game picker is a Vue island inside the React app: in a .vue file, a .zb import
   // is a Vue component (Zubra's Vue adapter), so the same components serve both frameworks.
@@ -25,7 +27,7 @@ export default defineConfig({
     },
   ],
   // `npm run dev -w @spades/server` serves the rooms and the sync log on 8787.
-  server: { proxy: Object.fromEntries(["/rooms", "/_zb", "/houses", "/challenges", "/push"].map((p) => [p, "http://localhost:8787"])) },
+  server: { proxy: Object.fromEntries(["/rooms", "/_zb", "/houses", "/challenges", "/push", "/bugs"].map((p) => [p, "http://localhost:8787"])) },
   resolve: {
     alias: {
       "@spades/rules": local("../rules/src/index.ts"),
