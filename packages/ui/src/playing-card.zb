@@ -57,7 +57,9 @@
   const halfRef = `#${halfId}`
 </script>
 <style>
-  :host { display: inline-block; flex: none; }
+  /* Positioned, like the card inside it: when taps pass through an unplayable card (below), they land
+     on this element at the card's own level, not on a card stacked underneath. */
+  :host { display: inline-block; flex: none; position: relative; }
   .card {
     --ink-black: #1d1a16;
     --ink-red: #b3261e;
@@ -131,6 +133,9 @@
 
   /* States. Playable cards look normal; the ones you can't play sink and grey a little, but stay readable. */
   .card.playable { cursor: pointer; }
+  /* A card that isn't playable is a disabled button, and a disabled button swallows every tap on it.
+     Let those taps through to whatever holds the card: a pile, a solitaire column, a grid cell. */
+  .card:disabled { pointer-events: none; }
   @media (hover: hover) {
     .card.playable:not(.dim):hover { transform: translateY(calc(var(--card-h, 80px) * -0.1)); box-shadow: var(--elev-2, 0 10px 18px rgba(0, 0, 0, 0.3)); }
   }
