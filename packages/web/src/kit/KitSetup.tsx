@@ -5,7 +5,8 @@ import SelectField from "@spades/ui/zubra-ui/select-field.zb";
 import TextField from "@spades/ui/zubra-ui/text-field.zb";
 import { useMemo, useState } from "react";
 import { ChallengeLink } from "../ChallengeLink";
-import { Choice } from "../RulesEditor";
+import { lobbyProblem } from "../lobbyApi";
+import { Choice, SameRulesToggle } from "../RulesEditor";
 import { SetupLayout } from "../SetupLayout";
 import {
   deleteKitPreset,
@@ -31,6 +32,8 @@ interface Props {
   onHome: () => void;
   onPractice: (name: string, rules: Rules, seats: number) => void;
   onFamilyTable: (rules: Rules, seats: number) => Promise<void>;
+  /** Sit at an open table that's waiting for this game, or open one with these rules and wait. */
+  onFindPlayers: (name: string, rules: Rules, seats: number) => Promise<void>;
   onOpenHouse: (slug: string) => void;
 }
 
@@ -39,6 +42,7 @@ export function KitSetup({
   onHome,
   onPractice,
   onFamilyTable,
+  onFindPlayers,
   onOpenHouse,
 }: Props) {
   const game = kitGame(id)!;
@@ -217,6 +221,29 @@ export function KitSetup({
             >
               Start a family table
             </button>
+          )}
+          {game.seats.max > 1 && (
+            <>
+            <button
+              type="button"
+              className="secondary"
+              disabled={errors.length > 0 || busy}
+              onClick={async () => {
+                setBusy(true);
+                setProblem(null);
+                remember();
+                try {
+                  await onFindPlayers(name.trim(), rules, game.teams ? 4 : seats);
+                } catch (e) {
+                  setProblem(lobbyProblem(e));
+                  setBusy(false);
+                }
+              }}
+            >
+              Find players
+            </button>
+          <SameRulesToggle />
+            </>
           )}
           <button
             type="button"

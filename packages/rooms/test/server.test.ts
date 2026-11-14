@@ -80,6 +80,38 @@ describe("rooms", () => {
     expect(info.seats.map((s: { name: string }) => s.name)).toEqual(["brokennil", "Rick", "Jimmy"]);
   });
 
+  it("lets a player stand up before the deal, and tells the app whenever the seats change", async () => {
+    const changes: (string | null)[][] = [];
+    const rooms = createRooms(counting, { log: memoryLog({ keep: "latest" }), id: () => "abc123", onSeats: ({ room }) => changes.push(room.seats.map((s) => s.name)) });
+    open.push(rooms);
+    const browser = () => {
+      let cookie = "";
+      return async (path: string, body: unknown = {}) => {
+        const r = (await rooms.fetch(new Request(BASE + path, { method: "POST", body: JSON.stringify(body), headers: { "content-type": "application/json", cookie } })))!;
+        const set = r.headers.get("set-cookie");
+        if (set) cookie = set.split(";")[0]!;
+        return { status: r.status, body: await r.json() };
+      };
+    };
+    const a = browser();
+    const b = browser();
+    await a("/rooms", { options: { start: 0 } });
+    expect((await a("/rooms/abc123/stand")).status).toBe(403); // not seated
+    await a("/rooms/abc123/sit", { seat: 0, name: "A" });
+    await b("/rooms/abc123/sit", { seat: 1, name: "B" });
+    await a("/rooms/abc123/bot", { seat: 2, name: "Bot" });
+    expect((await b("/rooms/abc123/stand")).status).toBe(200);
+    expect(changes).toEqual([["A", null, null], ["A", "B", null], ["A", "B", "Bot"], ["A", null, "Bot"]]);
+    expect(await rooms.holders("abc123")).toEqual([expect.any(String), null, null]);
+    expect((await b("/rooms/abc123/act", { move: { add: 1 } })).status).toBe(403); // B no longer holds a seat
+
+    // The seat is free for someone else; once the game starts nobody can stand.
+    await b("/rooms/abc123/sit", { seat: 1, name: "B again" });
+    await a("/rooms/abc123/start");
+    expect((await b("/rooms/abc123/stand")).status).toBe(409);
+    expect(await rooms.unseat("abc123", 1)).toBe(false);
+  });
+
   it("a browser can read only its own seat's view, and never the server's documents", async () => {
     const { browser } = setup();
     const a = browser();

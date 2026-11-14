@@ -306,6 +306,13 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; }
 .house-list small { color: #cfe2d6; font-size: 0.8rem; }
 .house-list em { font-style: normal; font-size: 0.75rem; color: var(--gold); margin-left: 6px; }
 .row-actions { display: flex; gap: 12px; flex: none; }
+
+/* ---------- Open tables ---------- */
+.open-list li { justify-content: flex-start; gap: 12px; }
+.open-list li > div { flex: 1; }
+.open-list .primary { flex: none; }
+.open-emoji { font-size: 1.7rem; line-height: 1; flex: none; }
+.open-none { text-align: center; }
 .primary.small { padding: 8px 16px; font-size: 0.95rem; }
 .field-inline { display: flex; align-items: center; gap: 10px; }
 .field-inline select { flex: 1; font: inherit; padding: 10px; border-radius: 10px; border: 0; background: var(--cream); color: var(--ink); }

@@ -6,6 +6,8 @@ import { ChallengePage } from "./ChallengePage";
 import { EmbedHome } from "./EmbedHome";
 import { HousePage } from "./HousePage";
 import { houses } from "./housesApi";
+import { lobby } from "./lobbyApi";
+import { LobbyPage } from "./LobbyPage";
 import { LocalTable } from "./LocalTable";
 import { RoomTable } from "./RoomTable";
 import { LocalPalace } from "./palace/LocalPalace";
@@ -17,11 +19,12 @@ import { isKitGame, type KitGameId } from "@cardroom/games";
 import { KitSetup } from "./kit/KitSetup";
 import { LocalKit } from "./kit/LocalKit";
 import { TournamentPage } from "./TournamentPage";
-import { loadGame, loadLastGame, loadTableSettings, rememberHouse, saveGame, type GameId } from "./storage";
+import { loadGame, loadLastGame, loadSameRules, loadTableSettings, rememberHouse, saveGame, type GameId } from "./storage";
 
 type Screen =
   | { kind: "home" }
   | { kind: "setup" }
+  | { kind: "lobby" }
   | { kind: "local"; name: string; preset: RulePreset; seed: number }
   | { kind: "local-palace"; name: string; rules: PalaceRules; seats: number; seed: number }
   | { kind: "local-kit"; game: KitGameId; name: string; rules: unknown; seats: number; seed: number }
@@ -41,6 +44,7 @@ function fromUrl(): Screen {
   if (house) return { kind: "house", slug: house, code: q.get("code") };
   const challenge = q.get("challenge");
   if (challenge) return { kind: "challenge", code: challenge };
+  if (q.get("lobby")) return { kind: "lobby" };
   // A game named in the address (or the blog embed) goes to its setup; otherwise the front page.
   return q.get("game") || q.get("embed") === "1" ? { kind: "setup" } : { kind: "home" };
 }
@@ -102,6 +106,16 @@ export function App() {
     go({ table: id, house });
     setScreen({ kind: "room", id, house });
   };
+  const openLobby = () => {
+    go({ lobby: "1" });
+    setScreen({ kind: "lobby" });
+    scrollTo(0, 0);
+  };
+  /** A seat at an open table waiting for this game, or a new open table to wait at. */
+  const findPlayers = async (g: GameId, name: string, rules: unknown, seats?: number) => {
+    const { id } = await lobby.join({ game: g, name, rules, seats, settings: loadTableSettings(), sameRules: loadSameRules() });
+    openTable(id, null);
+  };
 
   // Inside the <card-room> embed on someone's page: practice only.
   if (embedded && screen.kind === "setup") {
@@ -124,9 +138,10 @@ export function App() {
   if (screen.kind === "home")
     return (
       <Suspense fallback={<main className="home" />}>
-        <Home last={loadLastGame()} onPick={pickGame} onOpenHouse={openHouse} />
+        <Home last={loadLastGame()} onPick={pickGame} onOpenHouse={openHouse} onLobby={openLobby} />
       </Suspense>
     );
+  if (screen.kind === "lobby") return <LobbyPage onOpenTable={(id) => openTable(id, null)} onLeave={home} />;
   if (screen.kind === "local") return <LocalTable key={screen.seed} {...screen} onLeave={home} />;
   if (screen.kind === "local-palace") return <LocalPalace key={screen.seed} {...screen} onLeave={home} />;
   if (screen.kind === "local-kit") return <LocalKit key={screen.seed} {...screen} onLeave={home} />;
@@ -148,6 +163,7 @@ export function App() {
         onHome={home}
         onPractice={(name, rules, seats) => setScreen({ kind: "local-kit", game, name, rules, seats, seed: Math.floor(Math.random() * 2 ** 31) })}
         onFamilyTable={async (rules, seats) => openTable(await createRoom({ game, rules, seats }, { settings: loadTableSettings() }), null)}
+        onFindPlayers={(name, rules, seats) => findPlayers(game, name, rules, seats)}
         onOpenHouse={openHouse}
       />
     );
@@ -158,6 +174,7 @@ export function App() {
         onHome={home}
         onPractice={(name, rules, seats) => setScreen({ kind: "local-palace", name, rules, seats, seed: Math.floor(Math.random() * 2 ** 31) })}
         onFamilyTable={async (rules, seats) => openTable(await createRoom({ game: "palace", rules, seats }, { settings: loadTableSettings() }), null)}
+        onFindPlayers={(name, rules, seats) => findPlayers("palace", name, rules, seats)}
         onOpenHouse={openHouse}
       />
     );
@@ -167,6 +184,7 @@ export function App() {
       onHome={home}
       onStart={(name, preset) => setScreen({ kind: "local", name, preset, seed: Math.floor(Math.random() * 2 ** 31) })}
       onFamilyTable={async (preset) => openTable(await createRoom(preset, { settings: loadTableSettings() }), null)}
+      onFindPlayers={(name, preset) => findPlayers("spades", name, preset)}
       onOpenHouse={openHouse}
       onMakeHouse={async (houseName, you, preset) => {
         const house = await houses.create(houseName, you, preset);

@@ -2,11 +2,12 @@ import { SetupLayout } from "./SetupLayout";
 import { OpponentSettings } from "./TableSettings";
 import { validatePreset, type RulePreset } from "@spades/rules";
 import SelectField from "@spades/ui/zubra-ui/select-field.zb";
-import { explain, RulesFields, Toggle } from "./RulesEditor";
+import { explain, RulesFields, SameRulesToggle, Toggle } from "./RulesEditor";
 import TextField from "@spades/ui/zubra-ui/text-field.zb";
 import { ChallengeLink } from "./ChallengeLink";
 import type { GameId } from "./storage";
 import { useMemo, useState } from "react";
+import { lobbyProblem } from "./lobbyApi";
 import {
   loadFeedbackSettings,
   play,
@@ -31,6 +32,8 @@ interface Props {
   onStart: (name: string, preset: RulePreset) => void;
   /** Start a table on the server with these rules. Rejects when the server can't be reached. */
   onFamilyTable: (preset: RulePreset) => Promise<void>;
+  /** Sit at an open table that's waiting for spades players, or open one with these rules and wait. */
+  onFindPlayers: (name: string, preset: RulePreset) => Promise<void>;
   onOpenHouse: (slug: string) => void;
   /** Make a house with these rules as its first house rules. */
   onMakeHouse: (
@@ -44,6 +47,7 @@ export function Setup({
   onHome,
   onStart,
   onFamilyTable,
+  onFindPlayers,
   onOpenHouse,
   onMakeHouse,
 }: Props) {
@@ -262,6 +266,26 @@ export function Setup({
           >
             Start a family table
           </button>
+          <button
+            type="button"
+            className="secondary"
+            disabled={errors.length > 0 || busy}
+            onClick={async () => {
+              setBusy(true);
+              setProblem(null);
+              saveName(name);
+              saveLastPreset(rules);
+              try {
+                await onFindPlayers(name.trim(), rules);
+              } catch (e) {
+                setProblem(lobbyProblem(e));
+                setBusy(false);
+              }
+            }}
+          >
+            Find players
+          </button>
+          <SameRulesToggle />
           <button
             type="button"
             className="secondary"

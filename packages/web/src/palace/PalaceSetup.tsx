@@ -8,8 +8,9 @@ import {
 import SelectField from "@spades/ui/zubra-ui/select-field.zb";
 import TextField from "@spades/ui/zubra-ui/text-field.zb";
 import { useMemo, useState } from "react";
+import { lobbyProblem } from "../lobbyApi";
 import { ChallengeLink } from "../ChallengeLink";
-import { Choice } from "../RulesEditor";
+import { Choice, SameRulesToggle } from "../RulesEditor";
 import { SetupLayout } from "../SetupLayout";
 import {
   deletePalacePreset,
@@ -31,6 +32,8 @@ interface Props {
   onHome: () => void;
   onPractice: (name: string, rules: PalaceRules, seats: number) => void;
   onFamilyTable: (rules: PalaceRules, seats: number) => Promise<void>;
+  /** Sit at an open table that's waiting for Palace players, or open one with these rules and wait. */
+  onFindPlayers: (name: string, rules: PalaceRules, seats: number) => Promise<void>;
   onOpenHouse: (slug: string) => void;
 }
 
@@ -38,6 +41,7 @@ export function PalaceSetup({
   onHome,
   onPractice,
   onFamilyTable,
+  onFindPlayers,
   onOpenHouse,
 }: Props) {
   const [name, setName] = useState(loadName);
@@ -197,6 +201,25 @@ export function PalaceSetup({
           >
             Start a family table
           </button>
+          <button
+            type="button"
+            className="secondary"
+            disabled={errors.length > 0 || busy}
+            onClick={async () => {
+              setBusy(true);
+              setProblem(null);
+              remember();
+              try {
+                await onFindPlayers(name.trim(), rules, seats);
+              } catch (e) {
+                setProblem(lobbyProblem(e));
+                setBusy(false);
+              }
+            }}
+          >
+            Find players
+          </button>
+          <SameRulesToggle />
           <button
             type="button"
             className="secondary"

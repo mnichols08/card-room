@@ -35,7 +35,7 @@ import { createRoom, openRoom } from "@spades/rooms/client";
 const id = await createRoom(houseRules);
 const room = openRoom(id);
 room.onRoom((doc) => render(doc.seats));          // who's sitting where, started or not
-const { seat } = await room.sit(0, "brokennil");
+const { seat } = await room.sit(0, "brokennil");   // room.stand() gives the seat back, before the deal
 room.onView(seat, ({ view }) => render(view));    // this seat's view only
 await room.act({ type: "bid", bid: { kind: "nil" } });
 room.onChat((messages) => render(messages));   // the table's chat, oldest first
