@@ -969,3 +969,4 @@ button.cross-pile.can::after {
 }
 @media (min-width: 1024px) { .board-area .card-grid.table { --trick-w: min(calc((100vh - 330px) / 6.4 / var(--card-ratio)), 74px); } }
 .kit-felt .center:has(> .board-area) { flex-direction: column; align-items: center; }
+.kit-sevens .board-area .card-grid.table { --trick-w: min(calc(11vh / var(--card-ratio)), 54px); }

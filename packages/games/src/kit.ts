@@ -5,7 +5,7 @@
 // scores. One table screen draws every game from that, and one room runs them all on the server.
 import { mulberry32, type Card, type PlayStyle, type Suit } from "@spades/rules";
 
-export type KitGameId = "hearts" | "ohhell" | "euchre" | "crazy8" | "gin" | "pinochle" | "canasta" | "gofish" | "oldmaid" | "war" | "whist" | "golf" | "rummy500" | "president" | "klondike" | "freecell" | "handfoot" | "cribbage" | "fivedraw" | "holdem" | "bluff" | "liarspoker" | "switch" | "thirtyone" | "kingscorner" | "blackjack" | "spite" | "pitch" | "fivehundred" | "durak" | "bridge" | "fruitsalad" | "slapjack" | "speed" | "memory";
+export type KitGameId = "hearts" | "ohhell" | "euchre" | "crazy8" | "gin" | "pinochle" | "canasta" | "gofish" | "oldmaid" | "war" | "whist" | "golf" | "rummy500" | "president" | "klondike" | "freecell" | "handfoot" | "cribbage" | "fivedraw" | "holdem" | "bluff" | "liarspoker" | "switch" | "thirtyone" | "kingscorner" | "blackjack" | "spite" | "pitch" | "fivehundred" | "durak" | "bridge" | "fruitsalad" | "slapjack" | "speed" | "memory" | "sevens" | "cuckoo";
 
 /** A move that isn't allowed. The message is shown to the player as is. */
 export class GameError extends Error {}
@@ -334,3 +334,21 @@ export function careless(style: PlayStyle, rand: () => number = Math.random): bo
 export function pickRandom<T>(items: T[], rand: () => number = Math.random): T {
   return items[Math.floor(rand() * items.length)]!;
 }
+
+// ---- Drinking mode -----------------------------------------------------------------------------
+// A house rule some party games offer (off unless a table turns it on): the round's losers drink.
+
+/** The house-rule switch, for a game's `fields`. */
+export const drinkingField = <R>(hint = "Adults only. Losers drink (or sip water)."): RuleField<R> =>
+  ({ key: "drinking", label: "Drinking mode 🍺", hint, kind: "toggle" }) as RuleField<R>;
+
+/** "Lou drinks 2" (one or more seats). */
+export function drinkLine(seats: number[], n: number): string {
+  if (!seats.length || n <= 0) return "";
+  return `🍺 ${seats.map(who).join(" and ")} drink${seats.length === 1 ? "s" : ""} ${n === 99 ? "the rest of the glass" : n}`;
+}
+
+/** Add a drinking line to a narration when drinking mode is on. */
+export const withDrinks = (on: boolean, narration: string | null, seats: number[], n: number): string | null =>
+  on && seats.length && n > 0 ? [narration, drinkLine(seats, n)].filter(Boolean).join(" · ") : narration;
+
