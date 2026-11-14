@@ -32,14 +32,17 @@ helpers.
 | `packages/watch` | Solid | `@zubra/unplugin`: a `.zb` import defines the custom element; JSX sets properties with `prop:` and listens with `on:` |
 | `packages/admin` | Angular | `zubra build --lib` compiles this folder to custom elements before `ng build`; templates use the tags (`CUSTOM_ELEMENTS_SCHEMA`), with `zubraModel` from `@zubra/runtime/angular` for `ngModel` |
 
-The apps share this folder, and Zubra writes each component's typings beside it for one framework
-at a time. The card room's React app owns those files; the Svelte and Solid apps turn them off
-(`zubra({ dts: false })`) and Solid's JSX learns the tags from `packages/watch/src/elements.d.ts`.
+The apps share this folder, so each keeps the typings Zubra writes for it in a folder of its own
+(`zubra({ dts: { dir: ".zubra/types" } })`), typed for its framework: React props and handlers in
+the card room, the elements for Svelte in the designer, and Solid's JSX tags on the watch page.
+Each app's `tsconfig.json` points the `@spades/ui/*` alias at that folder first.
+
+A component says what its props and events carry where the default value can't
+(`@prop {Type} name` and `@fires name {Type}` in its header comment): see `playing-card` and
+`bid-pad`.
 
 [`packages/conformance`](../conformance) runs the same fixture of these components in every
-framework and lists where they behave differently today, with the Zubra issue for each and what
-to do meanwhile. In short: wrap text a framework fills in in an element (not a `<span>` inside a
-component whose own root is one), and keep `slot="…"` elements in the template from the start.
+framework, in a browser, and is where a difference between frameworks gets written down.
 
 Theming uses shadcn/ui's variable names (`--primary`, `--destructive`, `--muted-foreground`,
 `--border`), plus `--team-us`, `--team-them` and `--table-ink` for the table.

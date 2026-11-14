@@ -5,5 +5,5 @@
   "description": "Spades table components written in Zubra: one source for the React app and the open.blog embed.",
   "type": "module",
   "exports": { "./*": "./src/*" },
-  "peerDependencies": { "@zubra/runtime": "^5.9.1" }
+  "peerDependencies": { "@zubra/runtime": "^5.15.0" }
 }

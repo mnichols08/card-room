@@ -12,6 +12,7 @@
   import { onMount } from "svelte";
   import ColorPick from "./lib/ColorPick.svelte";
   import DeckPreview from "./lib/DeckPreview.svelte";
+  import type { SampleCard } from "./lib/cards";
   import { StoreError, gallery, hasServer, mine, rememberedAuthor, remove, save, share, type SavedDesign } from "./lib/store";
 
   type Tab = "design" | "mine" | "gallery";
@@ -52,7 +53,7 @@
   const style = $derived(deckStyle(design));
 
   // The cards under the big one: a court card of each colour, a ten, a seven and a joker.
-  const hand = [
+  const hand: SampleCard[] = [
     { kind: "pip", suit: "hearts", rank: 13 },
     { kind: "pip", suit: "diamonds", rank: 12 },
     { kind: "pip", suit: "clubs", rank: 11 },
@@ -60,7 +61,7 @@
     { kind: "pip", suit: "diamonds", rank: 7 },
     { kind: "joker", size: "big" },
   ];
-  const ace = { kind: "pip", suit: "spades", rank: 14 };
+  const ace: SampleCard = { kind: "pip", suit: "spades", rank: 14 };
 
   const title = (word: string) => word[0]!.toUpperCase() + word.slice(1);
   const starters = STARTERS.map((s) => ({ value: s.name, label: s.name }));
@@ -242,7 +243,7 @@
     <alert-banner variant="danger" heading="Couldn't load the decks"><span>{loadError}</span></alert-banner>
   {/if}
 
-  <tab-list {tabs} value={tab} label="Card designer" onvaluechange={(event: News<Tab>) => (tab = event.detail)}>
+  <tab-list {tabs} value={tab} label="Card designer" onvaluechange={(event: News<string>) => (tab = event.detail as Tab)}>
     <!-- Design -->
     <section data-tab="design">
       <div class="bench">
@@ -276,13 +277,13 @@
 
           <fieldset>
             <legend>The back</legend>
-            <select-field label="Pattern" value={design.back.pattern} options={patterns} onvaluechange={(event: News<CardDesign["back"]["pattern"]>) => (design.back.pattern = event.detail)}></select-field>
+            <select-field label="Pattern" value={design.back.pattern} options={patterns} onvaluechange={(event: News<string>) => (design.back.pattern = event.detail as CardDesign["back"]["pattern"])}></select-field>
             <ColorPick label="Colour" value={design.back.color} palette={BACKS} onchange={(c) => (design.back.color = c)} />
             <ColorPick label="Pattern and medallion" value={design.back.accent} palette={ACCENTS} onchange={(c) => (design.back.accent = c)} />
             <ColorPick label="Frame" value={design.back.border} palette={BORDERS} onchange={(c) => (design.back.border = c)} />
             <div class="group">
               <span class="label">Emblem</span>
-              <segmented-control class="emblems" label="Emblem" value={design.back.emblem} options={emblems} onvaluechange={(event: News<CardDesign["back"]["emblem"]>) => (design.back.emblem = event.detail)}></segmented-control>
+              <segmented-control class="emblems" label="Emblem" value={design.back.emblem} options={emblems} onvaluechange={(event: News<string>) => (design.back.emblem = event.detail as CardDesign["back"]["emblem"])}></segmented-control>
             </div>
           </fieldset>
 
@@ -296,10 +297,10 @@
               <ColorPick label="Clubs" value={design.face.clubs} palette={CLUBS} onchange={(c) => (design.face.clubs = c)} />
               <ColorPick label="Diamonds" value={design.face.diamonds} palette={DIAMONDS} onchange={(c) => (design.face.diamonds = c)} />
             {/if}
-            <select-field label="Lettering" value={design.face.font} options={fonts} onvaluechange={(event: News<CardDesign["face"]["font"]>) => (design.face.font = event.detail)}></select-field>
+            <select-field label="Lettering" value={design.face.font} options={fonts} onvaluechange={(event: News<string>) => (design.face.font = event.detail as CardDesign["face"]["font"])}></select-field>
             <div class="group">
               <span class="label">Corners</span>
-              <segmented-control label="Corners" value={design.corners} options={corners} onvaluechange={(event: News<CardDesign["corners"]>) => (design.corners = event.detail)}></segmented-control>
+              <segmented-control label="Corners" value={design.corners} options={corners} onvaluechange={(event: News<string>) => (design.corners = event.detail as CardDesign["corners"])}></segmented-control>
             </div>
           </fieldset>
 

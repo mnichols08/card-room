@@ -5,3 +5,4 @@ coverage/
 *.log
 .DS_Store
 *.d.zb.ts
+.zubra/
