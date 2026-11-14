@@ -260,6 +260,7 @@ export function KitTable({
             <TableSettingsButton
               settings={settings.value}
               onChange={settings.change}
+              solo={view.seats === 1}
             />
           )}
           <button
