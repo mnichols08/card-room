@@ -69,6 +69,7 @@ just for keeping score.
 | [`packages/watch`](packages/watch) | The watch page (Solid): the tables playing now, and tables of computer players to learn from |
 | [`packages/admin`](packages/admin) | The admin app (Angular): the host moderates tables, players and shared designs |
 | [`packages/decks`](packages/decks) | Card designs: what a deck looks like, checked, and turned into the CSS variables the cards read |
+| [`packages/conformance`](packages/conformance) | One fixture of the components in every framework, and one set of browser tests run against them all |
 | [`packages/ui`](packages/ui) | Components in Zubra: our own (cards, seats), the ones copied from zubra-ui, and the `<card-room>` embed |
 
 One set of Zubra components serves five frameworks: React and Vue in the card room, Svelte in the

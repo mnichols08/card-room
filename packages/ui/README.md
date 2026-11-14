@@ -36,13 +36,10 @@ The apps share this folder, and Zubra writes each component's typings beside it 
 at a time. The card room's React app owns those files; the Svelte and Solid apps turn them off
 (`zubra({ dts: false })`) and Solid's JSX learns the tags from `packages/watch/src/elements.d.ts`.
 
-Two things to know when the tags are used directly in Angular (both are worked around in
-`packages/admin/src/app/app.html`, where the comments say so):
-
-- Text that Angular fills in (`{{ … }}`) as a component's direct child doesn't show: Angular
-  creates the text node empty, and an empty text node isn't slotted. Wrap it in an element.
-- A `slot="…"` element that arrives after its component has started (inside an `@if`) can land in
-  the default slot. Keep such elements in the template from the start.
+[`packages/conformance`](../conformance) runs the same fixture of these components in every
+framework and lists where they behave differently today, with the Zubra issue for each and what
+to do meanwhile. In short: wrap text a framework fills in in an element (not a `<span>` inside a
+component whose own root is one), and keep `slot="…"` elements in the template from the start.
 
 Theming uses shadcn/ui's variable names (`--primary`, `--destructive`, `--muted-foreground`,
 `--border`), plus `--team-us`, `--team-them` and `--table-ink` for the table.

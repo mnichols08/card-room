@@ -9,7 +9,7 @@ import {
   type Meld,
 } from "@cardroom/games";
 import { type TableSettings } from "@spades/rules";
-import PlayingCard from "@spades/ui/playing-card.zb";
+import PlayingCard from "../PlayingCard";
 import { useEffect, useRef, useState } from "react";
 import { Bubble, TableChat, useBubbles, type ChatProps } from "../Chat";
 import { Confetti } from "../Confetti";

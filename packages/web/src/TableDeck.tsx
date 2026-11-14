@@ -2,8 +2,9 @@
 // it before the deal, from the card room's own decks, their own designs and the gallery; the
 // server keeps the table's copy, so it can't change under a game.
 import { STARTERS, deckVars, type CardDesign, type TableDeck } from "@cardroom/decks";
-import PlayingCard from "@spades/ui/playing-card.zb";
+import PlayingCard from "./PlayingCard";
 import SelectField from "@spades/ui/zubra-ui/select-field.zb";
+import type { Card } from "@spades/rules";
 import { useEffect, useState } from "react";
 
 interface Saved {
@@ -14,9 +15,9 @@ interface Saved {
 }
 
 const OWN = "";
-const SAMPLE = [
-  { kind: "pip" as const, suit: "spades" as const, rank: 14 },
-  { kind: "pip" as const, suit: "diamonds" as const, rank: 12 },
+const SAMPLE: Card[] = [
+  { kind: "pip", suit: "spades", rank: 14 },
+  { kind: "pip", suit: "diamonds", rank: 12 },
 ];
 
 async function designs(path: string): Promise<Saved[]> {
@@ -34,8 +35,8 @@ function Preview({ design }: { design: CardDesign | null }) {
   return (
     <div className="deck-preview" style={design ? (deckVars(design) as React.CSSProperties) : undefined} aria-hidden>
       <PlayingCard back size="mini" />
-      {SAMPLE.map((card) => (
-        <PlayingCard key={card.suit} card={card} size="mini" />
+      {SAMPLE.map((card, i) => (
+        <PlayingCard key={i} card={card} size="mini" />
       ))}
     </div>
   );

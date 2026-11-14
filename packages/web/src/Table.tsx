@@ -1,7 +1,7 @@
 import { type TableSettings, cardId, passingSeats, sameCard, teamOf, type Bid, type Card, type GameState, type HandRecord, type Seat, type SeatView, type Team } from "@spades/rules";
 import BidPad from "@spades/ui/bid-pad.zb";
 import HandSummary from "@spades/ui/hand-summary.zb";
-import PlayingCard from "@spades/ui/playing-card.zb";
+import PlayingCard from "./PlayingCard";
 import ScoreBoard from "@spades/ui/score-board.zb";
 import SeatBadge from "@spades/ui/seat-badge.zb";
 import { useEffect, useRef, useState } from "react";
@@ -197,7 +197,7 @@ export function Table({ table: t, names, onLeave, banner, chat, settings }: Prop
             blind={t.hand === null}
             nil={preset.nil.enabled}
             sofar={[left, partner, right].flatMap((s) => (view.bids[s] ? [`${names[s]} ${bidLabel(view.bids[s]!)}`] : [])).join(" · ")}
-            onBid={(event: CustomEvent<number | "nil" | "blind-nil">) => bid(event.detail)}
+            onBid={(event) => bid(event.detail as number | "nil" | "blind-nil")}
             onLook={t.look}
           />
         </div>
