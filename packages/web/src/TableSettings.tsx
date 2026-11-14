@@ -1,16 +1,44 @@
 import { PACES, SKILLS, type TableSettings } from "@spades/rules";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Choice } from "./RulesEditor";
 import { loadTableSettings, saveTableSettings } from "./storage";
-import { loadDisplay, MOTIONS, saveDisplay, type DisplaySettings } from "./display";
+import {
+  loadDisplay,
+  MOTIONS,
+  saveDisplay,
+  type DisplaySettings,
+} from "./display";
 
 /** Opponents and speed, as two plain pickers. */
-export function TableSettingsFields({ settings, onChange }: { settings: TableSettings; onChange: (next: TableSettings) => void }) {
+export function TableSettingsFields({
+  settings,
+  onChange,
+}: {
+  settings: TableSettings;
+  onChange: (next: TableSettings) => void;
+}) {
   return (
     <>
-      <Choice label="Computer opponents" value={settings.skill} options={SKILLS.map((s) => [s.id, s.label])} onChange={(v) => onChange({ ...settings, skill: v as TableSettings["skill"] })} />
-      <p className="fine">{SKILLS.find((s) => s.id === settings.skill)?.hint}</p>
-      <Choice label="How fast they play" value={settings.pace} options={PACES.map((p) => [p.id, p.label])} onChange={(v) => onChange({ ...settings, pace: v as TableSettings["pace"] })} />
+      <Choice
+        label="Computer opponents"
+        value={settings.skill}
+        options={SKILLS.map((s) => [s.id, s.label])}
+        onChange={(v) =>
+          onChange({ ...settings, skill: v as TableSettings["skill"] })
+        }
+      />
+      <p className="fine">
+        {SKILLS.find((s) => s.id === settings.skill)?.hint}
+      </p>
+      <Choice
+        label="How fast they play"
+        value={settings.pace}
+        options={PACES.map((p) => [p.id, p.label])}
+        onChange={(v) =>
+          onChange({ ...settings, pace: v as TableSettings["pace"] })
+        }
+      />
     </>
   );
 }
@@ -25,8 +53,15 @@ export function DisplayFields() {
   };
   return (
     <>
-      <Choice label="Animations" value={display.motion} options={MOTIONS.map((m) => [m.id, m.label])} onChange={(v) => change({ motion: v as DisplaySettings["motion"] })} />
-      <p className="fine">{MOTIONS.find((m) => m.id === display.motion)?.hint}</p>
+      <Choice
+        label="Animations"
+        value={display.motion}
+        options={MOTIONS.map((m) => [m.id, m.label])}
+        onChange={(v) => change({ motion: v as DisplaySettings["motion"] })}
+      />
+      <p className="fine">
+        {MOTIONS.find((m) => m.id === display.motion)?.hint}
+      </p>
       <Choice
         label="Suit colours"
         value={display.suits}
@@ -41,45 +76,86 @@ export function DisplayFields() {
 }
 
 /** The ⚙︎ at the table: change opponents and speed mid-game. */
-export function TableSettingsButton({ settings, onChange }: { settings: TableSettings; onChange: (next: TableSettings) => Promise<void> | void }) {
+export function TableSettingsButton({
+  settings,
+  onChange,
+}: {
+  settings: TableSettings;
+  onChange: (next: TableSettings) => Promise<void> | void;
+}) {
   const [open, setOpen] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   return (
     <>
-      <button type="button" className="settings-toggle" aria-label="Table settings: opponents, speed and animations" aria-expanded={open} onClick={() => setOpen(true)}>
+      <button
+        type="button"
+        className="settings-toggle"
+        aria-label="Table settings: opponents, speed and animations"
+        aria-expanded={open}
+        onClick={() => setOpen(true)}
+      >
         ⚙︎
       </button>
-      {open && (
-        <div className="sheet table-settings" role="dialog" aria-label="Table settings">
-          <h2>Table settings</h2>
-          <TableSettingsFields
-            settings={settings}
-            onChange={async (next) => {
-              setProblem(null);
-              try {
-                await onChange(next);
-              } catch (e) {
-                setProblem((e as Error).message);
-              }
-            }}
-          />
-          {problem && <p className="error">{problem}</p>}
-          <h3>On this device</h3>
-          <DisplayFields />
-          <button type="button" className="primary" onClick={() => setOpen(false)}>
-            Done
-          </button>
-        </div>
-      )}
+      {open &&
+        createPortal(
+          <>
+            {/* On the page itself, above everything at the table (the bar it opens from is a layer of its own). */}
+            <div className="sheet-backdrop" onClick={() => setOpen(false)} />
+            <SettingsEscape onClose={() => setOpen(false)} />
+            <div
+              className="sheet table-settings"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Table settings"
+            >
+              <h2>Table settings</h2>
+              <TableSettingsFields
+                settings={settings}
+                onChange={async (next) => {
+                  setProblem(null);
+                  try {
+                    await onChange(next);
+                  } catch (e) {
+                    setProblem((e as Error).message);
+                  }
+                }}
+              />
+              {problem && <p className="error">{problem}</p>}
+              <h3>On this device</h3>
+              <DisplayFields />
+              <button
+                type="button"
+                className="primary"
+                onClick={() => setOpen(false)}
+              >
+                Done
+              </button>
+            </div>
+          </>,
+          document.body,
+        )}
     </>
   );
+}
+
+/** Escape closes the settings, as it would any dialog. */
+function SettingsEscape({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [onClose]);
+  return null;
 }
 
 /** On a setup screen: the opponents and speed new tables start with, remembered in this browser. */
 export function OpponentSettings() {
   const [settings, setSettings] = useState(loadTableSettings);
   return (
-    <section className="feedback" aria-label="Computer players and the look of the table">
+    <section
+      className="feedback"
+      aria-label="Computer players and the look of the table"
+    >
       <TableSettingsFields
         settings={settings}
         onChange={(next) => {

@@ -527,7 +527,8 @@ h1, h2, h3 { font-family: Georgia, "Times New Roman", serif; font-weight: 600; }
 }
 .bar-buttons { display: flex; gap: 6px; align-items: center; }
 .bar-buttons .settings-toggle { position: static; }
-.sheet.table-settings { z-index: 20; }
+.sheet.table-settings { z-index: 41; max-height: calc(100dvh - 112px); overflow-y: auto; overscroll-behavior: contain; }
+.sheet-backdrop { position: fixed; inset: 0; z-index: 40; background: rgba(0, 0, 0, 0.35); }
 .sheet.table-settings .fine { color: var(--muted); margin-top: -6px; }
 /* A disabled button in a sheet is solid, so the cards under the sheet don't show through it. */
 .sheet .primary:disabled { opacity: 1; background: #b9a876; color: #3d3524; cursor: default; }
