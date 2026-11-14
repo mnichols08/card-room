@@ -1,14 +1,17 @@
-// The card room as one handler: houses, rooms and the sync log. index.ts serves it with the web app.
+// The card room as one handler: houses, rooms, card designs, moderation and the sync log. index.ts
+// serves it with the web app, the card designer and the admin app.
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Log } from "@zubra/sync/server";
 import { createRooms, type RoomDoc } from "@spades/rooms/server";
 import { createChallenges } from "./challenges.js";
+import { createDesigns } from "./designs.js";
+import { BLOCKED_MESSAGE, createModeration } from "./moderation.js";
 import { createHouses } from "./houses.js";
 import { createPush, type PushOptions } from "./push.js";
 import { playerOf } from "@spades/rooms/server";
 import { gameOfOptions, tableRoom, talk, type GameId, type Remark } from "./games.js";
 
-export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: boolean; push?: PushOptions } = {}) {
+export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: boolean; push?: PushOptions; /** Turns moderation on (see moderation.ts). */ adminToken?: string } = {}) {
   const talking = options.talk ?? true;
   const timers = new Set<ReturnType<typeof setTimeout>>();
   const lastWord = new Map<string, number>();
@@ -49,6 +52,8 @@ export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: b
   const push = createPush(rooms.sync, options.push);
   const houses = createHouses(rooms, { push });
   const challenges = createChallenges(rooms, push);
+  const designs = createDesigns(rooms.sync);
+  const moderation = createModeration(rooms, designs, { token: options.adminToken });
 
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
   /** /push: the public key, and saying yes (or no) to notifications on this phone. */
@@ -74,31 +79,48 @@ export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: b
     return json({ error: "Not found" }, 404);
   }
 
+  /** Everything a blocked player may not do: sit, move, talk, make houses, challenges or designs. Reading is left alone. */
+  const ACTS = ["/rooms", "/houses", "/challenges", "/designs", "/push"];
+  const under = (pathname: string, mounts: string[]) => mounts.some((m) => pathname === m || pathname.startsWith(`${m}/`));
+  async function refusal(request: Request): Promise<Response | null> {
+    if (request.method === "GET" || request.method === "HEAD" || !under(new URL(request.url).pathname, ACTS)) return null;
+    return (await moderation.blocked(request)) ? json({ error: BLOCKED_MESSAGE }, 403) : null;
+  }
+  /** The routes that aren't the rooms kit's own. */
+  const ours = async (request: Request) =>
+    (await refusal(request)) ?? (await moderation.fetch(request)) ?? (await pushRoutes(request)) ?? (await designs.fetch(request)) ?? (await challenges.fetch(request)) ?? (await houses.fetch(request));
+
   return {
     rooms,
     houses,
-    /** Answers houses, rooms and sync requests; null for anything else. */
+    designs,
+    moderation,
     push,
+    /** Answers houses, designs, moderation, rooms and sync requests; null for anything else. */
     async fetch(request: Request): Promise<Response | null> {
-      return (await pushRoutes(request)) ?? (await challenges.fetch(request)) ?? (await houses.fetch(request)) ?? (await rooms.fetch(request));
+      return (await ours(request)) ?? (await rooms.fetch(request));
     },
     /** For Node's http: answers and resolves true, or resolves false for anything else. */
     async handle(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
       const url = new URL(req.url ?? "/", "http://localhost");
-      const ours = ["/houses", "/challenges", "/push"].some((m) => url.pathname === m || url.pathname.startsWith(`${m}/`));
-      if (ours) {
+      const headers = req.headers as Record<string, string>;
+      const answer = (response: Response) => {
+        res.writeHead(response.status, Object.fromEntries(response.headers));
+        return response.arrayBuffer().then((body) => (res.end(Buffer.from(body)), true));
+      };
+      if (under(url.pathname, ["/houses", "/challenges", "/push", "/designs", "/moderation"])) {
         const chunks: Buffer[] = [];
         for await (const chunk of req) chunks.push(chunk as Buffer);
         const request = new Request(url, {
           method: req.method,
-          headers: req.headers as Record<string, string>,
+          headers,
           body: req.method === "GET" || req.method === "HEAD" ? undefined : Buffer.concat(chunks),
         });
-        const response = (await pushRoutes(request)) ?? (await challenges.fetch(request)) ?? (await houses.fetch(request))!;
-        res.writeHead(response.status, Object.fromEntries(response.headers));
-        res.end(Buffer.from(await response.arrayBuffer()));
-        return true;
+        return answer((await ours(request))!);
       }
+      // The rooms kit reads the request itself; a blocked player is turned away before it does.
+      const blocked = await refusal(new Request(url, { method: req.method === "GET" || req.method === "HEAD" ? "GET" : "POST", headers }));
+      if (blocked) return answer(blocked);
       return rooms.handle(req, res);
     },
     close: () => {

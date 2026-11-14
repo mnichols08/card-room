@@ -69,6 +69,8 @@ export interface RoomDoc<Summary = unknown> {
   locked?: boolean;
   /** A name for the table, set by the server, for pages to show. */
   label?: string;
+  /** Why the server's admin closed this table. A closed table takes no more seats, moves or chat. */
+  closed?: string;
   summary: Summary | null;
   version: number;
 }
@@ -81,7 +83,12 @@ export interface ChatMessage {
   /** Server time (ms). */
   at: number;
   bot: boolean;
+  /** A moderator took the words away; `text` says so instead. */
+  removed?: boolean;
 }
+
+/** What a removed chat message says instead. */
+export const REMOVED_TEXT = "(removed by a moderator)";
 
 /** How long a message may be, and how often one player may send. */
 export const CHAT_LIMIT = 280;
@@ -304,6 +311,47 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     await sync.write("rooms", id, { locked: true, ...(label ? { label: label.slice(0, 60) } : {}) });
   }
 
+  /**
+   * Close a table for good (moderation): bots stop, and every later seat, move or message is
+   * refused with `reason`. Pages see `closed` on the room. Resolves false when there's no such table.
+   */
+  async function closeTable(id: string, reason: string): Promise<boolean> {
+    if (!(await room(id))) return false;
+    await sync.write("rooms", id, { closed: reason.replace(/\s+/g, " ").trim().slice(0, 200) || "This table was closed." });
+    const entry = live.get(id);
+    if (entry?.timer) clearTimeout(entry.timer);
+    live.delete(id);
+    return true;
+  }
+
+  /**
+   * Take a person out of a seat (moderation). Before the game starts the seat is simply free again;
+   * once it has, a bot called `bot` plays the seat on, so the others can finish. Resolves to a
+   * problem, or null.
+   */
+  async function unseat(id: string, seat: number, bot = "Bot"): Promise<string | null> {
+    const g = await game(id);
+    const r = await room(id);
+    if (!g || !r) return "No such table.";
+    if (!Number.isInteger(seat) || seat < 0 || seat >= r.seats.length || !g.holders[seat]) return "Nobody's sitting there.";
+    const holders = [...g.holders];
+    holders[seat] = null;
+    const seats = [...r.seats];
+    seats[seat] = r.started ? { name: bot.trim().slice(0, 20) || "Bot", bot: true } : { name: null, bot: false };
+    await sync.write("games", id, { holders });
+    await sync.write("rooms", id, { seats });
+    if (r.started && !r.closed) void driveBots(id);
+    return null;
+  }
+
+  /** Take the words out of a chat message (moderation). `key` is the message's field in `chat/<id>`. */
+  async function redact(id: string, key: string): Promise<boolean> {
+    const message = ((await docs).get("chat", id) ?? {})[key] as ChatMessage | undefined;
+    if (!/^m\d+$/.test(key) || !message) return false;
+    await sync.write("chat", id, { [key]: { ...message, text: REMOVED_TEXT, removed: true } });
+    return true;
+  }
+
   /** Who holds each seat (player ids), for server code. Never send these to a page. */
   async function holders(id: string): Promise<(string | null)[]> {
     return (await game(id))?.holders ?? [];
@@ -356,7 +404,9 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
   async function driveBots(id: string) {
     const entry = await stateOf(id);
     if (!def.bot || entry.state === null || entry.timer) return;
-    const seats = (await room(id))?.seats ?? [];
+    const current = await room(id);
+    if (current?.closed) return;
+    const seats = current?.seats ?? [];
     // A room from before it had settings plays with the defaults.
     const settings = (await game(id))?.settings ?? def.settings?.(undefined);
     if (entry.timer) return; // set while this was reading
@@ -415,6 +465,7 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     if (action === "" && method === "GET") return json({ id, ...r, seat: mySeat >= 0 ? mySeat : null });
 
     if (method !== "POST") return json({ error: "Not found" }, 404);
+    if (r.closed) return json({ error: r.closed }, 410);
     const input = await body(request);
 
     if (action === "sit") {
@@ -512,6 +563,9 @@ export function createRooms<State, Move, View, Options, Summary = unknown>(
     start,
     lock,
     holders,
+    closeTable,
+    unseat,
+    redact,
     /** The public room doc, or undefined. */
     room,
     /** How many rooms have their state in memory (finished ones are dropped). */
