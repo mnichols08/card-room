@@ -39,5 +39,6 @@ export * from "./memory.js";
 export * from "./sevens.js";
 export * from "./cuckoo.js";
 export * from "./contractrummy.js";
+export * from "./spider.js";
 export * from "./registry.js";
 export * from "./talk.js";
