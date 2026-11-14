@@ -151,6 +151,7 @@ docker run -p 8787:8787 -v spades:/data cardroom
 | `CARDROOM_VAPID_PUBLIC_KEY` | Push notifications: the public key (see below) |
 | `CARDROOM_VAPID_PRIVATE_KEY` | Push notifications: the private key; keep it secret |
 | `CARDROOM_VAPID_SUBJECT` | Optional: a `mailto:` or `https:` address push services can reach you at |
+| `CARDROOM_SECRET` | Any long random text: encrypts the AI keys houses connect (see **Bot talk from a model**). Keep it the same for good. |
 | `CARDROOM_BOT_DELAY` | Fixed thinking time for computer players, in milliseconds (handy for testing) |
 | `CARDROOM_WEB` | Where the built web app is, if not `packages/web/dist` |
 | `PORT` | The port to listen on (8787; Railway sets its own) |
@@ -176,6 +177,26 @@ railway config apply
 Then, in the dashboard, generate a domain for the service under **Networking**. Generated
 domains aren't part of the file. With the service connected to this repository (**Settings →
 Source**, auto-deploy on), every merge to `main` deploys; otherwise deploy from the dashboard.
+
+### Bot talk from a model
+
+A house's owner or an admin can connect the house's own AI account on the house page, under
+**Bot talk**: pick Claude (Anthropic) or OpenAI, paste an API key from that account, and write a
+few notes about the family (who's who, nicknames, in-jokes). From then on the computer players at
+that house's tables say hello, react and answer in the model's words. A question to the table, or
+a bot's name, gets an answer too.
+
+- The model only talks. The rules engines play every card and decide when a bot speaks.
+- It's told only what the whole table sees: names, the public scoreboard, the recent chat and the
+  family notes. Never a hand.
+- The house's account pays for the lines (a few words each, at most 600 a day per house). If the
+  model is slow, out of credit or switched off, the bots say their own lines.
+- The key is tried before it's saved, kept on the server (encrypted when `CARDROOM_SECRET` is
+  set) and never sent to a page again: admins see its last four characters. A changed or lost
+  `CARDROOM_SECRET` means pasting the keys again.
+
+Card Room connects with an API key from the provider's developer console; signing in with a Claude
+or ChatGPT subscription isn't supported.
 
 ### Notifications
 

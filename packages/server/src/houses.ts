@@ -14,6 +14,7 @@ import { kitOptions } from "./kit.js";
 import type { Push } from "./push.js";
 import { GAMES, gameName, isGameId, type GameId, type TableOptions } from "./games.js";
 import { palaceOptions, palaceRulesFrom, type PalaceSummary } from "./palace.js";
+import { CONTEXT_LIMIT, createAi, defaultModel, isProvider, type Ai, type HouseAi } from "./ai.js";
 
 export type Role = "owner" | "admin" | "member";
 
@@ -53,6 +54,8 @@ export interface HouseDoc {
   tournaments?: string[];
   /** House rules for the kit games (Hearts, Euchre…), by game. Missing: the game's own presets. */
   kitRules?: Partial<Record<KitGameId, { presets: KitRules[]; default: string }>>;
+  /** The house's own AI connection, for its bots' table talk. Its key never leaves the server. */
+  ai?: HouseAi;
 }
 
 type KitRules = { id: string; name: string } & Record<string, unknown>;
@@ -136,16 +139,30 @@ function cleanPreset(value: unknown): RulePreset | string {
   return errors.length ? errors.join(" ") : preset;
 }
 
-export function createHouses(rooms: Rooms, { mount = "/houses", push }: { mount?: string; push?: Push } = {}) {
+export function createHouses(rooms: Rooms, { mount = "/houses", push, ai = createAi() }: { mount?: string; push?: Push; ai?: Ai } = {}) {
   const docs = rooms.sync.documents();
   const get = async (slug: string) => {
     const doc = (await docs).get("houses", slug);
     if (!doc) return undefined;
     // Keep only the house's own fields (the view may carry sync bookkeeping such as $clocks).
-    const { slug: s, name, code, members, presets, defaultPreset, palacePresets, palaceDefault, tables, tournaments, kitRules } = doc as unknown as HouseDoc;
-    return structuredClone({ slug: s, name, code, members, presets: presets.map(renamedPreset), defaultPreset, palacePresets: (palacePresets ?? [familyPalace]).map((p) => normalizePalaceRules(p)), palaceDefault: palaceDefault ?? palacePresets?.[0]?.id ?? familyPalace.id, tables, tournaments: tournaments ?? [], kitRules: kitRules ?? {} }) as HouseDoc;
+    const { slug: s, name, code, members, presets, defaultPreset, palacePresets, palaceDefault, tables, tournaments, kitRules, ai: houseAi } = doc as unknown as HouseDoc;
+    for (const t of tables) houseOf.set(t.id, s);
+    return structuredClone({ slug: s, name, code, members, presets: presets.map(renamedPreset), defaultPreset, palacePresets: (palacePresets ?? [familyPalace]).map((p) => normalizePalaceRules(p)), palaceDefault: palaceDefault ?? palacePresets?.[0]?.id ?? familyPalace.id, tables, tournaments: tournaments ?? [], kitRules: kitRules ?? {}, ...(houseAi ? { ai: houseAi } : {}) }) as HouseDoc;
   };
-  const save = (house: HouseDoc) => rooms.sync.write("houses", house.slug, { ...house });
+  // Which house a table belongs to, so its bots can find the house's AI: kept in memory, and in a
+  // server-only document per table so it survives a restart.
+  const houseOf = new Map<string, string>();
+  const filed = new Set<string>();
+  const save = async (house: HouseDoc) => {
+    for (const t of house.tables) {
+      houseOf.set(t.id, house.slug);
+      if (filed.has(t.id)) continue;
+      filed.add(t.id);
+      void rooms.sync.write("tablehouse", t.id, { house: house.slug });
+    }
+    // A house that disconnected its AI keeps no trace of the key.
+    return rooms.sync.write("houses", house.slug, { ...house, ai: house.ai ?? null });
+  };
   const tournaments = createTournaments(rooms, { push, saveHouse: (h) => save(h as HouseDoc) });
 
   /** What a member sees. No player secrets; the invite code, since members share the link. */
@@ -180,6 +197,8 @@ export function createHouses(rooms: Rooms, { mount = "/houses", push }: { mount?
       palaceDefault: house.palaceDefault,
       tournaments: await tournaments.list(house),
       kitRules: Object.fromEntries(KIT_GAMES.map((g) => [g.id, kitRulesOf(house, g.id)])),
+      // Everyone sees whether the bots talk through a model; only managers see how it's set up (never the key).
+      ai: me.role === "member" ? (house.ai ? { on: house.ai.on } : null) : ai.view(house.ai),
       // Games still going first, then the rest, newest first.
       tables: tables.sort((a, b) => Number((a.summary as { phase?: string } | null)?.phase === "finished") - Number((b.summary as { phase?: string } | null)?.phase === "finished")),
     };
@@ -358,6 +377,46 @@ export function createHouses(rooms: Rooms, { mount = "/houses", push }: { mount?
 
     if (!canManage) return json({ error: "Only the house owner or an admin can change that." }, 403);
 
+    // POST /houses/:slug/ai { provider?, key?, model?, context?, on? } → connect the house's AI, or change it.
+    // POST /houses/:slug/ai { disconnect: true } → forget the key.
+    if (action === "ai") {
+      if (input.disconnect) {
+        delete house.ai;
+        await save(house);
+        return json(await forMember(house, me));
+      }
+      const provider = isProvider(input.provider) ? input.provider : house.ai?.provider;
+      if (!provider) return json({ error: "Pick Claude or OpenAI." }, 400);
+      const pasted = typeof input.key === "string" ? input.key.trim() : "";
+      if (pasted && (pasted.length < 20 || pasted.length > 300 || /\s/.test(pasted))) return json({ error: "That doesn't look like an API key." }, 400);
+      // A new provider needs its own key; otherwise the saved one stays.
+      const key = pasted ? ai.seal(pasted) : provider === house.ai?.provider ? house.ai.key : "";
+      if (!key) return json({ error: "Paste an API key for that account." }, 400);
+      const model = typeof input.model === "string" && /^[\w.:\/-]{1,80}$/.test(input.model.trim()) ? input.model.trim() : provider === house.ai?.provider ? house.ai.model : defaultModel(provider);
+      const context = typeof input.context === "string" ? input.context.trim().slice(0, CONTEXT_LIMIT) : (house.ai?.context ?? "");
+      const next: HouseAi = { provider, key, model, context, on: typeof input.on === "boolean" ? input.on : (house.ai?.on ?? true) };
+      // A new key or model is tried before it's saved, so a typo shows up now and not mid-game.
+      if (pasted || model !== house.ai?.model || provider !== house.ai?.provider) {
+        try {
+          await ai.test(next, house.name);
+        } catch (e) {
+          return json({ error: e instanceof Error ? e.message : "The AI service didn't answer." }, 400);
+        }
+      }
+      house.ai = next;
+      await save(house);
+      return json(await forMember(house, me));
+    }
+    // POST /houses/:slug/ai-test → a hello in a bot's voice, with the saved connection
+    if (action === "ai-test") {
+      if (!house.ai) return json({ error: "Connect an AI account first." }, 404);
+      try {
+        return json({ line: await ai.test(house.ai, house.name) });
+      } catch (e) {
+        return json({ error: e instanceof Error ? e.message : "The AI service didn't answer." }, 400);
+      }
+    }
+
     // Kit games: house rules per game.
     const kit = gameOf(input.game);
     if (isKitGame(kit) && (action === "presets" || action === "presets-delete" || action === "default")) {
@@ -471,6 +530,12 @@ export function createHouses(rooms: Rooms, { mount = "/houses", push }: { mount?
   return {
     /** A table finished: if it was a tournament match, move its winner on. */
     tableFinished: (id: string, summary: unknown) => tournaments.tableFinished(id, summary, get),
+    /** The house a table was opened in and its AI connection, if it has one switched on. */
+    async aiFor(table: string): Promise<{ slug: string; name: string; ai: HouseAi } | null> {
+      const slug = houseOf.get(table) ?? ((await docs).get("tablehouse", table)?.house as string | undefined);
+      const house = slug ? await get(slug) : undefined;
+      return house?.ai?.on ? { slug: house.slug, name: house.name, ai: house.ai } : null;
+    },
     /** Answers house requests; null for anything else. */
     async fetch(request: Request): Promise<Response | null> {
       const { pathname } = new URL(request.url);

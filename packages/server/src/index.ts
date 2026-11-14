@@ -34,7 +34,10 @@ const cardRoom = createCardRoom({
     privateKey: setting("VAPID_PRIVATE_KEY"),
     subject: setting("VAPID_SUBJECT"),
   },
+  // Houses can connect their own AI key for their bots' table talk; this seals those keys at rest.
+  ai: { secret: setting("SECRET") },
 });
+if (!setting("SECRET")) console.log("houses' AI keys are stored unsealed: set CARDROOM_SECRET to encrypt them");
 if (!cardRoom.push.enabled) console.log("push notifications are off: set CARDROOM_VAPID_PUBLIC_KEY and CARDROOM_VAPID_PRIVATE_KEY to turn them on");
 
 /**

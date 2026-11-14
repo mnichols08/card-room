@@ -4,34 +4,92 @@ import type { Log } from "@zubra/sync/server";
 import { createRooms, type RoomDoc } from "@spades/rooms/server";
 import { createChallenges } from "./challenges.js";
 import { createHouses } from "./houses.js";
+import { createAi, type AiOptions } from "./ai.js";
+import { personaFor } from "@spades/rules";
 import { createPush, type PushOptions } from "./push.js";
 import { playerOf } from "@spades/rooms/server";
-import { gameOfOptions, tableRoom, talk, type GameId, type Remark } from "./games.js";
+import { gameName, gameOfOptions, tableRoom, talk, type GameId, type Remark } from "./games.js";
 
-export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: boolean; push?: PushOptions } = {}) {
+export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: boolean; push?: PushOptions; ai?: AiOptions } = {}) {
   const talking = options.talk ?? true;
   const timers = new Set<ReturnType<typeof setTimeout>>();
   const lastWord = new Map<string, number>();
+  let closed = false;
 
   const castOf = (room: RoomDoc<unknown>) => ({
     bots: room.seats.flatMap((s, i) => (s.bot ? [{ seat: i, name: s.name ?? "Bot" }] : [])),
   });
   const gameOfRoom = (room: RoomDoc<unknown>): GameId => gameOfOptions(room.info ?? room.summary);
 
-  /** Say each remark after its delay, unless another bot spoke a moment ago (no talking over each other). */
-  function speak(id: string, remarks: Remark[], always = false) {
+  /** The last few things said at a table, oldest first. */
+  async function recentChat(id: string) {
+    const chat = (await rooms.sync.documents()).get("chat", id) ?? {};
+    return Object.keys(chat)
+      .filter((k) => /^m\d+$/.test(k))
+      .sort()
+      .slice(-8)
+      .map((k) => chat[k] as { name: string; text: string })
+      .map((m) => ({ name: m.name, text: m.text }));
+  }
+
+  /**
+   * A remark in the words of the house's model, when the table's house has connected one; null for the
+   * bot's own line. The model gets only what the whole table can see.
+   */
+  async function inModelWords(id: string, r: Remark, said?: { name: string; text: string }): Promise<string | null> {
+    const connected = await houses.aiFor(id);
+    const room = connected && (await rooms.room(id));
+    if (!connected || !room) return null;
+    const bot = room.seats[r.seat]?.name ?? "Bot";
+    return ai.line(connected.slug, connected.ai, {
+      house: connected.name,
+      game: gameName(gameOfRoom(room)),
+      bot,
+      character: personaFor(bot).blurb,
+      players: room.seats.flatMap((s) => (s.name ? [{ name: s.name, bot: s.bot }] : [])),
+      summary: room.summary,
+      chat: await recentChat(id),
+      gist: r.text || undefined,
+      replyingTo: said,
+    });
+  }
+
+  /**
+   * Say each remark after its delay, unless another bot spoke a moment ago (no talking over each other).
+   * At a house with a model connected the line is asked for meanwhile, and said in the model's words.
+   */
+  function speak(id: string, remarks: Remark[], always = false, said?: { name: string; text: string }) {
     if (!talking) return;
     for (const r of remarks) {
-      const timer = setTimeout(() => {
+      const written = inModelWords(id, r, said).catch(() => null);
+      const timer = setTimeout(async () => {
         timers.delete(timer);
+        const text = (await written) ?? r.text;
+        if (closed || !text) return;
         const now = Date.now();
         if (!always && now - (lastWord.get(id) ?? 0) < 1200) return;
         lastWord.set(id, now);
-        void rooms.say(id, r.seat, r.text);
+        void rooms.say(id, r.seat, text);
       }, r.delay);
       timer.unref?.();
       timers.add(timer);
     }
+  }
+
+  /**
+   * Someone spoke to the table. The bots' own replies cover a handful of things (thanks, good luck…);
+   * with a model connected, a bot also answers a question or its own name.
+   */
+  async function answer(id: string, message: { text: string; seat: number; name: string }, room: RoomDoc<unknown>) {
+    const cast = castOf(room);
+    const said = { name: message.name, text: message.text };
+    const scripted = talk.reply(gameOfRoom(room), message.text, message.seat, cast);
+    if (scripted.length || !cast.bots.length) return speak(id, scripted, true, said);
+    const named = cast.bots.find((b) => message.text.toLowerCase().includes(b.name.toLowerCase()));
+    if (!named && !message.text.includes("?")) return;
+    if (!(await houses.aiFor(id))) return;
+    const bot = named ?? cast.bots[Math.floor(Math.random() * cast.bots.length)]!;
+    speak(id, [{ seat: bot.seat, text: "", delay: 900 + Math.random() * 1300 }], true, said);
   }
 
   const rooms = createRooms(tableRoom, {
@@ -44,10 +102,11 @@ export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: b
       if (talk.finished(after) && !talk.finished(before)) void houses.tableFinished(id, tableRoom.summary!(after)).catch((e) => console.error("tournament", e));
     },
     // Someone spoke to the table: an answer is never dropped for being close to other talk.
-    onSay: ({ id, message, room }) => speak(id, talk.reply(gameOfRoom(room), message.text, message.seat, castOf(room)), true),
+    onSay: ({ id, message, room }) => void answer(id, message, room).catch((e) => console.error("talk", e)),
   });
   const push = createPush(rooms.sync, options.push);
-  const houses = createHouses(rooms, { push });
+  const ai = createAi(options.ai);
+  const houses = createHouses(rooms, { push, ai });
   const challenges = createChallenges(rooms, push);
 
   const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -102,6 +161,7 @@ export function createCardRoom(options: { log?: Log; botDelay?: number; talk?: b
       return rooms.handle(req, res);
     },
     close: () => {
+      closed = true;
       for (const t of timers) clearTimeout(t);
       rooms.close();
     },

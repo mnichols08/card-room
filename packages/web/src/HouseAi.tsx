@@ -1,0 +1,119 @@
+// The house's AI connection: an owner or admin pastes the house's own Claude or OpenAI key and a
+// few notes about the family, and the computer players at the house's tables talk through it.
+import TextField from "@spades/ui/zubra-ui/text-field.zb";
+import { useEffect, useState } from "react";
+import { Choice, Toggle } from "./RulesEditor";
+import { AI_PROVIDERS, houses, type AiProvider, type House } from "./housesApi";
+
+export function HouseAiBlock({ house, onChange }: { house: House; onChange: (house: House) => void }) {
+  const canManage = house.me.role !== "member";
+  const saved = canManage && house.ai && "provider" in house.ai ? house.ai : null;
+  const [provider, setProvider] = useState<AiProvider>(saved?.provider ?? "anthropic");
+  const [key, setKey] = useState("");
+  const [model, setModel] = useState(saved?.model ?? "");
+  const [context, setContext] = useState(saved?.context ?? "");
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<{ bad: boolean; text: string } | null>(null);
+  // Follow the house when someone else changes it.
+  useEffect(() => {
+    if (!saved) return;
+    setProvider(saved.provider);
+    setModel(saved.model);
+    setContext(saved.context);
+  }, [saved?.provider, saved?.model, saved?.context]);
+
+  if (!canManage) {
+    if (!house.ai?.on) return null;
+    return (
+      <section className="house-block" aria-label="Bot talk">
+        <h2>Bot talk</h2>
+        <p className="fine">The computer players at this house's tables chat with an AI model the house connected. They still play their own cards.</p>
+      </section>
+    );
+  }
+
+  const service = AI_PROVIDERS.find((p) => p.id === provider)!;
+  const run = async (work: () => Promise<House | string>, done: string) => {
+    setBusy(true);
+    setNote(null);
+    try {
+      const result = await work();
+      if (typeof result === "string") setNote({ bad: false, text: result });
+      else {
+        onChange(result);
+        setKey("");
+        setNote({ bad: false, text: done });
+      }
+    } catch (e) {
+      setNote({ bad: true, text: e instanceof Error ? e.message : String(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+  const changedService = saved !== null && provider !== saved.provider;
+  const needsKey = saved === null || changedService;
+
+  return (
+    <section className="house-block house-ai" aria-label="Bot talk">
+      <h2>Bot talk</h2>
+      <p className="fine">
+        Connect the house's own AI account and the computer players will chat and answer in its words. They still play their own cards, and the model only sees what the whole table sees.
+      </p>
+      {saved && (
+        <Toggle
+          label="Bots talk through the model"
+          description={`${AI_PROVIDERS.find((p) => p.id === saved.provider)!.name} · ${saved.model} · key ending ${saved.keyEnding || "…"}`}
+          checked={saved.on}
+          onChange={(on) => void run(() => houses.saveAi(house.slug, { on }), on ? "Switched on." : "Switched off. The bots say their own lines.")}
+        />
+      )}
+      <Choice
+        label="Account"
+        value={provider}
+        options={AI_PROVIDERS.map((p) => [p.id, p.name])}
+        onChange={(v) => {
+          setProvider(v as AiProvider);
+          setModel("");
+        }}
+      />
+      <TextField
+        label="API key"
+        type="password"
+        autocomplete="off"
+        value={key}
+        maxlength={300}
+        placeholder={needsKey ? "" : "Leave empty to keep the saved key"}
+        help={`From your ${service.name} account's API keys page. Your account pays for the bots' lines (a few words each). The key stays on the card room's server and is never shown again.`}
+        onValueChange={(e: CustomEvent<string>) => setKey(e.detail)}
+      />
+      <TextField label="Model" value={model} maxlength={80} placeholder={service.model} help="A small, fast model is plenty." onValueChange={(e: CustomEvent<string>) => setModel(e.detail)} />
+      <TextField
+        label="About the family"
+        rows={5}
+        value={context}
+        maxlength={1500}
+        help="Who's who, nicknames, in-jokes, how the bots should talk. Everyone at the table may hear it come back, so nothing private."
+        onValueChange={(e: CustomEvent<string>) => setContext(e.detail)}
+      />
+      <button
+        type="button"
+        className="primary"
+        disabled={busy || (needsKey && !key.trim())}
+        onClick={() => void run(() => houses.saveAi(house.slug, { provider, key: key.trim() || undefined, model: model.trim() || (changedService ? service.model : undefined), context }), "Saved.")}
+      >
+        {busy ? "Checking…" : saved ? "Save" : "Connect"}
+      </button>
+      {saved && (
+        <span className="row-actions">
+          <button type="button" className="link" disabled={busy} onClick={() => void run(async () => `A bot says: “${(await houses.testAi(house.slug)).line}”`, "")}>
+            Try it
+          </button>
+          <button type="button" className="link danger" disabled={busy} onClick={() => confirm("Disconnect the AI account? The key is forgotten and the bots go back to their own lines.") && void run(() => houses.saveAi(house.slug, { disconnect: true }), "Disconnected.")}>
+            Disconnect
+          </button>
+        </span>
+      )}
+      {note && <p className={note.bad ? "error" : "fine"}>{note.text}</p>}
+    </section>
+  );
+}
