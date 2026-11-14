@@ -3,7 +3,7 @@ import { TableChat, type ChatProps } from "./Chat";
 import type { RoomDoc } from "@spades/rooms/server";
 import { cleanSettings, personaFor, pickPersonas, type Seat, type SeatView, type TableSettings } from "@spades/rules";
 import TextField from "@spades/ui/zubra-ui/text-field.zb";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { loadSavedName, saveName, saveTableSettings } from "./storage";
 import { Table } from "./Table";
 import { useTable, type Move } from "./useTable";
@@ -26,6 +26,7 @@ const gameOf = (doc: RoomDoc<Summary>): string => {
 const seatLabel = (game: string, i: number) => (game === "spades" ? SEAT_LABELS[i]! : `Seat ${i + 1}`);
 
 const SEAT_LABELS = ["South", "West", "North", "East"];
+const WATCHING = "You're watching: the computer plays this seat.";
 
 /** A family table on the server: sit down, invite people, fill seats with bots, then play. */
 export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) {
@@ -36,6 +37,10 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
   const [problem, setProblem] = useState<string | null>(null);
   const [missing, setMissing] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // At a table of computer players, a watcher looks over one seat's shoulder, and can change seats.
+  const [watchSeat, setWatchSeat] = useState(0);
+  const watching = !!doc?.watchable && mySeat === null;
+  const seat = watching ? (watchSeat as Seat) : mySeat;
 
   useEffect(() => {
     room
@@ -55,9 +60,10 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
   }, [room]);
 
   useEffect(() => {
-    if (mySeat === null) return;
-    return room.onView(mySeat, (doc) => setView(doc.view));
-  }, [room, mySeat]);
+    if (seat === null) return;
+    setView(null);
+    return room.onView(seat, (doc) => setView(doc.view));
+  }, [room, seat]);
 
   if (missing) {
     return (
@@ -105,15 +111,33 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
     },
   };
 
-  if (doc.started && mySeat !== null && view) {
+  // A watcher's taps don't play: the computer plays every seat.
+  const act = watching ? () => Promise.resolve<string | null>(WATCHING) : (move: unknown) => room.act(move).then(() => null, (e: Error) => e.message);
+  const banner = watching ? (
+    <div className="banner watching">
+      <label>
+        👀 Watching over{" "}
+        <select value={watchSeat} onChange={(e) => setWatchSeat(Number(e.target.value))}>
+          {doc.seats.map((s, i) => (
+            <option key={i} value={i}>
+              {s.name ?? seatLabel(game, i)}
+            </option>
+          ))}
+        </select>
+        ’s shoulder
+      </label>
+    </div>
+  ) : null;
+
+  if (doc.started && seat !== null && view) {
     if (isKitGame(game)) {
       return (
         <KitTable
           view={view as KitView}
           names={doc.seats.map((s, i) => s.name ?? seatLabel(game, i))}
-          act={(move) => room.act(move).then(() => null, (e: Error) => e.message)}
+          act={act}
           onLeave={onLeave}
-          banner={<div className="banner">{(doc as { label?: string }).label ?? `Table ${id}`}</div>}
+          banner={banner ?? <div className="banner">{(doc as { label?: string }).label ?? `Table ${id}`}</div>}
           chat={chat}
           settings={tableSettings}
         />
@@ -123,17 +147,26 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
       return (
         <PalaceTable
           view={view as PalaceView}
-          seat={mySeat}
+          seat={seat}
           names={doc.seats.map((s, i) => s.name ?? seatLabel(game, i))}
-          act={(move: PalaceMove) => room.act(move).then(() => null, (e: Error) => e.message)}
+          act={act as (move: PalaceMove) => Promise<string | null>}
           onLeave={onLeave}
-          banner={<div className="banner">Table {id}</div>}
+          banner={banner ?? <div className="banner">Table {id}</div>}
           chat={chat}
           settings={tableSettings}
         />
       );
     }
-    return <PlayingTable room={room as unknown as SpadesRoom} view={view as SeatView} seat={mySeat} names={names} onLeave={onLeave} code={id} chat={chat} settings={tableSettings} />;
+    // Spades asks its room to act: a watcher's room refuses.
+    const spades = (watching ? { ...room, act: () => Promise.reject(new Error(WATCHING)) } : room) as unknown as SpadesRoom;
+    return <PlayingTable room={spades} view={view as SeatView} seat={seat} names={names} onLeave={onLeave} code={id} chat={chat} settings={tableSettings} banner={banner} />;
+  }
+  if (watching) {
+    return (
+      <main className="setup lobby">
+        <p>Pulling up a chair…</p>
+      </main>
+    );
   }
 
   return <Lobby room={room} doc={doc} mySeat={mySeat} onSat={setMySeat} problem={problem} setProblem={setProblem} onLeave={onLeave} chat={chat} settings={tableSettings} />;
@@ -148,6 +181,7 @@ function PlayingTable(props: {
   code: string;
   chat: ChatProps;
   settings?: { value: TableSettings; change: (next: TableSettings) => Promise<void> };
+  banner?: ReactNode;
 }) {
   const table = useTable({
     view: props.view,
@@ -163,7 +197,7 @@ function PlayingTable(props: {
       table={table}
       names={props.names}
       onLeave={props.onLeave}
-      banner={<div className="banner">Table {props.code}</div>}
+      banner={props.banner ?? <div className="banner">Table {props.code}</div>}
       chat={props.chat}
       settings={props.settings}
     />

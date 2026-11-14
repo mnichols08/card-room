@@ -1,7 +1,8 @@
 // The Card Room's start page: the Vue game chooser, mounted inside the React app.
 import { KIT_GAMES } from "@cardroom/games";
 import { createApp, reactive } from "vue";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { arranged, refreshCatalogue } from "../catalogue";
 import { GAME_LIST } from "../GamePicker";
 import { loadMyHouses, loadName, type GameId } from "../storage";
 import GameChooser from "./GameChooser.vue";
@@ -58,12 +59,15 @@ const SEATS: Record<string, { seats: [number, number]; teams: boolean }> = {
 
 export function Home({ last, onPick, onOpenHouse }: { last: GameId | null; onPick: (game: GameId) => void; onOpenHouse: (slug: string) => void }) {
   const el = useRef<HTMLDivElement>(null);
+  const [catalogue, setCatalogue] = useState(0);
   const handlers = useRef({ onPick, onOpenHouse });
   handlers.current = { onPick, onOpenHouse };
 
   useEffect(() => {
+    // The games the card room's host offers, in their order (every game, where there's no server).
+    const games = () => arranged(GAME_LIST).map((g) => ({ ...g, ...(SEATS[g.id] ?? { seats: [2, 6], teams: false }), fan: FANS[g.id] ?? FANS.spades! }));
     const props = reactive({
-      games: GAME_LIST.map((g) => ({ ...g, ...(SEATS[g.id] ?? { seats: [2, 6], teams: false }), fan: FANS[g.id] ?? FANS.spades! })),
+      games: games(),
       houses: loadMyHouses(),
       last,
       name: loadName(),
@@ -73,6 +77,11 @@ export function Home({ last, onPick, onOpenHouse }: { last: GameId | null; onPic
     const app = createApp(GameChooser, props);
     app.mount(el.current!);
     return () => app.unmount();
+  }, [catalogue]);
+
+  // Ask the server for the host's catalogue; if it differs from what this browser remembered, draw the chooser again.
+  useEffect(() => {
+    void refreshCatalogue().then((changed) => changed && setCatalogue((n) => n + 1));
   }, []);
 
   return <main className="home" ref={el} />;
