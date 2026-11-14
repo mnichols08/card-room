@@ -23,13 +23,18 @@ card designer and the admin app are built from the rest: buttons, tabs, data tab
 toasts, alerts, badges, stat cards, content cards, swatches, sliders, the flip card and the layout
 helpers.
 
-## One source, four frameworks
+## One source, five frameworks
 
 | App | Framework | How it gets the components |
 | --- | --- | --- |
 | `packages/web` | React, and Vue for the game chooser | `@zubra/unplugin`: a `.zb` import is a React or Vue component |
 | `packages/designer` | Svelte | `@zubra/unplugin`: a `.zb` import defines the custom element, and Svelte uses the tag |
+| `packages/watch` | Solid | `@zubra/unplugin`: a `.zb` import defines the custom element; JSX sets properties with `prop:` and listens with `on:` |
 | `packages/admin` | Angular | `zubra build --lib` compiles this folder to custom elements before `ng build`; templates use the tags (`CUSTOM_ELEMENTS_SCHEMA`), with `zubraModel` from `@zubra/runtime/angular` for `ngModel` |
+
+The apps share this folder, and Zubra writes each component's typings beside it for one framework
+at a time. The card room's React app owns those files; the Svelte and Solid apps turn them off
+(`zubra({ dts: false })`) and Solid's JSX learns the tags from `packages/watch/src/elements.d.ts`.
 
 Two things to know when the tags are used directly in Angular (both are worked around in
 `packages/admin/src/app/app.html`, where the comments say so):

@@ -66,12 +66,13 @@ just for keeping score.
 | [`packages/server`](packages/server) | The server: every game's rooms, houses, challenges, tournaments, the sync log and the web app |
 | [`packages/web`](packages/web) | The app (React, with the game chooser in Vue): tables, setup screens, houses, practice |
 | [`packages/designer`](packages/designer) | The card designer (Svelte): draw a deck, keep it or share it, play with it |
+| [`packages/watch`](packages/watch) | The watch page (Solid): the tables playing now, and tables of computer players to learn from |
 | [`packages/admin`](packages/admin) | The admin app (Angular): the host moderates tables, players and shared designs |
 | [`packages/decks`](packages/decks) | Card designs: what a deck looks like, checked, and turned into the CSS variables the cards read |
 | [`packages/ui`](packages/ui) | Components in Zubra: our own (cards, seats), the ones copied from zubra-ui, and the `<card-room>` embed |
 
-One set of Zubra components serves four frameworks: React and Vue in the card room, Svelte in the
-designer and Angular in the admin app.
+One set of Zubra components serves five frameworks: React and Vue in the card room, Svelte in the
+designer, Solid on the watch page and Angular in the admin app.
 
 The server decides every move. Each player's browser only ever receives its own view of a table
 (its own hand), never the whole game; moves the rules don't allow are refused on the server.
@@ -84,13 +85,13 @@ npm test
 npm run dev        # the server on :8787 and the app on http://localhost:5173
 ```
 
-Family tables, houses, challenges, tournaments, the designs gallery and the admin app need the
-server. Practice against the computer and designing decks work anywhere, including the GitHub
+Family tables, houses, challenges, tournaments, the designs gallery, watching and the admin app
+need the server. Practice against the computer and designing decks work anywhere, including the GitHub
 Pages build of the app.
 
-The card designer (`npm run dev -w @cardroom/designer`, http://localhost:5174/designer/) and the
-admin app (`npm run dev -w @cardroom/admin`, http://localhost:5175/admin/) have dev servers of
-their own, which also talk to the server on :8787. For the admin app, start the server with a
+The card designer (`npm run dev -w @cardroom/designer`, http://localhost:5174/designer/), the
+admin app (`npm run dev -w @cardroom/admin`, http://localhost:5175/admin/) and the watch page
+(`npm run dev -w @cardroom/watch`, http://localhost:5176/watch/) have dev servers of their own, which also talk to the server on :8787. For the admin app, start the server with a
 token: `CARDROOM_ADMIN_TOKEN=anything npm run dev -w @spades/server`.
 
 ## Designing cards
@@ -106,6 +107,17 @@ A design is data, never CSS or markup from a page: colours and choices from fixe
 again on the server (`packages/decks`). The designer won't save a deck you couldn't play with
 (inks too faint for the paper, two suits in the same ink).
 
+## Watching a game
+
+The watch page lives at `/watch/` (there's a link on the card room's front page).
+
+- **Learn from the computer.** Pick a game, how well the computer players should play and how
+  fast, and they sit down and play it out. You see every hand, and can look over any seat's
+  shoulder. A few of these tables can be going at once (six); a new one waits for one to finish.
+- **Playing now.** Every table with a game going. At a table with people you see who's playing and
+  the score, never their cards: a hand only ever goes to the browser that holds the seat. The
+  host can keep people's tables off this list altogether (admin app, **Games**).
+
 ## Moderating the card room
 
 Whoever runs the server can look after it from the admin app at `/admin/`. It's off until the
@@ -115,6 +127,8 @@ server has an admin token (see **Settings**); sign in with that token.
 | --- | --- |
 | **Tables** | Every table and who's at it. Look at one to read its chat, remove a message, take someone out of a seat (a computer player takes over if the game has started), or close the table for good, with a reason everyone there sees. |
 | **Players** | Everyone who's sat down, joined a house or saved a design. Blocking someone stops them sitting, playing, chatting, opening houses and sharing designs; tables they're at carry on without them. Unblocking undoes it. |
+| **Houses** | Every house and its members. Rename a house (its invite link stays the same), remove a member, hand it to a new owner, or delete it. |
+| **Games** | Which games the card room offers and in what order: the front page follows. Switching a game off stops new tables of it everywhere (tables already going carry on). Also the switch for whether tables with players can be watched. |
 | **Card designs** | Every shared deck. Hiding one takes it out of the gallery; its maker keeps it and sees your reason. |
 | **Activity** | Everything done from the admin app, newest first. |
 
@@ -210,6 +224,7 @@ docker run -p 8787:8787 -v spades:/data cardroom
 | `CARDROOM_BOT_DELAY` | Fixed thinking time for computer players, in milliseconds (handy for testing) |
 | `CARDROOM_WEB` | Where the built web app is, if not `packages/web/dist` |
 | `CARDROOM_DESIGNER` | Where the built card designer is, if not `packages/designer/dist` |
+| `CARDROOM_WATCH` | Where the built watch page is, if not `packages/watch/dist` |
 | `CARDROOM_ADMIN` | Where the built admin app is, if not `packages/admin/dist/browser` |
 | `PORT` | The port to listen on (8787; Railway sets its own) |
 

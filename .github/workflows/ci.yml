@@ -28,6 +28,9 @@ jobs:
           # The designer and the admin app are served under the card room's address.
           curl -fs localhost:8790/designer/ | grep -q "Card designer"
           curl -fs localhost:8790/admin/ | grep -q "Card Room admin"
+          curl -fs localhost:8790/watch/ | grep -q "Watch a game"
+          curl -fs localhost:8790/catalogue | grep -q '"spades"'
+          curl -fs localhost:8790/spectate | grep -q '"tables"'
           curl -fs localhost:8790/designs | grep -q '"designs"'
           # Without CARDROOM_ADMIN_TOKEN, moderation is off.
           test "$(curl -s -o /dev/null -w '%{http_code}' localhost:8790/moderation/overview)" = 503
