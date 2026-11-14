@@ -99,7 +99,7 @@ export const named = (text: string, names: string[]) =>
   );
 
 /** "Ann & Cy" for a side of the table. */
-const sideName = (seats: number[], names: string[]) =>
+export const sideName = (seats: number[], names: string[]) =>
   seats.map((s) => names[s] ?? `Seat ${s + 1}`).join(" & ");
 
 export function KitTable({
@@ -1223,7 +1223,7 @@ function TeamMelds({
   );
 }
 
-function ResultTable({
+export function ResultTable({
   result,
   names,
   me,

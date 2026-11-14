@@ -6,7 +6,7 @@ import type { ChatMessage } from "@spades/rooms/client";
 import { mulberry32, paceDelay, personaFor, pickPersonas, styleFor } from "@spades/rules";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadTableSettings, saveTableSettings } from "../storage";
-import { KitTable } from "./KitTable";
+import { GameTable } from "./GameTable";
 
 export function LocalKit({ game: id, name, rules, seats, seed, onLeave }: { game: KitGameId; name: string; rules: unknown; seats: number; seed: number; onLeave: () => void }) {
   const game = kitGame(id)!;
@@ -83,7 +83,7 @@ export function LocalKit({ game: id, name, rules, seats, seed, onLeave }: { game
   );
   const before = useRef<unknown>(null);
   useEffect(() => {
-    if (!before.current) speak(kitGreet(cast));
+    if (!before.current) speak(kitGreet(cast, undefined, id));
     else if (before.current !== state) speak(reactToKit(game.summary(before.current), game.summary(state), cast), true);
     before.current = state;
   }, [state, cast, speak]);
@@ -98,7 +98,7 @@ export function LocalKit({ game: id, name, rules, seats, seed, onLeave }: { game
 
   const view = useMemo(() => game.view(state, 0), [state]);
   return (
-    <KitTable
+    <GameTable
       view={view}
       names={names}
       act={act}

@@ -12,9 +12,9 @@ import { Table } from "./Table";
 import { useTable, type Move } from "./useTable";
 import type { PalaceMove, PalaceView } from "@cardroom/palace";
 import { PalaceTable } from "./palace/PalaceTable";
-import { isKitGame, kitGame, type KitView } from "@cardroom/games";
+import { isBoardGame, isKitGame, kitGame, type BoardView, type KitView } from "@cardroom/games";
 import { GAME_LIST } from "./GamePicker";
-import { KitTable } from "./kit/KitTable";
+import { GameTable } from "./kit/GameTable";
 import { OnlineTable, TablePlayers, TableSettingsFields, TurnTimerField, type TablePlayersValue } from "./TableSettings";
 import { TurnClock } from "./TurnClock";
 
@@ -225,9 +225,9 @@ export function RoomTable({ id, onLeave }: { id: string; onLeave: () => void }) 
   if (doc.started && seat !== null && view) {
     if (isKitGame(game)) {
       return online(
-        <KitTable
+        <GameTable
           // The watch view looks on from the first seat; turn it to the side being watched from.
-          view={fromTheSide ? { ...(view as KitView), me: seat } : (view as KitView)}
+          view={fromTheSide ? { ...(view as KitView | BoardView), me: seat } : (view as KitView | BoardView)}
           watching={watching}
           names={doc.seats.map((s, i) => s.name ?? seatLabel(game, i))}
           act={act}
@@ -458,7 +458,7 @@ function Lobby(props: {
           )}
           {mySeat !== null && (
             <button type="button" className="primary deal" disabled={!full} onClick={() => attempt(() => room.start())}>
-              {full ? "Deal" : doc.open ? "Waiting for players…" : "Waiting for every seat"}
+              {full ? (isBoardGame(game) ? "Start the game" : "Deal") : doc.open ? "Waiting for players…" : "Waiting for every seat"}
             </button>
           )}
         </>

@@ -1,8 +1,8 @@
-// Every game on the kit: computer players finish whole games at every table size, every view is
+// Every card game on the kit: computer players finish whole games at every table size, every view is
 // consistent with the state, the same seed always deals the same game, and refused moves don't
 // change anything.
 import { describe, expect, it } from "vitest";
-import { GameError, KIT_GAMES, type CardGame, type KitView } from "../src/index.js";
+import { CARD_GAMES, GameError, type CardGame, type KitView } from "../src/index.js";
 
 const STYLES = [{}, { skill: 0.3, sloppy: 0.3 }, { skill: 1, sloppy: 0 }];
 
@@ -38,7 +38,7 @@ function checkView(v: KitView, seat: number) {
   else expect(v.players[seat]!.cards).toBe(v.hand.length);
 }
 
-for (const game of KIT_GAMES) {
+for (const game of CARD_GAMES) {
   describe(game.id, () => {
     it("has valid presets that describe themselves", () => {
       for (const p of game.presets) {
