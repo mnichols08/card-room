@@ -5,7 +5,7 @@
 // scores. One table screen draws every game from that, and one room runs them all on the server.
 import { mulberry32, type Card, type PlayStyle, type Suit } from "@spades/rules";
 
-export type KitGameId = "hearts" | "ohhell" | "euchre" | "crazy8" | "gin" | "pinochle" | "canasta" | "gofish" | "oldmaid" | "war" | "whist" | "golf" | "rummy500" | "president" | "klondike" | "freecell" | "handfoot" | "cribbage" | "fivedraw" | "holdem" | "bluff" | "liarspoker" | "switch" | "thirtyone" | "kingscorner" | "blackjack";
+export type KitGameId = "hearts" | "ohhell" | "euchre" | "crazy8" | "gin" | "pinochle" | "canasta" | "gofish" | "oldmaid" | "war" | "whist" | "golf" | "rummy500" | "president" | "klondike" | "freecell" | "handfoot" | "cribbage" | "fivedraw" | "holdem" | "bluff" | "liarspoker" | "switch" | "thirtyone" | "kingscorner" | "blackjack" | "spite";
 
 /** A move that isn't allowed. The message is shown to the player as is. */
 export class GameError extends Error {}
@@ -161,7 +161,9 @@ export type Center =
   | {
       kind: "cross";
       stock: number;
-      piles: { cards: KCard[]; empty?: string; move: Record<string, unknown> | null; label: string }[];
+      piles: { cards: KCard[]; empty?: string; move: Record<string, unknown> | null; label: string; note?: string }[];
+      /** In a row beside the stock instead (Spite and Malice's building piles). */
+      layout?: "row";
     }
   /** Another player's hand, face down: tap a card to take it (Old Maid). Sends { type: takeType, index }. */
   | { kind: "fan"; from: number; count: number; takeType: string | null; label?: string }
@@ -204,7 +206,7 @@ export interface KitView {
   center: Center;
   melds: Meld[];
   /** Cards laid out in front of each player in rows and columns (Golf); null is a face-down card. */
-  grids?: { owner: number; cols: number; cards: (KCard | null)[] }[];
+  grids?: { owner: number; cols: number; cards: (KCard | null)[]; /** Cells drawn as empty spaces. */ empty?: number[] }[];
   /** Cells of your own grid you can tap now: sends { type, index }. */
   gridTap?: { type: string; cells: number[]; prompt?: string } | null;
   /** A score track (Cribbage's board): each side's front peg, and the back peg where it was before. */
