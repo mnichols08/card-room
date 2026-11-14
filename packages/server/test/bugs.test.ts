@@ -179,3 +179,58 @@ describe("reporting a problem", () => {
     expect(asked).toEqual([]);
   });
 });
+
+describe("asking for a game", () => {
+  /** A GitHub that remembers the issues it was given. */
+  function setup(bugs: BugOptions = {}) {
+    const issues: { number: number; title: string; body: string; labels: string[]; html_url: string }[] = [];
+    const comments: { issue: number; body: string }[] = [];
+    const fetch = (async (url: string, init: RequestInit) => {
+      const path = url.replace("https://api.github.com/repos/o/r", "");
+      const sent = init.body ? JSON.parse(String(init.body)) : null;
+      if (init.method === "GET" && path.startsWith("/issues?")) {
+        expect(path).toContain("labels=game%20request");
+        return new Response(JSON.stringify(issues.filter((i) => i.labels.includes("game request"))));
+      }
+      const comment = path.match(/^\/issues\/(\d+)\/comments$/);
+      if (comment) return comments.push({ issue: Number(comment[1]), body: sent.body }), new Response(JSON.stringify({ id: comments.length }), { status: 201 });
+      const issue = { number: 7 + issues.length, html_url: `https://github.com/o/r/issues/${7 + issues.length}`, ...sent };
+      issues.push(issue);
+      return new Response(JSON.stringify(issue), { status: 201 });
+    }) as unknown as typeof globalThis.fetch;
+    const app = createCardRoom({ log: memoryLog({ keep: "latest" }), botDelay: 5, talk: false, bugs: { token: "ghp_secret", repo: "o/r", fetch, ...bugs } });
+    open.push(app);
+    const ask = async (body: unknown) => {
+      const r = (await app.fetch(new Request(BASE + "/bugs/game", { method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": `10.0.0.${issues.length + comments.length}` }, body: JSON.stringify(body) })))!;
+      return { status: r.status, body: await r.json() };
+    };
+    return { ask, issues, comments };
+  }
+
+  it("opens an issue for a game nobody has asked for", async () => {
+    const { ask, issues } = setup();
+    expect(await ask({ game: "Mah-Jongg", note: "The way @grandma plays it, with jokers" })).toEqual({ status: 201, body: { ok: true, number: 7, url: "https://github.com/o/r/issues/7", again: false } });
+    expect(issues[0]).toMatchObject({ title: "Game request: Mah-Jongg", labels: ["enhancement", "game request"] });
+    expect(issues[0]!.body).toContain("A player asked for **Mah-Jongg**.");
+    expect(issues[0]!.body).toContain("> The way @\u200bgrandma plays it, with jokers");
+  });
+
+  it("adds a voice to the open request for the same game", async () => {
+    const { ask, issues, comments } = setup();
+    await ask({ game: "Mah-Jongg" });
+    expect(await ask({ game: "  mah jongg! ", note: "Yes please" })).toMatchObject({ status: 201, body: { number: 7, again: true } });
+    await ask({ game: "Backgammon" });
+    expect(issues.map((i) => i.title)).toEqual(["Game request: Mah-Jongg", "Game request: Backgammon"]);
+    expect(comments).toEqual([{ issue: 7, body: expect.stringMatching(/^Another player asked for this\.\n\n> Yes please/) }]);
+  });
+
+  it("needs a game's name, a token, and not too many at once", async () => {
+    const { ask, issues } = setup({ each: 1 });
+    expect((await ask({ game: " ! " })).status).toBe(400);
+    expect((await setup({ token: "" }).ask({ game: "Chess" })).status).toBe(503);
+    expect(issues).toEqual([]);
+    const one = setup({ each: 1, daily: 1 });
+    expect((await one.ask({ game: "Chess" })).status).toBe(201);
+    expect(await one.ask({ game: "Go" })).toMatchObject({ status: 429, body: { error: expect.stringContaining("tomorrow") } });
+  });
+});
