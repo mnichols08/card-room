@@ -1007,7 +1007,8 @@ button.cross-pile.can::after {
    One board in the middle, as big as the screen allows: the full width on a phone, and never taller
    than what's left under the bar and above your seat. Everything inside is sized from the board's
    own width (container units), so a 3×3 and a 15×15 both fill it. */
-.board-felt { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 10px 8px 12px; }
+/* The felt is as tall as what's on it, so a table too tall for the screen scrolls instead of sliding under your seat. */
+.board-felt { flex: 1 0 auto; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 10px 8px 12px; }
 .board .status { position: static; }
 .board-others { display: flex; justify-content: center; flex-wrap: wrap; gap: clamp(10px, 4vw, 48px); }
 .board-others .opp { gap: 4px; }
@@ -1019,6 +1020,19 @@ button.cross-pile.can::after {
 }
 /* A second board (your own fleet beside the one you're shooting at) is drawn smaller. */
 .board-wrap.side { --board-max: 300px; }
+/* Two boards have titles, and usually reserves above and below: leave them the room. */
+.boards.many .board-wrap { width: min(100%, var(--board-max), max(220px, calc((100dvh - 410px) * var(--cols) / var(--rows)))); }
+/* Two boards on a phone: the main one a little shorter, and the second small beside the notes and
+   buttons instead of under them, so both boards and what just happened are all on the screen. */
+@media (max-width: 640px) {
+  .board-felt:has(.boards.many) { flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: flex-start; }
+  .board-felt:has(.boards.many) .board-others { width: 100%; }
+  .boards.many { display: contents; }
+  .boards.many .board-wrap:not(.side) { width: min(100%, var(--board-max), max(280px, calc((100dvh - 500px) * var(--cols) / var(--rows)))); }
+  .boards.many .board-wrap.side { --board-max: min(46vw, 210px); flex: none; }
+  .boards.many .board-wrap.side .coords { font-size: 0.5rem; }
+  .boards.many ~ .center-info { flex: 1 1 0; min-width: 0; align-self: center; }
+}
 .board-wrap.with-coords { grid-template-columns: 1.3em minmax(0, 1fr); grid-template-areas: "title title" "rows grid" ". cols"; }
 .board-title { grid-area: title; margin: 0 0 4px; text-align: center; font-size: var(--ui-m); color: var(--gold); }
 .coords { color: #cfe2d6; font-size: 0.68rem; line-height: 1; user-select: none; }
@@ -1057,6 +1071,19 @@ button.cross-pile.can::after {
 .board-grid .cell.picked { background: #f3d77f; }
 .board-grid .cell.target::after { content: ""; position: absolute; width: 30%; aspect-ratio: 1; border-radius: 50%; background: rgba(31, 77, 58, 0.55); }
 .board-grid .cell.target:has(.piece)::after { width: 86%; background: none; border: max(2px, 0.5cqw) solid rgba(31, 77, 58, 0.6); }
+/* A piece that covers several cells (a ship: cells with one `span`) is drawn as one hull under its
+   cells' glyphs, rounded where it ends and running through the grid lines where it carries on. */
+.board-grid .cell.spanned { --hull: #5b6876; --hull-edge: transparent; --hull-inset: 14%; --hull-line: max(2px, 0.5cqw); }
+.board-grid .cell.spanned::before {
+  content: ""; position: absolute; inset: var(--hull-inset); box-sizing: border-box;
+  background: var(--hull); border: var(--hull-line) solid var(--hull-edge); border-radius: 38%;
+}
+.board-grid .cell.spanned.join-n::before { top: calc(-1 * var(--line-w)); border-top: 0; border-top-left-radius: 0; border-top-right-radius: 0; }
+.board-grid .cell.spanned.join-s::before { bottom: calc(-1 * var(--line-w)); border-bottom: 0; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.board-grid .cell.spanned.join-w::before { left: calc(-1 * var(--line-w)); border-left: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.board-grid .cell.spanned.join-e::before { right: calc(-1 * var(--line-w)); border-right: 0; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.board-grid .cell.spanned .piece { position: relative; z-index: 1; }
+.board-grid .cell.spanned.picked { --hull: #1f4d3a; }
 
 /* Blocks of cells with heavier lines between them (Ultimate Tic-Tac-Toe's nine small boards). */
 .board-grid.blocked { --line-w: 1px; --line: rgba(29, 26, 22, 0.3); }
@@ -1102,6 +1129,8 @@ html[data-motion="off"] .board-grid .piece, html[data-motion="off"] .board-block
 .board-seat .piece.small, .board-reserve .piece.small {
   width: 1.5em; height: 1.5em; flex: none; border-radius: 6px; background: var(--cream); font-size: 0.85em;
 }
+/* A reserve piece with a long glyph (a ship, a block per square) gets a chip as wide as it needs. */
+.board-reserve .piece.small { width: auto; min-width: 1.5em; padding: 0 0.3em; box-sizing: border-box; }
 .board-seat.row { align-items: center; }
 .board-reserve { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; font-size: var(--ui-s); color: #cfe2d6; }
 .board-reserve .reserve-piece { display: inline-flex; align-items: center; gap: 3px; padding: 3px 6px; border: 2px solid transparent; border-radius: 10px; background: rgba(0, 0, 0, 0.25); color: var(--cream); font: inherit; }
@@ -1138,6 +1167,19 @@ html[data-motion="off"] .board-grid .piece, html[data-motion="off"] .board-block
 }
 @keyframes disc-drop { from { translate: 0 calc(-1 * (var(--row, 0) + 1) * 100cqw / var(--cols)); } }
 @keyframes disc-win { 50% { filter: brightness(1.35); } }
+
+/* ---- Combat: two grids of water, hulls, and shots told apart by shape as well as colour ---------- */
+/* A hit is a white cross on a red disc; a miss is a small pale dot; a marked shot is a gold ring. */
+.board-combat .piece.kind-hit, .board-combat .piece.kind-sunk { width: 62%; aspect-ratio: 1; border-radius: 50%; background: #b3261e; color: #fff; font-size: 0.62em; }
+.board-combat .piece.kind-miss { font-size: 0.42em; color: #fffdf8; text-shadow: 0 0 1px #1d1a16, 0 0 2px rgba(29, 26, 22, 0.8); }
+.board-combat .piece.kind-aim { font-size: 1.15em; color: #7a5600; }
+.board-combat .piece.kind-clear { font-size: 1.1em; }
+/* A whole square of a ship is just hull: its block is for screens that can't draw one. */
+.board-combat .board-grid .piece.kind-ship { visibility: hidden; }
+/* A sunk ship: a dark hull with a hard outline. A ship shown at the end that was never hit there: a ghost. */
+.board-combat .cell.spanned:has(.kind-sunk) { --hull: #262c33; --hull-edge: #1d1a16; --hull-inset: 9%; }
+.board-combat .cell.spanned:has(.piece.faded)::before { opacity: 0.5; }
+.board-combat .board-reserve .piece.small { letter-spacing: 0.08em; font-size: 0.7em; height: 2em; color: #3d4852; }
 
 /* ---------- Turn clock: the time left on a seat, at an online table with a turn timer ---------- */
 .turn-clock {

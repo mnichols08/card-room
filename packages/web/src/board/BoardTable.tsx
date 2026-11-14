@@ -35,6 +35,16 @@ interface Picked {
   from: number | string;
 }
 
+/**
+ * The source a tap on `cell` picks up: the piece there, or (for a piece that covers several cells,
+ * all with one `span`) the piece that cell is part of.
+ */
+function sourceAt(grid: BoardGrid, cell: number) {
+  const sources = grid.select?.sources ?? [];
+  const span = grid.cells[cell]?.span;
+  return sources.find((s) => s.from === cell) ?? (span ? sources.find((s) => typeof s.from === "number" && grid.cells[s.from]?.span === span) : undefined);
+}
+
 /** A piece's colour: its own, or its owner's (the first seat's, the second's…). */
 const SEAT_TONES = ["red", "blue", "green", "gold", "dark", "light"];
 const toneOf = (piece: BoardPiece) => piece.tone ?? (piece.owner === null ? "dark" : SEAT_TONES[piece.owner % SEAT_TONES.length]!);
@@ -61,9 +71,14 @@ export function BoardTable({ view, names, act, onLeave, banner, chat, settings }
   const draw = !!view.over && view.over.winners.length === view.seats && view.seats > 1;
   const won = !!view.over && !draw && view.over.winners.includes(me);
 
-  // Whatever was picked up is put down when the board moves on.
+  // Whatever was picked up is put down when the board moves on, unless it can still be picked up:
+  // a ship in your hand stays there while you press the button that turns it.
+  const offered = (p: Picked) => !!view.grids.find((g) => g.id === p.grid)?.select?.sources.some((s) => s.from === p.from);
   const selectKey = JSON.stringify(view.grids.map((g) => g.select?.sources ?? null));
-  useEffect(() => setPicked(null), [selectKey]);
+  useEffect(() => setPicked((p) => (p && offered(p) ? p : null)), [selectKey]);
+  // With nothing picked up, you hold what the view suggests (the next ship to place), if anything.
+  const suggesting = view.grids.find((g) => g.select?.suggest !== undefined);
+  const held: Picked | null = picked ?? (suggesting ? { grid: suggesting.id, from: suggesting.select!.suggest! } : null);
   useEffect(() => {
     if (!error) return;
     const t = setTimeout(() => setError(null), 2500);
@@ -90,8 +105,9 @@ export function BoardTable({ view, names, act, onLeave, banner, chat, settings }
     overSeen.current = !!view.over;
   }, [view.over, draw, won]);
 
-  const send = async (move: Record<string, unknown>) => {
-    setPicked(null);
+  /** `keep` leaves what's picked up in your hand: for a button, which isn't a move of that piece. */
+  const send = async (move: Record<string, unknown>, keep = false) => {
+    if (!keep) setPicked(null);
     const refused = await act(move);
     if (refused) {
       setError(refused);
@@ -103,9 +119,10 @@ export function BoardTable({ view, names, act, onLeave, banner, chat, settings }
 
   function tapCell(grid: BoardGrid, cell: number) {
     const sources = grid.select?.sources ?? [];
-    const held = picked?.grid === grid.id ? sources.find((s) => s.from === picked.from) : undefined;
-    if (held?.to.includes(cell)) return void send({ type: grid.select!.type, from: held.from, to: cell, ...onGrid(grid) });
-    if (sources.some((s) => s.from === cell)) return setPicked(picked?.grid === grid.id && picked.from === cell ? null : { grid: grid.id, from: cell });
+    const holding = held?.grid === grid.id ? sources.find((s) => s.from === held.from) : undefined;
+    if (holding?.to.includes(cell)) return void send({ type: grid.select!.type, from: holding.from, to: cell, ...onGrid(grid) });
+    const source = sourceAt(grid, cell);
+    if (source) return setPicked(picked?.grid === grid.id && picked.from === source.from ? null : { grid: grid.id, from: source.from });
     if (grid.tap) {
       if (grid.tap.by === "col") {
         const col = colOf(grid.cols, cell);
@@ -128,9 +145,9 @@ export function BoardTable({ view, names, act, onLeave, banner, chat, settings }
   const canMove = view.grids.some((g) => g.tap?.cells.length || g.select?.sources.length);
   const status = error ? (
     <span className="error">{error}</span>
-  ) : view.over || view.result ? null : picked ? (
+  ) : view.over || view.result ? null : held ? (
     // A piece whose only place to go is where it already is (a disc popped out of a rack) is tapped twice.
-    <span className="mine">{view.grids.some((g) => g.id === picked.grid && g.select?.sources.some((s) => s.from === picked.from && s.to.length === 1 && s.to[0] === s.from)) ? "Tap it again to take it out" : "Now pick where it goes"}</span>
+    <span className="mine">{view.grids.some((g) => g.id === held.grid && g.select?.sources.some((s) => s.from === held.from && s.to.length === 1 && s.to[0] === s.from)) ? "Tap it again to take it out" : "Now pick where it goes"}</span>
   ) : view.turn === me || (view.turn === null && canMove) ? (
     <span className="mine">Your turn</span>
   ) : view.turn !== null ? (
@@ -182,7 +199,7 @@ export function BoardTable({ view, names, act, onLeave, banner, chat, settings }
 
         <div className={`boards${view.grids.length > 1 ? " many" : ""}`}>
           {view.grids.map((grid, i) => (
-            <Grid key={grid.id} grid={grid} view={view} names={names} side={i > 0} titled={view.grids.length > 1} picked={picked?.grid === grid.id ? picked.from : null} onCell={(cell) => tapCell(grid, cell)} />
+            <Grid key={grid.id} grid={grid} view={view} names={names} side={i > 0} titled={view.grids.length > 1} picked={held?.grid === grid.id ? held.from : null} onCell={(cell) => tapCell(grid, cell)} />
           ))}
         </div>
 
@@ -204,7 +221,7 @@ export function BoardTable({ view, names, act, onLeave, banner, chat, settings }
             <div className={`felt-actions kit-choices ${view.choices.layout ?? ""}`}>
               {view.choices.prompt && <p>{named(view.choices.prompt, names)}</p>}
               {view.choices.options.map((o, i) => (
-                <button key={i} type="button" className={o.primary ? "primary" : "secondary"} title={o.hint} onClick={() => void send(o.move)}>
+                <button key={i} type="button" className={o.primary ? "primary" : "secondary"} title={o.hint} onClick={() => void send(o.move, true)}>
                   {named(o.label, names)}
                 </button>
               ))}
@@ -223,7 +240,7 @@ export function BoardTable({ view, names, act, onLeave, banner, chat, settings }
             key={i}
             reserve={r}
             names={names}
-            picked={picked && typeof picked.from === "string" ? picked.from : null}
+            picked={held && typeof held.from === "string" ? held.from : null}
             canPick={(kind) => !!reserveGrid(kind)}
             onPick={(kind) => {
               const grid = reserveGrid(kind);
@@ -331,9 +348,21 @@ function Grid({ grid, view, names, side, titled, picked, onCell }: { grid: Board
   const sources = grid.select?.sources ?? [];
   const targets = new Set(picked === null ? [] : (sources.find((s) => s.from === picked)?.to ?? []));
   const tapCols = grid.tap?.by === "col" ? new Set(grid.tap.cells.map((c) => colOf(grid.cols, c))) : null;
+  // A picked-up piece that covers several cells is lit along its whole length.
+  const pickedSpan = typeof picked === "number" ? grid.cells[picked]?.span : undefined;
+  const isPicked = (cell: number) => picked === cell || (pickedSpan !== undefined && grid.cells[cell]?.span === pickedSpan);
+  /** The cells of one long piece are joined: which of this cell's sides run on into the same piece. */
+  const joins = (cell: number): string[] => {
+    const span = grid.cells[cell]?.span;
+    if (span === undefined) return [];
+    const r = rowOf(grid.cols, cell);
+    const c = colOf(grid.cols, cell);
+    const same = (rr: number, cc: number) => rr >= 0 && rr < grid.rows && cc >= 0 && cc < grid.cols && grid.cells[rr * grid.cols + cc]?.span === span;
+    return ["spanned", same(r - 1, c) ? "join-n" : "", same(r, c + 1) ? "join-e" : "", same(r + 1, c) ? "join-s" : "", same(r, c - 1) ? "join-w" : ""];
+  };
+  const canTap = (cell: number) => targets.has(cell) || !!sourceAt(grid, cell) || (tapCols ? tapCols.has(colOf(grid.cols, cell)) : !!grid.tap?.cells.includes(cell));
   // A drop game: the column under the pointer is lit, and the cell its piece would land in is marked.
   const [overCol, setOverCol] = useState<number | null>(null);
-  const canTap = (cell: number) => targets.has(cell) || sources.some((s) => s.from === cell) || (tapCols ? tapCols.has(colOf(grid.cols, cell)) : !!grid.tap?.cells.includes(cell));
   const blocks = grid.blocks;
   const blockH = blocks ? grid.rows / blocks.rows : 0;
   const blockW = blocks ? grid.cols / blocks.cols : 0;
@@ -364,7 +393,7 @@ function Grid({ grid, view, names, side, titled, picked, onCell }: { grid: Board
     const piece = grid.cells[cell];
     const whose = !piece || piece.owner === null ? "" : piece.owner === me ? ", yours" : `, ${names[piece.owner] ?? `Seat ${piece.owner + 1}`}'s`;
     const block = blocks?.states[blockOf(cell)]?.label;
-    const notes = [...(marks.get(cell) ?? []).map((m) => MARK_WORDS[m] ?? m), ...(block ? [`board ${block}`] : []), ...(picked === cell ? ["picked up"] : []), ...(targets.has(cell) ? ["can go here"] : [])];
+    const notes = [...(marks.get(cell) ?? []).map((m) => MARK_WORDS[m] ?? m), ...(block ? [`board ${block}`] : []), ...(isPicked(cell) ? ["picked up"] : []), ...(targets.has(cell) ? ["can go here"] : [])];
     return `${cellName(grid, cell)}: ${piece ? `${piece.label}${whose}` : "empty"}${notes.length ? `, ${notes.join(", ")}` : ""}`;
   }
 
@@ -397,7 +426,8 @@ function Grid({ grid, view, names, side, titled, picked, onCell }: { grid: Board
             `shade-${shadeOf(cell)}`,
             ...(marks.get(cell) ?? []).map((m) => `mark-${m}`),
             tappable ? "can" : "",
-            picked === cell ? "picked" : "",
+            isPicked(cell) ? "picked" : "",
+            ...joins(cell),
             targets.has(cell) ? "target" : "",
             tapCols?.has(c) && overCol === c ? "col-over" : "",
             tapCols && grid.tap!.cells.includes(cell) ? "lands" : "",
@@ -420,7 +450,7 @@ function Grid({ grid, view, names, side, titled, picked, onCell }: { grid: Board
               tabIndex={cell === focus ? 0 : -1}
               // Not `disabled`: a cell you can't play in can still be walked to and read out.
               aria-disabled={!tappable}
-              aria-pressed={picked === cell ? true : undefined}
+              aria-pressed={isPicked(cell) ? true : undefined}
               aria-label={label(cell)}
               onFocus={() => setFocus(cell)}
               onClick={() => onCell(cell)}
