@@ -1,6 +1,6 @@
 # Card Room
 
-Family card games online: twenty-six games with house rules saved as presets, family **houses** with
+Family card games online: thirty-eight games with house rules saved as presets, family **houses** with
 their own tables, leaderboards and tournaments, computer players with personalities, challenge
 links, and a widget that puts a game on any site, including [open.blog](https://github.com/journey-to-code-org/open.blog) ones.
 
@@ -9,7 +9,7 @@ yourself (Docker or Railway), and practice games work anywhere, including the Gi
 
 ## The games
 
-Spades and Palace have tables of their own; the other twenty-four are built on a shared game kit
+Spades and Palace have tables of their own; the other thirty-six are built on a shared game kit
 (`packages/games`), so they all get the same table, setup screen, house rules editor, computer
 players, houses, challenges and tournaments.
 
@@ -21,6 +21,9 @@ players, houses, challenges and tournaments.
 | Oh Hell | 3 to 7 | Bid exactly what you'll take |
 | Euchre | 4, partners | Partners, bowers and calling trump |
 | Whist | 4, partners | Spades' grandparent: partners and tricks |
+| Bridge | 4, partners | Contract bridge, Chicago scoring |
+| Five Hundred | 4, partners | Partners bid tricks; the joker is boss |
+| Pitch (Setback) | 2 to 6 | Bid for High, Low, Jack and Game |
 | Pinochle | 4, partners | Partners, bidding, meld and tricks |
 | Canasta | 4, partners | Partners, melds and canastas |
 | Hand and Foot | 4, partners | Partners, books of seven, and a foot |
@@ -28,26 +31,35 @@ players, houses, challenges and tournaments.
 | Rummy 500 | 2 to 6 | Melds, lay-offs and a pile to dig into |
 | Cribbage | 2 | Fifteen two, fifteen four, and a pair is six |
 | Crazy Eights | 2 to 6 | Match the card; eights are wild |
+| Switch (Last Card) | 2 to 6 | Uno's ancestor, with an ordinary deck |
+| Fruit Salad | 2 to 8 | Our own colour-card game: match the fruit |
+| Thirty-One | 2 to 8 | Three cards, one suit, as close to 31 as you dare |
+| Durak | 2 to 6 | Attack, defend, and don't be the fool |
 | President | 3 to 7 | Climb from Scum to President |
 | Golf | 2 to 6 | Swap your way to the lowest score |
 | Go Fish | 2 to 6 | Ask for cards, make books |
 | Old Maid | 2 to 6 | Pairs, and don't get stuck with her |
 | War | 2 to 4 | Flip, and the highest card takes all |
+| Slapjack | 2 to 6 | Flip, and slap the jacks first |
+| Speed | 2 | No turns: play faster than the other player |
+| Kings in the Corner | 2 to 4 | Solitaire for the whole table |
+| Spite and Malice | 2 to 4 | Race to play off your pile; kings are wild |
 | Five Card Draw | 2 to 6 | Poker for chips: bet, swap, bet, show |
 | Texas Hold'em | 2 to 6 | Two cards, five on the board, chips only |
 | Bluff (Cheat) | 2 to 6 | Say what you're putting down, true or not |
 | Liar's Poker | 2 to 6 | Bid poker hands hiding in everyone's cards |
+| Blackjack | 1 to 5 | Get closer to 21 than the dealer (chips only) |
 | Klondike Solitaire | 1 | The classic solitaire |
 | FreeCell | 1 | Solitaire where every card is face up, with numbered deals |
 
-Poker is for chips only: everyone starts with the same stack, and the chips are just for keeping
-score.
+Poker and Blackjack are for chips only: everyone starts with the same stack, and the chips are
+just for keeping score.
 
 ## Packages
 
 | Package | |
 | --- | --- |
-| [`packages/games`](packages/games) | The game kit (`kit.ts`: the `CardGame` contract, cards, decks, views) and the twenty-four games built on it |
+| [`packages/games`](packages/games) | The game kit (`kit.ts`: the `CardGame` contract, cards, decks, views) and the thirty-six games built on it |
 | [`packages/rules`](packages/rules) | Spades rules engine, bots, and the personas who play every game |
 | [`packages/palace`](packages/palace) | Palace rules engine: house-rule presets, seat views, bots and table talk |
 | [`packages/rooms`](packages/rooms) | Turn-based rooms over `@zubra/sync`: seats, server-decided moves, private views, bots |

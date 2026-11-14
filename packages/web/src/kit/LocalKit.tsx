@@ -30,24 +30,37 @@ export function LocalKit({ game: id, name, rules, seats, seed, onLeave }: { game
     }
   }, []);
 
-  // A computer player moves after a humanlike pause: the first one with something to do.
+  // A computer player moves after a humanlike pause: the first one with something to do. A pause
+  // already running isn't restarted when someone else moves (in Speed, a quick person mustn't keep
+  // resetting the computer's clock); when it ends, the move is worked out from the table as it is then.
+  const pending = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [tick, setTick] = useState(0);
   useEffect(() => {
-    if (game.summary(state).over) return;
+    if (game.summary(state).over || pending.current) return;
     const seat = bots.map((_, i) => i + 1).find((s) => game.bot(state, s, styleFor(personaFor(bots[s - 1]!).style, settings.skill)) !== null);
     if (seat === undefined) return;
-    const t = setTimeout(() => {
+    pending.current = setTimeout(() => {
+      pending.current = null;
       setState((prev: unknown) => {
         const move = game.bot(prev, seat, styleFor(personaFor(bots[seat - 1]!).style, settings.skill));
         if (!move) return prev;
         try {
-          return game.apply(prev, seat, move);
+          const next = game.apply(prev, seat, move);
+          latest.current = next;
+          return next;
         } catch {
           return prev;
         }
       });
+      setTick((t) => t + 1);
     }, game.reactionTime?.(state, seat, styleFor(personaFor(bots[seat - 1]!).style, settings.skill)) ?? paceDelay(settings.pace, () => Math.round(game.thinkingTime(state, seat) * personaFor(bots[seat - 1]!).pace * (0.8 + Math.random() * 0.5))));
-    return () => clearTimeout(t);
-  }, [state, bots, settings]);
+  }, [state, bots, settings, tick]);
+  useEffect(
+    () => () => {
+      if (pending.current) clearTimeout(pending.current);
+    },
+    [],
+  );
 
   // Table talk.
   const [messages, setMessages] = useState<ChatMessage[]>([]);
