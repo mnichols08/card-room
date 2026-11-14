@@ -65,10 +65,14 @@ describe("Combat in the card room", () => {
       const changes = await pull(grammi);
       const v = viewIn(changes, id, 0)!;
       // She is never sent the other seat's view, and the room anyone can read has no ships in it.
-      // The table's watch view (what someone looking on sees) has nobody's fleet in it either.
       expect(changes.some((c) => c.collection === "views" && c.key !== `${id}/0` && c.key !== `${id}/watch`)).toBe(false);
-      const watch = changes.filter((c) => c.collection === "views" && c.key === `${id}/watch` && c.field === "view").at(-1)?.value as BoardView | undefined;
-      if (watch && !watch.over) expect(watch.grids.filter((g) => g?.id === "mine").flatMap((g) => g.cells.filter(Boolean))).toEqual([]);
+      // What a watcher is shown (and she could read it too) has no fleet in it: no board of anyone's own, no hulls.
+      for (const c of changes) {
+        if (c.collection !== "views" || c.key !== `${id}/watch` || c.field !== "view") continue;
+        expect(JSON.stringify(c.value)).not.toMatch(/"span"/);
+        expect((c.value.grids ?? []).every((g: { owner?: number } | null) => g?.owner === undefined)).toBe(true);
+        expect(c.value.reserves ?? []).toEqual([]);
+      }
       expect(changes.some((c) => c.collection === "games" || c.collection === "moves")).toBe(false);
       const room = (await grammi(`/rooms/${id}`)).body;
       expect(JSON.stringify(room)).not.toMatch(/fleets|"ships"|"at":|"span"/);

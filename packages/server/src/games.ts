@@ -79,21 +79,16 @@ export function watchView(game: GameId, views: unknown[]): unknown {
   const seats = views as Any[];
   if (game === "spades") return sharedView(seats, { blank: { hand: [], legal: [], myPass: null }, from: { seat: 0, keys: ["seat", "team", "partner", "teamSeats"] } });
   if (game === "palace") return sharedView(seats, { blank: { hand: [], can: null }, from: { seat: 0, keys: ["you"] } });
-  // A board game can have a grid of a seat's own (Combat's fleet). Two fleets that share a square
-  // would otherwise show it, to a watcher and to the players: a watcher sees those grids empty.
-  const open = isBoardGame(game) ? seats.map(withoutPrivateGrids) : seats;
+  // A board that belongs to one seat (a fleet in Combat) is nobody else's, and neither is what that
+  // seat holds off the board. Left in, two fleets that happened to overlap would show where: the
+  // seats' views are compared part by part, and a watcher can be someone sitting at the table.
+  // Only on a board: a card game's grids (Golf's cards in front of each player) have an owner too,
+  // and those are for everyone to see.
+  const open = !isBoardGame(game) ? seats : seats.map((v) => (Array.isArray(v.grids) && v.grids.some((g) => (g as Any).owner !== undefined) ? { ...v, grids: v.grids.filter((g) => (g as Any).owner === undefined), reserves: [] } : v));
   const view = sharedView(open, { blank: { hand: [], tap: null, pick: null, choices: null, gridTap: null }, from: { seat: 0, keys: ["me"] } });
   // A line of table talk only one seat was shown ("You were passed…") is nobody else's.
   if (Array.isArray(view.info)) view.info = view.info.filter((line) => typeof line === "string");
   return view;
-}
-
-/** A board view with each seat's own grids emptied and their own reserves left out. */
-function withoutPrivateGrids(view: Record<string, unknown>): Record<string, unknown> {
-  type Owned = { owner?: number; cells?: unknown[] };
-  const grids = Array.isArray(view.grids) ? (view.grids as Owned[]).map((g) => (g?.owner === undefined ? g : { ...g, cells: (g.cells ?? []).map(() => null) })) : view.grids;
-  const reserves = Array.isArray(view.reserves) ? (view.reserves as Owned[]).filter((r) => r?.owner === undefined) : view.reserves;
-  return { ...view, grids, reserves };
 }
 
 export interface Remark {

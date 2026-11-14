@@ -129,4 +129,14 @@ describe("watching Combat", () => {
     // The test means something only if fleets did overlap.
     expect(overlapped).toBeGreaterThan(0);
   });
+
+  it("leaves a card game's grids alone: Golf's cards in front of each player are for everyone", async () => {
+    const { kitGame } = await import("@cardroom/games");
+    const { watchView } = await import("../src/games.js");
+    const golf = kitGame("golf")! as unknown as { presets: unknown[]; newGame(rules: unknown, seats: number, seed: number): unknown; view(s: unknown, seat: number): { grids?: unknown[] } };
+    const s = golf.newGame(golf.presets[0], 3, 7);
+    const seats = [0, 1, 2].map((seat) => golf.view(s, seat));
+    expect(seats[0]!.grids).toHaveLength(3);
+    expect((watchView("golf", seats) as { grids: unknown[] }).grids).toHaveLength(3);
+  });
 });
