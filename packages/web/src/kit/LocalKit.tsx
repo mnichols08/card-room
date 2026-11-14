@@ -45,7 +45,7 @@ export function LocalKit({ game: id, name, rules, seats, seed, onLeave }: { game
           return prev;
         }
       });
-    }, paceDelay(settings.pace, () => Math.round(game.thinkingTime(state, seat) * personaFor(bots[seat - 1]!).pace * (0.8 + Math.random() * 0.5))));
+    }, game.reactionTime?.(state, seat, styleFor(personaFor(bots[seat - 1]!).style, settings.skill)) ?? paceDelay(settings.pace, () => Math.round(game.thinkingTime(state, seat) * personaFor(bots[seat - 1]!).pace * (0.8 + Math.random() * 0.5))));
     return () => clearTimeout(t);
   }, [state, bots, settings]);
 
