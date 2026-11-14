@@ -749,7 +749,7 @@ html[data-motion="off"] .kit-seat.active strong::before, html[data-motion="calm"
 .table.kit .kit-bar { position: sticky; top: 0; z-index: 6; background: #0e281d; }
 .table.kit .me { position: sticky; bottom: 0; z-index: 6; background: linear-gradient(rgba(9, 27, 19, 0), rgba(9, 27, 19, 0.94) 28%); }
 /* The turn prompt sits on the felt's bottom edge: keep the melds clear of it. */
-.kit-felt:has(.team-row) { padding-bottom: calc(var(--ui-m, 1rem) * 2.6); }
+.kit-felt:has(.mine-on-table) .status { position: static; }
 
 /* ---- Setup screens (SetupLayout) --------------------------------------------------------------- */
 /* Phones: the columns and cards fall away, and the parts line up in the order you fill them in. */
@@ -871,3 +871,10 @@ button.sol-card:focus-visible { outline: 3px solid #ffd76a; outline-offset: 1px;
 button.sol-slot.again { cursor: pointer; color: var(--gold); border-color: rgba(232, 196, 106, 0.55); }
 .kit-felt.solo .center { flex-direction: column; align-items: center; }
 @media (min-width: 1024px) { .sol { --trick-w: min(calc((100vw - 200px) / (var(--cols) * 1.13)), 104px); } }
+/* The turn line runs across the whole felt, centred, not from the middle of it outwards. */
+.kit-felt .status { left: 0; right: 0; width: auto; }
+/* Golf on a phone: smaller piles in the middle, so the side players' cards stay clear of them. */
+@media (max-width: 599px) {
+  .kit-golf .kit-felt .center { --trick-w: calc(var(--card-w) * 0.6); --trick-h: calc(var(--trick-w) * var(--card-ratio)); }
+  .kit-golf .kit-felt .kit-piles { gap: 8px; }
+}
