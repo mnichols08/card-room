@@ -5,7 +5,7 @@
 // scores. One table screen draws every game from that, and one room runs them all on the server.
 import { mulberry32, type Card, type PlayStyle, type Suit } from "@spades/rules";
 
-export type KitGameId = "hearts" | "ohhell" | "euchre" | "crazy8" | "gin" | "pinochle" | "canasta" | "gofish" | "oldmaid" | "war" | "whist" | "golf" | "rummy500" | "president" | "klondike" | "freecell" | "handfoot" | "cribbage" | "fivedraw" | "holdem" | "bluff" | "liarspoker" | "switch" | "thirtyone" | "kingscorner" | "blackjack" | "spite" | "pitch" | "fivehundred" | "durak" | "bridge" | "fruitsalad";
+export type KitGameId = "hearts" | "ohhell" | "euchre" | "crazy8" | "gin" | "pinochle" | "canasta" | "gofish" | "oldmaid" | "war" | "whist" | "golf" | "rummy500" | "president" | "klondike" | "freecell" | "handfoot" | "cribbage" | "fivedraw" | "holdem" | "bluff" | "liarspoker" | "switch" | "thirtyone" | "kingscorner" | "blackjack" | "spite" | "pitch" | "fivehundred" | "durak" | "bridge" | "fruitsalad" | "slapjack";
 
 /** A move that isn't allowed. The message is shown to the player as is. */
 export class GameError extends Error {}
@@ -286,6 +286,11 @@ export interface CardGame<R extends BaseRules = BaseRules, S = unknown, M = Reco
   bot(state: S, seat: number, style: PlayStyle): M | null;
   /** How long a person would think here, in ms (before the persona's own pace). */
   thinkingTime(state: S, seat: number): number;
+  /**
+   * For a race (a slap in Slapjack): how long this computer player takes to react, in ms. When it
+   * gives a number, it's used as is, whatever pace the table is set to, so a person can win the race.
+   */
+  reactionTime?(state: S, seat: number, style: PlayStyle): number | null;
   summary(state: S): KitSummary;
 }
 
