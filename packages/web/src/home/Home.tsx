@@ -32,6 +32,7 @@ const FANS: Record<string, ReturnType<typeof card>[]> = {
   cribbage: [card(5, "hearts"), card(5, "clubs"), card(11, "diamonds")],
   fivedraw: [card(14, "spades"), card(14, "hearts"), card(13, "clubs")],
   holdem: [card(14, "spades"), card(13, "spades"), card(10, "diamonds")],
+  bluff: [card(7, "clubs"), card(7, "hearts"), card(2, "diamonds")],
 };
 
 const SEATS: Record<string, { seats: [number, number]; teams: boolean }> = {
