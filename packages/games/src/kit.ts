@@ -5,7 +5,7 @@
 // scores. One table screen draws every game from that, and one room runs them all on the server.
 import { mulberry32, type Card, type PlayStyle, type Suit } from "@spades/rules";
 
-export type KitGameId = "hearts" | "ohhell" | "euchre" | "crazy8" | "gin" | "pinochle" | "canasta" | "gofish" | "oldmaid" | "war" | "whist" | "golf" | "rummy500" | "president" | "klondike" | "freecell" | "handfoot" | "cribbage" | "fivedraw" | "holdem" | "bluff" | "liarspoker" | "switch" | "thirtyone" | "kingscorner" | "blackjack" | "spite" | "pitch" | "fivehundred" | "durak" | "bridge" | "fruitsalad" | "slapjack" | "speed" | "memory" | "sevens" | "cuckoo" | "contractrummy" | "spider";
+export type KitGameId = "hearts" | "ohhell" | "euchre" | "crazy8" | "gin" | "pinochle" | "canasta" | "gofish" | "oldmaid" | "war" | "whist" | "golf" | "rummy500" | "president" | "klondike" | "freecell" | "handfoot" | "cribbage" | "fivedraw" | "holdem" | "bluff" | "liarspoker" | "switch" | "thirtyone" | "kingscorner" | "blackjack" | "spite" | "pitch" | "fivehundred" | "durak" | "bridge" | "fruitsalad" | "slapjack" | "speed" | "memory" | "sevens" | "cuckoo" | "contractrummy" | "spider" | "pyramid" | "ridethebus";
 
 /** A move that isn't allowed. The message is shown to the player as is. */
 export class GameError extends Error {}
@@ -168,6 +168,20 @@ export type Center =
       piles: { cards: KCard[]; empty?: string; move: Record<string, unknown> | null; label: string; note?: string }[];
       /** In a row beside the stock instead (Spite and Malice's building piles). */
       layout?: "row";
+    }
+  /** Pyramid solitaire: rows of cards (null once cleared), the stock and the turned-up card. */
+  | {
+      kind: "pyramid";
+      /** null: an empty place; "back": a card still face down. */
+      rows: (KCard | null | "back")[][];
+      /** No stock beside it (the drinking-game pyramids). */
+      noStock?: boolean;
+      tap: { type: string; cards: string[] } | null;
+      held: string | null;
+      stock: number;
+      waste: KCard | null;
+      drawMove: Record<string, unknown> | null;
+      stockLabel: string;
     }
   /** Cards in a grid in the middle (Memory); null is face down. Tapping a cell sends { type, index }. */
   | { kind: "board"; cols: number; cards: (KCard | null)[]; empty: number[]; tap: { type: string; cells: number[] } | null }
@@ -351,4 +365,20 @@ export function drinkLine(seats: number[], n: number): string {
 /** Add a drinking line to a narration when drinking mode is on. */
 export const withDrinks = (on: boolean, narration: string | null, seats: number[], n: number): string | null =>
   on && seats.length && n > 0 ? [narration, drinkLine(seats, n)].filter(Boolean).join(" · ") : narration;
+
+/** Give a game a drinking mode: the house-rule switch, and a line in its rules when it's on. */
+export function withDrinking<R extends BaseRules & { drinking?: boolean }, S, M>(game: CardGame<R, S, M>, hint: string, line: string): CardGame<R, S, M> {
+  return {
+    ...game,
+    // A preset too, so it's one pick in the house-rules list.
+    presets: [...game.presets, { ...game.presets[0]!, id: `${game.presets[0]!.id}-drinking`, name: `Drinking ${game.name} 🍺`, drinking: true }],
+    fields: [...game.fields, drinkingField<R>(hint)],
+    normalize: (rules) => {
+      const given = rules as { id?: string; drinking?: unknown } | undefined;
+      const preset = given?.id === `${game.presets[0]!.id}-drinking`;
+      return { ...game.normalize(preset ? { ...given, id: game.presets[0]!.id } : rules), ...(preset ? { id: given!.id, name: `Drinking ${game.name} 🍺` } : {}), drinking: given?.drinking !== undefined ? !!given.drinking : preset };
+    },
+    describe: (r) => [...game.describe(r), ...(r.drinking ? [`🍺 Drinking mode: ${line}`] : [])],
+  };
+}
 

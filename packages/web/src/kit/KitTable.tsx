@@ -602,6 +602,58 @@ function CenterArea({
   if (center.kind === "solitaire")
     return <SolitaireArea center={center} send={send} />;
   if (center.kind === "cross") return <CrossArea center={center} send={send} />;
+  if (center.kind === "pyramid") {
+    const can = new Set(center.tap?.cards ?? []);
+    const one = (c: KCard) =>
+      can.has(c.id) ? (
+        <button
+          key={c.id}
+          type="button"
+          className={`pyr-card can${center.held === c.id ? " held" : ""}`}
+          aria-pressed={center.held === c.id}
+          aria-label={`Pick the ${c.kind === "pip" ? c.rank : "card"}`}
+          onClick={() => send({ type: center.tap!.type, card: c.id })}
+        >
+          <PlayingCard card={c} size="table" data-flip={c.id} />
+        </button>
+      ) : (
+        <span key={c.id} className="pyr-card">
+          <PlayingCard card={c} size="table" data-flip={c.id} />
+        </span>
+      );
+    return (
+      <div className="pyr">
+        <div className="pyr-rows" aria-label="The pyramid">
+          {center.rows.map((row, r) => (
+            <div key={r} className="pyr-row">
+              {row.map((c, i) =>
+                c === "back" ? (
+                  <span key={`back-${r}-${i}`} className="pyr-card">
+                    <PlayingCard back size="table" />
+                  </span>
+                ) : c ? (
+                  one(c)
+                ) : (
+                  <span key={`gap-${r}-${i}`} className="pyr-gap" />
+                ),
+              )}
+            </div>
+          ))}
+        </div>
+        {!center.noStock && <div className="pyr-side">
+          {center.drawMove ? (
+            <button type="button" className="pyr-card can" aria-label={center.stock ? `Turn a card (${center.stock} left)` : "Turn the pile over"} onClick={() => send(center.drawMove!)}>
+              {center.stock ? <PlayingCard back size="table" /> : <span className="sol-slot again"><span>↻</span></span>}
+            </button>
+          ) : (
+            <div className="sol-slot" />
+          )}
+          {center.waste ? one(center.waste) : <div className="sol-slot" />}
+          <small>{center.stockLabel}</small>
+        </div>}
+      </div>
+    );
+  }
   if (center.kind === "board")
     return (
       <div className="board-area" style={{ "--cols": center.cols } as React.CSSProperties}>
