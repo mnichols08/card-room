@@ -71,6 +71,19 @@ The 🍺 games are drinking games for adults (water counts). Party games (Thirty
 Bluff, Liar's Poker, Durak, Slapjack, Sevens, Cuckoo) also have a drinking-mode house rule, off
 unless a table turns it on. Kids' games have none.
 
+## Holding your hand
+
+Above your cards is a small sort bar. **Suits** groups them by suit and **Ranks** lines them up
+in one run with the suits mixed; the button beside them flips between high to low (A → 2) and low
+to high (2 → A). **Auto** (every game but Spades, which already deals by suit) is the game's own
+order. The choice is remembered on the device, one per game.
+
+Or drag a card to wherever you want it: that's **Mine**, your own order for the hand. On a phone,
+drag sideways; in a hand too big for the screen (which scrolls), hold a card for a moment first.
+With a keyboard, Alt + ← / → moves the card you're on. New cards join at the right-hand end, and
+the next deal goes back to the sort you chose. It's only how your screen shows your hand; nobody
+else sees it.
+
 ## The turn timer
 
 A table on the server can give everyone a time limit for each move: **15 seconds, 30 seconds, 1

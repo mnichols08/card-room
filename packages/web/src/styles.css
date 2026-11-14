@@ -1192,3 +1192,36 @@ html[data-motion="off"] .board-grid .piece, html[data-motion="off"] .board-block
 .report-actions .primary, .report-actions .secondary { padding: 10px 18px; font-size: 1rem; }
 .setup.crashed { justify-content: center; gap: 12px; }
 @media (prefers-reduced-motion: reduce) { .sheet.report-sheet { animation: none; } }
+/* ---- Your hand, your way: the sort bar, and dragging cards into your own order ---- */
+.hand-sort { display: flex; justify-content: center; align-items: center; gap: 8px; margin: 0 0 2px; position: relative; z-index: 2; }
+.hand-sort-group { display: flex; border-radius: 999px; background: rgba(0, 0, 0, 0.3); padding: 2px; }
+.hand-sort button {
+  min-height: 32px;
+  padding: 0 0.85em;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: #cfe2d6;
+  font: inherit;
+  font-weight: 600;
+  font-size: calc(var(--ui-s) * 0.95);
+  line-height: 1;
+  white-space: nowrap;
+  touch-action: manipulation;
+}
+.hand-sort button[aria-pressed="true"] { background: var(--gold); color: var(--ink); }
+.hand-sort-dir { background: rgba(0, 0, 0, 0.3) !important; font-variant-numeric: tabular-nums; }
+.hand-sort button:disabled { opacity: 0.45; }
+.hand-sort button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+.hand.sortable { user-select: none; -webkit-user-select: none; }
+.hand.sortable > playing-card { -webkit-touch-callout: none; }
+/* A hand that fits is dragged sideways at once (the page still scrolls up and down); one that
+   scrolls sideways keeps its scroll, and a card is picked up by holding it. */
+.hand.sortable:not([data-scrolls]) { touch-action: pan-y; }
+.hand[data-rearranging] > playing-card { transition: translate 140ms var(--ease-out); }
+.hand[data-rearranging] > playing-card[data-dragging] { transition: none; z-index: 3; cursor: grabbing; filter: drop-shadow(0 10px 12px rgba(0, 0, 0, 0.35)); }
+html[data-motion="off"] .hand[data-rearranging] > playing-card { transition: none; }
+/* Palace has no badge row above the hand: keep the bar clear of the chat button. */
+.palace .me:has(.chat-toggle) > .hand-sort { padding-left: 52px; }
+@media (max-width: 380px) { .hand-sort { gap: 4px; } .hand-sort button { padding: 0 0.65em; } }

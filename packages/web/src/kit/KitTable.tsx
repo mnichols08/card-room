@@ -21,6 +21,10 @@ import {
 import { lift, motionScale, useCardFlip, useFlash } from "../motion";
 import { seatAround } from "../palace/PalaceTable";
 import { TableSettingsButton } from "../TableSettings";
+import { HandSortBar, useHandOrder } from "../HandSort";
+import { cardKey } from "../handOrder";
+
+const NO_CARDS: KCard[] = [];
 
 export interface KitTableProps {
   view: KitView;
@@ -129,6 +133,7 @@ export function KitTable({
   const myTurn =
     view.turn === me || (view.turn === null && (!!view.pick || !!view.choices || !!view.tap));
   const breathe = useFlash(view.turn === me, 700, false) && view.turn === me;
+  const holding = useHandOrder(view.game, view.handHidden ? NO_CARDS : view.hand, (c) => c.id, cardKey);
 
   // A pick starts empty whenever what's being picked changes.
   const pickKey = view.pick
@@ -399,6 +404,7 @@ export function KitTable({
         <div className="me-badge">
           <KitSeat view={view} seat={me} name={names[me] ?? "You"} row />
         </div>
+        {!view.handHidden && <HandSortBar {...holding.bar} />}
         {view.handHidden === "none" ? null : view.handHidden ? (
           <div
             className="my-pile"
@@ -423,12 +429,13 @@ export function KitTable({
           </div>
         ) : (
           <div
-            className={`hand ${breathe ? "breathe" : ""}`}
+            {...holding.hand}
+            className={`hand sortable ${breathe ? "breathe" : ""}`}
             role="group"
             aria-label="Your hand"
             style={{ "--n": view.hand.length } as React.CSSProperties}
           >
-            {view.hand.map((card, i) => (
+            {holding.held.map(({ card }, i) => (
               <PlayingCard
                 key={card.id}
                 data-flip={card.id}
