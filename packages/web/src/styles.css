@@ -899,3 +899,31 @@ button.sol-slot.again { cursor: pointer; color: var(--gold); border-color: rgba(
 .kit-choices.list p { grid-column: 1 / -1; }
 .kit-choices.list button { border-radius: 12px; padding: 10px 12px; line-height: 1.2; }
 @media (min-width: 1024px) { .kit-felt .center-info:has(.kit-choices.list) { max-width: 460px; } }
+
+/* Kings in the Corner: a cross of piles round the stock. The bottom card peeks out above the top one. */
+.cross {
+  --trick-w: min(calc(var(--card-w) * 0.78), 76px);
+  --trick-h: calc(var(--trick-w) * var(--card-ratio));
+  --peek: calc(var(--trick-h) * 0.24);
+  display: grid; gap: calc(var(--trick-w) * 0.16) calc(var(--trick-w) * 0.22);
+  grid-template-columns: repeat(3, var(--trick-w));
+  grid-template-areas: "nw n ne" "w stock e" "sw s se";
+  align-items: start; justify-content: center;
+}
+.cross-stock { grid-area: stock; display: flex; flex-direction: column; align-items: center; gap: 2px; padding-top: var(--peek); }
+.cross-stock small { font-size: 11px; color: rgba(255, 255, 255, 0.7); white-space: nowrap; }
+.cross-pile { position: relative; display: block; padding: var(--peek) 0 0; margin: 0; border: 0; background: none; line-height: 0; border-radius: 8px; }
+.cross-under { position: absolute; top: 0; left: 0; line-height: 0; filter: brightness(0.92); }
+.cross-top { position: relative; display: block; line-height: 0; }
+.cross-count {
+  position: absolute; right: -6px; bottom: -6px; z-index: 2; line-height: 1; font-size: 11px; font-weight: 700;
+  background: rgba(0, 0, 0, 0.6); color: #fff; border-radius: 9px; padding: 3px 6px;
+}
+button.cross-pile.can { cursor: pointer; }
+button.cross-pile.can::after {
+  content: ""; position: absolute; inset: calc(var(--peek) - 3px) -3px -3px; border-radius: 10px;
+  box-shadow: 0 0 0 3px var(--gold); pointer-events: none;
+}
+@media (hover: hover) { button.cross-pile.can:hover { translate: 0 -4px; } }
+@media (min-width: 1024px) { .cross { --trick-w: 62px; --peek: calc(var(--trick-h) * 0.2); gap: 8px 14px; } }
+.kit-felt .center:has(> .cross) { flex-direction: column; align-items: center; }

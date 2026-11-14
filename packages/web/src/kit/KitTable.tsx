@@ -598,6 +598,7 @@ function CenterArea({
   }
   if (center.kind === "solitaire")
     return <SolitaireArea center={center} send={send} />;
+  if (center.kind === "cross") return <CrossArea center={center} send={send} />;
   if (center.kind === "fan") {
     // Their hand, face down and fanned: tap the card you want.
     const n = center.count;
@@ -901,7 +902,7 @@ function SolitaireArea({
                 <PlayingCard card={c} size="table" data-flip={c.id} />
               </span>
             ) : (
-              slot(SUIT_MARKS[i] ?? "", `f-${i}`)
+              slot(center.foundationLabels?.[i] ?? SUIT_MARKS[i] ?? "", `f-${i}`)
             ),
           )}
         </div>
@@ -919,6 +920,62 @@ function SolitaireArea({
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** Piles in a cross round the stock, corners on the diagonals (Kings in the Corner). */
+function CrossArea({
+  center,
+  send,
+}: {
+  center: Extract<Center, { kind: "cross" }>;
+  send: (move: Record<string, unknown>) => void;
+}) {
+  const AREAS = ["n", "e", "s", "w", "nw", "ne", "se", "sw"];
+  return (
+    <div className="cross">
+      <div className="cross-stock" aria-label={`${center.stock} to draw`}>
+        {center.stock > 0 ? <PlayingCard back size="table" /> : <div className="sol-slot" />}
+        <small>{center.stock ? `${center.stock} to draw` : "None to draw"}</small>
+      </div>
+      {center.piles.map((p, i) => {
+        const top = p.cards[p.cards.length - 1];
+        const bottom = p.cards.length > 1 ? p.cards[0] : null;
+        const body = top ? (
+          <>
+            {bottom && (
+              <span className="cross-under">
+                <PlayingCard card={bottom} size="table" />
+              </span>
+            )}
+            <span className="cross-top">
+              <PlayingCard card={top} size="table" data-flip={top.id} />
+            </span>
+            {p.cards.length > 2 && <small className="cross-count">{p.cards.length}</small>}
+          </>
+        ) : (
+          <div className="sol-slot">
+            <span>{p.empty ?? ""}</span>
+          </div>
+        );
+        return p.move ? (
+          <button
+            key={i}
+            type="button"
+            className={`cross-pile can${bottom ? " deep" : ""}`}
+            style={{ gridArea: AREAS[i] }}
+            aria-label={p.label}
+            onClick={() => send(p.move!)}
+          >
+            {body}
+          </button>
+        ) : (
+          <div key={i} className={`cross-pile${bottom ? " deep" : ""}`} style={{ gridArea: AREAS[i] }} aria-label={p.label}>
+            {body}
+          </div>
+        );
+      })}
     </div>
   );
 }
